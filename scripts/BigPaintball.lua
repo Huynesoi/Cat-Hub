@@ -12,7 +12,7 @@ local gun = Instance.new("TextButton")
 local OPgunlabel = Instance.new("TextLabel")
 --Properties:
 BigPaintball.Name = "Big Paintball"
-BigPaintball.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+BigPaintball.Parent = game.CoreGui
 BigPaintball.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
 Main.Name = "Main"
@@ -101,7 +101,7 @@ OPgunlabel.BackgroundTransparency = 1
 OPgunlabel.Position = UDim2.new(0.358139545, 0, 0.19932422, 0)
 OPgunlabel.Size = UDim2.new(0, 84, 0, 33)
 OPgunlabel.Font = Enum.Font.SourceSansLight
-OPgunlabel.Text = "Kill All:"
+OPgunlabel.Text = "OP Gun:"
 OPgunlabel.TextColor3 = Color3.new(1, 1, 1)
 OPgunlabel.TextScaled = true
 OPgunlabel.TextSize = 14
