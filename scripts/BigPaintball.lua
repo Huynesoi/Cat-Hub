@@ -1,16 +1,15 @@
-
+-- Farewell Infortality.
+-- Version: 2.82
+-- Instances:
 local BigPaintball = Instance.new("ScreenGui")
 local Main = Instance.new("Frame")
 local Top = Instance.new("Frame")
 local CatHub = Instance.new("TextLabel")
 local Exit = Instance.new("TextButton")
-local FireRate = Instance.new("TextBox")
-local Damage = Instance.new("TextBox")
-local Velocity = Instance.new("TextBox")
-local GDamage = Instance.new("TextBox")
-local ASpeed = Instance.new("TextBox")
-local AutoLabel = Instance.new("TextLabel")
-local Auto = Instance.new("TextButton")
+local Killbutton = Instance.new("TextButton")
+local Killlabel = Instance.new("TextLabel")
+local gun = Instance.new("TextButton")
+local OPgunlabel = Instance.new("TextLabel")
 --Properties:
 BigPaintball.Name = "Big Paintball"
 BigPaintball.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
@@ -55,104 +54,61 @@ Exit.TextScaled = true
 Exit.TextSize = 14
 Exit.TextWrapped = true
 
-FireRate.Name = "Fire Rate"
-FireRate.Parent = Main
-FireRate.BackgroundColor3 = Color3.new(0.172549, 0.172549, 0.172549)
-FireRate.BorderSizePixel = 0
-FireRate.Position = UDim2.new(0.0162790697, 0, 0.195945948, 0)
-FireRate.Size = UDim2.new(0, 144, 0, 43)
-FireRate.Font = Enum.Font.SourceSansLight
-FireRate.PlaceholderText = "Fire Rate"
-FireRate.Text = ""
-FireRate.TextColor3 = Color3.new(1, 1, 1)
-FireRate.TextScaled = true
-FireRate.TextSize = 14
-FireRate.TextWrapped = true
+Killbutton.Name = "Kill button"
+Killbutton.Parent = Main
+Killbutton.BackgroundColor3 = Color3.new(0.141176, 0.141176, 0.141176)
+Killbutton.BorderSizePixel = 0
+Killbutton.Position = UDim2.new(0.195348844, 0, 0.19932422, 0)
+Killbutton.Size = UDim2.new(0, 38, 0, 33)
+Killbutton.Font = Enum.Font.SourceSansLight
+Killbutton.Text = ""
+Killbutton.TextColor3 = Color3.new(1, 1, 1)
+Killbutton.TextScaled = true
+Killbutton.TextSize = 14
+Killbutton.TextWrapped = true
 
-Damage.Name = "Damage"
-Damage.Parent = Main
-Damage.BackgroundColor3 = Color3.new(0.172549, 0.172549, 0.172549)
-Damage.BorderSizePixel = 0
-Damage.Position = UDim2.new(0.458139539, 0, 0.195945948, 0)
-Damage.Size = UDim2.new(0, 144, 0, 43)
-Damage.Font = Enum.Font.SourceSansLight
-Damage.PlaceholderText = "Damage"
-Damage.Text = ""
-Damage.TextColor3 = Color3.new(1, 1, 1)
-Damage.TextScaled = true
-Damage.TextSize = 14
-Damage.TextWrapped = true
+Killlabel.Name = "Kill label"
+Killlabel.Parent = Main
+Killlabel.BackgroundColor3 = Color3.new(1, 1, 1)
+Killlabel.BackgroundTransparency = 1
+Killlabel.Position = UDim2.new(0, 0, 0.19932422, 0)
+Killlabel.Size = UDim2.new(0, 84, 0, 33)
+Killlabel.Font = Enum.Font.SourceSansLight
+Killlabel.Text = "Kill All:"
+Killlabel.TextColor3 = Color3.new(1, 1, 1)
+Killlabel.TextScaled = true
+Killlabel.TextSize = 14
+Killlabel.TextWrapped = true
+Killlabel.TextXAlignment = Enum.TextXAlignment.Left
 
-Velocity.Name = "Velocity"
-Velocity.Parent = Main
-Velocity.BackgroundColor3 = Color3.new(0.172549, 0.172549, 0.172549)
-Velocity.BorderSizePixel = 0
-Velocity.Position = UDim2.new(0.0162790697, 0, 0.42567569, 0)
-Velocity.Size = UDim2.new(0, 144, 0, 43)
-Velocity.Font = Enum.Font.SourceSansLight
-Velocity.PlaceholderText = "Velocity"
-Velocity.Text = ""
-Velocity.TextColor3 = Color3.new(1, 1, 1)
-Velocity.TextScaled = true
-Velocity.TextSize = 14
-Velocity.TextWrapped = true
+gun.Name = "gun"
+gun.Parent = Main
+gun.BackgroundColor3 = Color3.new(0.141176, 0.141176, 0.141176)
+gun.BorderSizePixel = 0
+gun.Position = UDim2.new(0.553488374, 0, 0.19932422, 0)
+gun.Size = UDim2.new(0, 38, 0, 33)
+gun.Font = Enum.Font.SourceSansLight
+gun.Text = ""
+gun.TextColor3 = Color3.new(1, 1, 1)
+gun.TextScaled = true
+gun.TextSize = 14
+gun.TextWrapped = true
 
-GDamage.Name = "GDamage"
-GDamage.Parent = Main
-GDamage.BackgroundColor3 = Color3.new(0.172549, 0.172549, 0.172549)
-GDamage.BorderSizePixel = 0
-GDamage.Position = UDim2.new(0.458139539, 0, 0.42567569, 0)
-GDamage.Size = UDim2.new(0, 144, 0, 43)
-GDamage.Font = Enum.Font.SourceSansLight
-GDamage.PlaceholderText = "Gadget Damage"
-GDamage.Text = ""
-GDamage.TextColor3 = Color3.new(1, 1, 1)
-GDamage.TextScaled = true
-GDamage.TextSize = 14
-GDamage.TextWrapped = true
-
-ASpeed.Name = "ASpeed"
-ASpeed.Parent = Main
-ASpeed.BackgroundColor3 = Color3.new(0.172549, 0.172549, 0.172549)
-ASpeed.BorderSizePixel = 0
-ASpeed.Position = UDim2.new(0.0162790716, 0, 0.655405402, 0)
-ASpeed.Size = UDim2.new(0, 144, 0, 43)
-ASpeed.Font = Enum.Font.SourceSansLight
-ASpeed.PlaceholderText = "Additional Speed"
-ASpeed.Text = ""
-ASpeed.TextColor3 = Color3.new(1, 1, 1)
-ASpeed.TextScaled = true
-ASpeed.TextSize = 14
-ASpeed.TextWrapped = true
-
-AutoLabel.Name = "AutoLabel"
-AutoLabel.Parent = Main
-AutoLabel.BackgroundColor3 = Color3.new(1, 1, 1)
-AutoLabel.BackgroundTransparency = 1
-AutoLabel.Position = UDim2.new(0.395348847, 0, 0.675675571, 0)
-AutoLabel.Size = UDim2.new(0, 103, 0, 37)
-AutoLabel.Font = Enum.Font.SourceSansLight
-AutoLabel.Text = "Automatic:"
-AutoLabel.TextColor3 = Color3.new(0.658824, 0.658824, 0.658824)
-AutoLabel.TextScaled = true
-AutoLabel.TextSize = 14
-AutoLabel.TextWrapped = true
-AutoLabel.TextXAlignment = Enum.TextXAlignment.Left
-
-Auto.Name = "Auto"
-Auto.Parent = Main
-Auto.BackgroundColor3 = Color3.new(0.141176, 0.141176, 0.141176)
-Auto.BorderSizePixel = 0
-Auto.Position = UDim2.new(0.660465121, 0, 0.67229718, 0)
-Auto.Size = UDim2.new(0, 51, 0, 38)
-Auto.Font = Enum.Font.SourceSansLight
-Auto.Text = ""
-Auto.TextColor3 = Color3.new(1, 1, 1)
-Auto.TextScaled = true
-Auto.TextSize = 14
-Auto.TextWrapped = true
+OPgunlabel.Name = "OP gun label"
+OPgunlabel.Parent = Main
+OPgunlabel.BackgroundColor3 = Color3.new(1, 1, 1)
+OPgunlabel.BackgroundTransparency = 1
+OPgunlabel.Position = UDim2.new(0.358139545, 0, 0.19932422, 0)
+OPgunlabel.Size = UDim2.new(0, 84, 0, 33)
+OPgunlabel.Font = Enum.Font.SourceSansLight
+OPgunlabel.Text = "Kill All:"
+OPgunlabel.TextColor3 = Color3.new(1, 1, 1)
+OPgunlabel.TextScaled = true
+OPgunlabel.TextSize = 14
+OPgunlabel.TextWrapped = true
+OPgunlabel.TextXAlignment = Enum.TextXAlignment.Left
 -- Scripts:
-function SCRIPT_DMZB89_FAKESCRIPT() -- CatHub.Color 
+function SCRIPT_BJUT78_FAKESCRIPT() -- CatHub.Color 
 	local script = Instance.new('LocalScript')
 	script.Parent = CatHub
 	script.Parent.MouseEnter:Connect(function()
@@ -163,8 +119,8 @@ function SCRIPT_DMZB89_FAKESCRIPT() -- CatHub.Color
 	end)
 
 end
-coroutine.resume(coroutine.create(SCRIPT_DMZB89_FAKESCRIPT))
-function SCRIPT_HGRX71_FAKESCRIPT() -- Exit.Exit and Color 
+coroutine.resume(coroutine.create(SCRIPT_BJUT78_FAKESCRIPT))
+function SCRIPT_QZMF80_FAKESCRIPT() -- Exit.Exit and Color 
 	local script = Instance.new('LocalScript')
 	script.Parent = Exit
 	script.Parent.MouseButton1Down:Connect(function()
@@ -178,8 +134,8 @@ function SCRIPT_HGRX71_FAKESCRIPT() -- Exit.Exit and Color
 	end)
 
 end
-coroutine.resume(coroutine.create(SCRIPT_HGRX71_FAKESCRIPT))
-function SCRIPT_QVRF87_FAKESCRIPT() -- Main.Main Script 
+coroutine.resume(coroutine.create(SCRIPT_QZMF80_FAKESCRIPT))
+function SCRIPT_HMSE70_FAKESCRIPT() -- Main.Main Script 
 	local script = Instance.new('LocalScript')
 	script.Parent = Main
 	function dragify(Main)
@@ -223,49 +179,135 @@ function SCRIPT_QVRF87_FAKESCRIPT() -- Main.Main Script
 	dragify((script.Parent))
 
 end
-coroutine.resume(coroutine.create(SCRIPT_QVRF87_FAKESCRIPT))
-function SCRIPT_UFNG80_FAKESCRIPT() -- AutoLabel.Color 
+coroutine.resume(coroutine.create(SCRIPT_HMSE70_FAKESCRIPT))
+function SCRIPT_AUVS65_FAKESCRIPT() -- Killbutton.LocalScript 
 	local script = Instance.new('LocalScript')
-	script.Parent = AutoLabel
-	script.Parent.MouseEnter:Connect(function()
-		game:GetService("TweenService"):Create(script.Parent, TweenInfo.new(.3), {TextColor3 = Color3.fromRGB(255,255,255)}):Play()
-	end)
-	script.Parent.MouseLeave:Connect(function()
-		game:GetService("TweenService"):Create(script.Parent, TweenInfo.new(.3), {TextColor3 = Color3.fromRGB(168, 168, 168)}):Play()
-	end)
-
-end
-coroutine.resume(coroutine.create(SCRIPT_UFNG80_FAKESCRIPT))
-function SCRIPT_JQQX76_FAKESCRIPT() -- Main.Hackermans 
-	local script = Instance.new('LocalScript')
-	script.Parent = Main
-	spawn(function()
-		local on = false
-		script.Parent.Auto.MouseButton1Down:Connect(function()
-			if not on then
-				on = true
-				script.Parent.Auto.Text = "✓"
-			else
-				on = false
-				script.Parent.Auto.Text = ""
-			end
-		end)
-			spawn(function()
-		while true do
-			wait(3)
-			  for i, v in pairs(getgc(true)) do
-	        if type(v) == "table" and rawget(v, "firerate") then
-	            v.firerate = tonumber(script.Parent["Fire Rate"].Text)
-	            v.damage = tonumber(script.Parent["Damage"].Text)
-	            v.automatic = on
-	            v.velocity = tonumber(script.Parent["Velocity"].Text)
-	            v.gadgetDamage = tonumber(script.Parent["GDamage"].Text)
-	            v.additionalspeed = tonumber(script.Parent["ASpeed"].Text)
-	        end
-	   	 end
+	script.Parent = Killbutton
+	local mt = getrawmetatable(game)
+	setreadonly(mt, false)
+	local namecall = mt.__namecall
+	
+	local on = false
+	script.Parent.MouseButton1Down:Connect(function()
+		if not on then
+			on = true
+			script.Parent.Text = "✓"
+		else
+			on = false
+			script.Parent.Text = ""
 		end
 	end)
+	spawn(function()
+	while on do
+	local function killanigga(bigbrain, player)
+	if bigbrain and player then
+	    local A_1 = 
+	    {
+	        [1] = 
+	    {
+	        [1] = player.Humanoid, 
+	        [2] = bigbrain, 
+	        [3] = 144, 
+	        [4] = player.Character.Head.Position,
+	        [5] = false, 
+	        [6] = false, 
+	        [7] = false
+	    }, 
+	        [2] = 
+	    {
+	        [1] = false, 
+	        [2] = false, 
+	        [3] = false, 
+	        [4] = false, 
+	        [5] = false, 
+	        [6] = 2, 
+	        [7] = 2
+	    }
+	    }
+	    local Event = game:GetService("Workspace")["__THINGS"]["__REMOTES"]["do damage"]
+	    Event:FireServer(A_1)
+	     end
+	end
+	
+	
+	local function findplayers()
+	    local jew = {}
+	
+	    for _,player in pairs(game:GetService('Players'):GetPlayers()) do
+	        if player.Character and player ~= game:GetService('Players').LocalPlayer then
+	            local noob = false
+	            if player.Neutral then
+	                noob = true
+	            elseif Player.Team ~= game:GetService('Players').LocalPlayer.Team then
+	                noob = true
+	            end
+	            if noob and player.Character:FindFirstChild("Humanoid") and player.Character:FindFirstChild("Head") and not player.Character:FindFirstChildOfClass("ForceField") then
+	                jew[#jew+1] = player
+	            end
+	        end
+	    end
+	
+	    
+	    
+	    function namecallfunction(self,...)
+		if on then
+	        local args = {...}
+	        if getnamecallmethod() == "FireServer" then
+	            if args[1] then
+	                if args[1][1] then
+	                    if #args[1][1] == 3 then
+	                        local jew = getplayer()
+	                        if #jew > 0 then
+	                            killanigga(args[1][1][2],jew[math.random(1,#jew)])
+	                        end
+	                    end
+	                end
+	            end
+	        end
+		end
+	        return namecall(self,unpack(args))
+	    end
+	end
+	
+	wait(1)
+	end
+	hookfunction(mt.__namecall, namecallfunction)
 	end)
 
 end
-coroutine.resume(coroutine.create(SCRIPT_JQQX76_FAKESCRIPT))
+coroutine.resume(coroutine.create(SCRIPT_AUVS65_FAKESCRIPT))
+function SCRIPT_VCAB68_FAKESCRIPT() -- gun.LocalScript 
+	local script = Instance.new('LocalScript')
+	script.Parent = gun
+	
+	local on = false
+	script.Parent.MouseButton1Down:Connect(function()
+		if not on then
+			on = true
+			script.Parent.Text = "✓"
+		else
+			on = false
+			script.Parent.Text = ""
+		end
+		spawn(function()
+	pcall(function()
+		while on do
+	    for i, v in pairs(getgc(true)) do
+	        if type(v) == "table" and rawget(v, "firerate") then
+	            v.firerate = 0.00001
+	            v.damage = 5000
+	            v.automatic = true
+	            v.velocity = 50000
+	            v.gadgetDamage = 80000
+	            v.additionalspeed = 10
+	        end
+	    end
+	wait(6)
+	end
+	end)
+	end)
+	end)
+	
+
+end
+coroutine.resume(coroutine.create(SCRIPT_VCAB68_FAKESCRIPT))
