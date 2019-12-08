@@ -230,7 +230,7 @@ coroutine.resume(coroutine.create(SCRIPT_RCCT68_FAKESCRIPT))
 function SCRIPT_VJWK69_FAKESCRIPT() -- LoadButton.Loader 
 	local script = Instance.new('LocalScript')
 	script.Parent = LoadButton
-	local gamelist = game:GetService("HttpService"):JSONDecode(game:HttpGet("https://raw.githubusercontent.com/AmJayden/Cat-Hub/master/gamelist.json"))
+	local gamelist = game:GetService("HttpService"):JSONDecode(game:HttpGet("https://raw.githubusercontent.com/Pasted0002/Cat-Hub/master/gamelist.json"))
 	local supported
 	local lit
 	local tpid
@@ -244,7 +244,7 @@ function SCRIPT_VJWK69_FAKESCRIPT() -- LoadButton.Loader
 	if checkgame() then
 		script.Parent.Parent.gamename.Text = lit.gname
 		script.Parent.MouseButton1Down:Connect(function()
-			loadstring(game:HttpGet(string.format("https://raw.githubusercontent.com/AmJayden/Cat-Hub/master/scripts/%s", lit.scriptname)))()
+			loadstring(game:HttpGet(string.format("https://raw.githubusercontent.com/Pasted0002/Cat-Hub/master/scripts/%s", lit.scriptname)))()
 			script.Parent.Parent.Parent:Destroy()
 		end)
 	else
