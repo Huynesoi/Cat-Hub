@@ -6,13 +6,11 @@ local Main = Instance.new("Frame")
 local Top = Instance.new("Frame")
 local CatHub = Instance.new("TextLabel")
 local Exit = Instance.new("TextButton")
-local Killbutton = Instance.new("TextButton")
-local Killlabel = Instance.new("TextLabel")
 local gun = Instance.new("TextButton")
 local OPgunlabel = Instance.new("TextLabel")
 --Properties:
 BigPaintball.Name = "Big Paintball"
-BigPaintball.Parent = game.CoreGui
+BigPaintball.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
 BigPaintball.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
 Main.Name = "Main"
@@ -54,38 +52,11 @@ Exit.TextScaled = true
 Exit.TextSize = 14
 Exit.TextWrapped = true
 
-Killbutton.Name = "Kill button"
-Killbutton.Parent = Main
-Killbutton.BackgroundColor3 = Color3.new(0.141176, 0.141176, 0.141176)
-Killbutton.BorderSizePixel = 0
-Killbutton.Position = UDim2.new(0.195348844, 0, 0.19932422, 0)
-Killbutton.Size = UDim2.new(0, 38, 0, 33)
-Killbutton.Font = Enum.Font.SourceSansLight
-Killbutton.Text = ""
-Killbutton.TextColor3 = Color3.new(1, 1, 1)
-Killbutton.TextScaled = true
-Killbutton.TextSize = 14
-Killbutton.TextWrapped = true
-
-Killlabel.Name = "Kill label"
-Killlabel.Parent = Main
-Killlabel.BackgroundColor3 = Color3.new(1, 1, 1)
-Killlabel.BackgroundTransparency = 1
-Killlabel.Position = UDim2.new(0, 0, 0.19932422, 0)
-Killlabel.Size = UDim2.new(0, 84, 0, 33)
-Killlabel.Font = Enum.Font.SourceSansLight
-Killlabel.Text = "Kill All:"
-Killlabel.TextColor3 = Color3.new(1, 1, 1)
-Killlabel.TextScaled = true
-Killlabel.TextSize = 14
-Killlabel.TextWrapped = true
-Killlabel.TextXAlignment = Enum.TextXAlignment.Left
-
 gun.Name = "gun"
 gun.Parent = Main
 gun.BackgroundColor3 = Color3.new(0.141176, 0.141176, 0.141176)
 gun.BorderSizePixel = 0
-gun.Position = UDim2.new(0.553488374, 0, 0.19932422, 0)
+gun.Position = UDim2.new(0.195348829, 0, 0.172297195, 0)
 gun.Size = UDim2.new(0, 38, 0, 33)
 gun.Font = Enum.Font.SourceSansLight
 gun.Text = ""
@@ -98,7 +69,7 @@ OPgunlabel.Name = "OP gun label"
 OPgunlabel.Parent = Main
 OPgunlabel.BackgroundColor3 = Color3.new(1, 1, 1)
 OPgunlabel.BackgroundTransparency = 1
-OPgunlabel.Position = UDim2.new(0.358139545, 0, 0.19932422, 0)
+OPgunlabel.Position = UDim2.new(0, 0, 0.172297195, 0)
 OPgunlabel.Size = UDim2.new(0, 84, 0, 33)
 OPgunlabel.Font = Enum.Font.SourceSansLight
 OPgunlabel.Text = "OP Gun:"
@@ -108,7 +79,7 @@ OPgunlabel.TextSize = 14
 OPgunlabel.TextWrapped = true
 OPgunlabel.TextXAlignment = Enum.TextXAlignment.Left
 -- Scripts:
-function SCRIPT_BJUT78_FAKESCRIPT() -- CatHub.Color 
+function SCRIPT_GXRV78_FAKESCRIPT() -- CatHub.Color 
 	local script = Instance.new('LocalScript')
 	script.Parent = CatHub
 	script.Parent.MouseEnter:Connect(function()
@@ -119,8 +90,8 @@ function SCRIPT_BJUT78_FAKESCRIPT() -- CatHub.Color
 	end)
 
 end
-coroutine.resume(coroutine.create(SCRIPT_BJUT78_FAKESCRIPT))
-function SCRIPT_QZMF80_FAKESCRIPT() -- Exit.Exit and Color 
+coroutine.resume(coroutine.create(SCRIPT_GXRV78_FAKESCRIPT))
+function SCRIPT_JXEY87_FAKESCRIPT() -- Exit.Exit and Color 
 	local script = Instance.new('LocalScript')
 	script.Parent = Exit
 	script.Parent.MouseButton1Down:Connect(function()
@@ -134,8 +105,8 @@ function SCRIPT_QZMF80_FAKESCRIPT() -- Exit.Exit and Color
 	end)
 
 end
-coroutine.resume(coroutine.create(SCRIPT_QZMF80_FAKESCRIPT))
-function SCRIPT_HMSE70_FAKESCRIPT() -- Main.Main Script 
+coroutine.resume(coroutine.create(SCRIPT_JXEY87_FAKESCRIPT))
+function SCRIPT_PWTJ69_FAKESCRIPT() -- Main.Main Script 
 	local script = Instance.new('LocalScript')
 	script.Parent = Main
 	function dragify(Main)
@@ -179,104 +150,8 @@ function SCRIPT_HMSE70_FAKESCRIPT() -- Main.Main Script
 	dragify((script.Parent))
 
 end
-coroutine.resume(coroutine.create(SCRIPT_HMSE70_FAKESCRIPT))
-function SCRIPT_AUVS65_FAKESCRIPT() -- Killbutton.LocalScript 
-	local script = Instance.new('LocalScript')
-	script.Parent = Killbutton
-	local mt = getrawmetatable(game)
-	setreadonly(mt, false)
-	local namecall = mt.__namecall
-	
-	local on = false
-	script.Parent.MouseButton1Down:Connect(function()
-		if not on then
-			on = true
-			script.Parent.Text = "✓"
-		else
-			on = false
-			script.Parent.Text = ""
-		end
-	end)
-	spawn(function()
-	while on do
-	local function killanigga(bigbrain, player)
-	if bigbrain and player then
-	    local A_1 = 
-	    {
-	        [1] = 
-	    {
-	        [1] = player.Humanoid, 
-	        [2] = bigbrain, 
-	        [3] = 144, 
-	        [4] = player.Character.Head.Position,
-	        [5] = false, 
-	        [6] = false, 
-	        [7] = false
-	    }, 
-	        [2] = 
-	    {
-	        [1] = false, 
-	        [2] = false, 
-	        [3] = false, 
-	        [4] = false, 
-	        [5] = false, 
-	        [6] = 2, 
-	        [7] = 2
-	    }
-	    }
-	    local Event = game:GetService("Workspace")["__THINGS"]["__REMOTES"]["do damage"]
-	    Event:FireServer(A_1)
-	     end
-	end
-	
-	
-	local function findplayers()
-	    local jew = {}
-	
-	    for _,player in pairs(game:GetService('Players'):GetPlayers()) do
-	        if player.Character and player ~= game:GetService('Players').LocalPlayer then
-	            local noob = false
-	            if player.Neutral then
-	                noob = true
-	            elseif Player.Team ~= game:GetService('Players').LocalPlayer.Team then
-	                noob = true
-	            end
-	            if noob and player.Character:FindFirstChild("Humanoid") and player.Character:FindFirstChild("Head") and not player.Character:FindFirstChildOfClass("ForceField") then
-	                jew[#jew+1] = player
-	            end
-	        end
-	    end
-	
-	    
-	    
-	    function namecallfunction(self,...)
-		if on then
-	        local args = {...}
-	        if getnamecallmethod() == "FireServer" then
-	            if args[1] then
-	                if args[1][1] then
-	                    if #args[1][1] == 3 then
-	                        local jew = getplayer()
-	                        if #jew > 0 then
-	                            killanigga(args[1][1][2],jew[math.random(1,#jew)])
-	                        end
-	                    end
-	                end
-	            end
-	        end
-		end
-	        return namecall(self,unpack(args))
-	    end
-	end
-	
-	wait(1)
-	end
-	hookfunction(mt.__namecall, namecallfunction)
-	end)
-
-end
-coroutine.resume(coroutine.create(SCRIPT_AUVS65_FAKESCRIPT))
-function SCRIPT_VCAB68_FAKESCRIPT() -- gun.LocalScript 
+coroutine.resume(coroutine.create(SCRIPT_PWTJ69_FAKESCRIPT))
+function SCRIPT_IRZZ69_FAKESCRIPT() -- gun.LocalScript 
 	local script = Instance.new('LocalScript')
 	script.Parent = gun
 	
@@ -310,4 +185,4 @@ function SCRIPT_VCAB68_FAKESCRIPT() -- gun.LocalScript
 	
 
 end
-coroutine.resume(coroutine.create(SCRIPT_VCAB68_FAKESCRIPT))
+coroutine.resume(coroutine.create(SCRIPT_IRZZ69_FAKESCRIPT))
