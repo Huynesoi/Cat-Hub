@@ -235,13 +235,11 @@ function SCRIPT_VJWK69_FAKESCRIPT() -- LoadButton.Loader
 	local lit
 	local tpid
 	function checkgame()
-		for i,v in pairs(gamelist) do
-			if tostring(game.PlaceId) == i then
+			if gamelist[tostring(game.PlaceId)] then
 				supported = true
 				lit = gamelist[tostring(game.PlaceId)]
 				return lit ~= nil
 			end
-		end
 	end
 	if checkgame() then
 		script.Parent.Parent.gamename.Text = lit.gname
