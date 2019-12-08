@@ -7,4 +7,4 @@ An open source script hub for roblox
 * 0x90#1874 --Creating Cat Hub
 * Pasted#0002 --Helping to create it <-- Biggest Brain
 * Tongue Zinc#2843 --Helping create scripts
-* Everyone in the group chat
+* Everyone in the group chat (Except Jayrain)
