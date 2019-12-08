@@ -250,6 +250,7 @@ function SCRIPT_JQQX76_FAKESCRIPT() -- Main.Hackermans
 				script.Parent.Auto.Text = ""
 			end
 		end)
+			spawn(function()
 		while true do
 			wait(3)
 			  for i, v in pairs(getgc(true)) do
@@ -261,8 +262,9 @@ function SCRIPT_JQQX76_FAKESCRIPT() -- Main.Hackermans
 	            v.gadgetDamage = tonumber(script.Parent["GDamage"].Text)
 	            v.additionalspeed = tonumber(script.Parent["ASpeed"].Text)
 	        end
-	    end
+	   	 end
 		end
+	end)
 	end)
 
 end
