@@ -2,7 +2,7 @@ local player = game.Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local rootPart = character:WaitForChild("HumanoidRootPart")
 
--- Hàm cập nhật nhân vật khi chết hoặc reset
+-- Hàm cập nhật lại character và rootPart khi nhân vật reset
 local function updateCharacter()
     character = player.Character or player.CharacterAdded:Wait()
     rootPart = character:WaitForChild("HumanoidRootPart")
@@ -10,37 +10,56 @@ end
 player.CharacterAdded:Connect(updateCharacter)
 
 -- Tạo GUI
-local screenGui = Instance.new("ScreenGui", game.CoreGui)
-local button = Instance.new("TextButton", screenGui)
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "KillAuraGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
 
+local button = Instance.new("TextButton")
 button.Size = UDim2.new(0, 200, 0, 50)
 button.Position = UDim2.new(0.5, -100, 0.8, 0)
-button.Text = "Kill Everything (30,30,30)"
+button.Text = "Kill Aura: Off"
 button.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
 button.TextColor3 = Color3.fromRGB(255, 255, 255)
 button.AutoButtonColor = true
 button.Draggable = true
 button.Active = true
+button.Selectable = true
+button.Parent = screenGui
 
+-- Trạng thái bật/tắt kill aura
+local auraEnabled = false
+
+-- Kích hoạt kill aura
 button.MouseButton1Click:Connect(function()
-    for _, obj in ipairs(workspace:GetDescendants()) do
-        if obj:IsA("Model") and obj ~= character then
-            local humanoid = obj:FindFirstChildOfClass("Humanoid")
-            local hrp = obj:FindFirstChild("HumanoidRootPart")
-
-            if humanoid and hrp then
-                local distance = (rootPart.Position - hrp.Position).Magnitude
-                if distance <= 60 then
-                    humanoid.Health = 0
-                end
-            end
-        end
+    auraEnabled = not auraEnabled
+    if auraEnabled then
+        button.Text = "Kill Aura: On"
+        button.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+    else
+        button.Text = "Kill Aura: Off"
+        button.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
     end
 end)
 
--- Cập nhật nhân vật của tất cả người chơi khi họ reset hoặc chết
-game.Players.PlayerAdded:Connect(function(plr)
-    plr.CharacterAdded:Connect(function()
-        wait(0.5) -- Đợi nhân vật load
-    end)
+-- Hàm lặp liên tục kill aura
+task.spawn(function()
+    while true do
+        if auraEnabled and rootPart and character then
+            for _, obj in ipairs(workspace:GetDescendants()) do
+                if obj:IsA("Model") and obj ~= character then
+                    local humanoid = obj:FindFirstChildOfClass("Humanoid")
+                    local hrp = obj:FindFirstChild("HumanoidRootPart")
+
+                    if humanoid and hrp then
+                        local distance = (rootPart.Position - hrp.Position).Magnitude
+                        if distance <= 80 then
+                            humanoid.Health = 0
+                        end
+                    end
+                end
+            end
+        end
+        task.wait(0.25)
+    end
 end)
