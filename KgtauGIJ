@@ -1,0 +1,217 @@
+-- Các dịch vụ
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+
+-- Cấu hình cơ bản
+Workspace.Gravity = 1
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRoot = character:WaitForChild("HumanoidRootPart")
+
+-- Vị trí và vùng kiểm tra
+local scanCFrame = CFrame.new(20072.912109375, 15584.1640625, 20049.546875)
+local scanSize = Vector3.new(1500, 10000, 1500)
+local closeSize = Vector3.new(10, 10, 10)
+local safeOffset = Vector3.new(0, 70, 0)
+local dungeonCFrame = CFrame.new(10960.2626953125, 133.30380249023438, 1255.708251953125)
+
+-- Biến điều khiển
+local skillRemote = ReplicatedStorage:WaitForChild("Chest"):WaitForChild("Remotes"):WaitForChild("Functions"):WaitForChild("SkillAction")
+local autoRunning = false
+local waitTimeAfterSkill = 15
+local noNPCStartTime = tick()
+local dungeonCooldown = false
+
+-- GUI
+local gui = player:WaitForChild("PlayerGui")
+local screenGui = gui:FindFirstChild("AutoSkillGui") or Instance.new("ScreenGui", gui)
+screenGui.Name = "AutoSkillGui"
+screenGui.ResetOnSpawn = false
+
+local button = screenGui:FindFirstChild("ToggleButton") or Instance.new("TextButton")
+button.Name = "ToggleButton"
+button.Size = UDim2.new(0, 150, 0, 50)
+button.Position = UDim2.new(0, 20, 0, 100)
+button.Text = "Bật Auto Skill"
+button.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+button.TextColor3 = Color3.new(1, 1, 1)
+button.TextScaled = true
+button.Parent = screenGui
+
+-- Dùng skill
+local function useSkillAt(cf)
+	skillRemote:InvokeServer("DF_GoldGold_V", {
+		MouseHit = cf,
+		Mobile = true
+	})
+end
+
+-- Lấy NPC từ vùng
+local function getNPCsInRegion(center, size)
+	local region = Region3.new(center - size/2, center + size/2):ExpandToGrid(4)
+	local parts = Workspace:FindPartsInRegion3(region, nil, math.huge)
+	local npcs = {}
+	for _, part in pairs(parts) do
+		local model = part:FindFirstAncestorOfClass("Model")
+		if model and model:FindFirstChild("HumanoidRootPart") and model:FindFirstChild("Humanoid") then
+			if Players:GetPlayerFromCharacter(model) == nil then
+				table.insert(npcs, model)
+			end
+		end
+	end
+	return npcs
+end
+
+-- Kiểm tra NPC sát nhau
+local function areNPCsClose(npcs, threshold)
+	for i = 1, #npcs do
+		for j = i + 1, #npcs do
+			local a = npcs[i]:FindFirstChild("HumanoidRootPart")
+			local b = npcs[j]:FindFirstChild("HumanoidRootPart")
+			if a and b then
+				local delta = (a.Position - b.Position)
+				if math.abs(delta.X) > threshold.X or math.abs(delta.Y) > threshold.Y or math.abs(delta.Z) > threshold.Z then
+					return false
+				end
+			end
+		end
+	end
+	return true
+end
+
+-- Lấy vị trí trung bình
+local function getMiddlePosition(npcs)
+	local total = Vector3.new()
+	local count = 0
+	for _, npc in ipairs(npcs) do
+		local hrp = npc:FindFirstChild("HumanoidRootPart")
+		if hrp then
+			total += hrp.Position
+			count += 1
+		end
+	end
+	return count > 0 and total / count or nil
+end
+
+-- Kill NPC
+local function killNPCs(npcs, duration)
+	local start = tick()
+	while tick() - start < duration do
+		for _, npc in pairs(npcs) do
+			if npc and npc:FindFirstChild("Humanoid") and npc ~= character then
+				npc.Humanoid.Health = 0
+			end
+		end
+		task.wait(0.25)
+	end
+end
+
+-- Làm mới nhân vật
+local function refreshCharacter()
+	character = player.Character or player.CharacterAdded:Wait()
+	humanoidRoot = character:WaitForChild("HumanoidRootPart")
+end
+
+-- Tele + dùng skill + chờ + kill
+local function attackTarget(cframe, npcs)
+	humanoidRoot.CFrame = cframe + Vector3.new(0, 3, 0)
+	task.wait(0.25)
+	humanoidRoot.CFrame = cframe + Vector3.new(0, 3, 0)
+	task.wait(0.1)
+	useSkillAt(cframe)
+	task.wait(0.5)
+	humanoidRoot.CFrame = CFrame.new(cframe.Position + safeOffset)
+	killNPCs(npcs, waitTimeAfterSkill)
+end
+
+-- Ưu tiên xử lý Heartbreaker Queen
+local function handleHeartbreakerQueen()
+	local queen = Workspace:FindFirstChild("MOB") and Workspace.MOB:FindFirstChild("Heartbreaker Queen [Lv. 5000]")
+	if queen and queen:FindFirstChild("HumanoidRootPart") and queen:FindFirstChild("Humanoid") then
+		local cf = queen.HumanoidRootPart.CFrame
+		humanoidRoot.CFrame = cf + Vector3.new(0, 3, 0)
+		task.wait(0.25)
+		useSkillAt(cf)
+		task.wait(0.5)
+		humanoidRoot.CFrame = cf + safeOffset
+		killNPCs({queen}, waitTimeAfterSkill)
+		return true
+	end
+	return false
+end
+
+-- Luồng chính
+local function autoSkillLoop()
+	while autoRunning do
+		if not humanoidRoot or not humanoidRoot:IsDescendantOf(Workspace) then
+			refreshCharacter()
+			dungeonCooldown = false
+			task.wait(1)
+			continue
+		end
+
+		if handleHeartbreakerQueen() then
+			task.wait(0.25)
+			continue
+		end
+
+		local npcs = getNPCsInRegion(scanCFrame.Position, scanSize)
+
+		if #npcs == 0 then
+			if tick() - noNPCStartTime >= 10 and not dungeonCooldown then
+				humanoidRoot.CFrame = dungeonCFrame
+				dungeonCooldown = true
+				task.wait(1)
+			end
+			task.wait(0.25)
+			continue
+		else
+			noNPCStartTime = tick()
+			if (humanoidRoot.Position - scanCFrame.Position).Magnitude < 1000 then
+				dungeonCooldown = false
+			end
+		end
+
+		if #npcs == 1 then
+			local hrp = npcs[1]:FindFirstChild("HumanoidRootPart")
+			if hrp then
+				attackTarget(hrp.CFrame, npcs)
+			end
+		elseif #npcs > 1 then
+			if areNPCsClose(npcs, closeSize) then
+				local midPos = getMiddlePosition(npcs)
+				if midPos then
+					attackTarget(CFrame.new(midPos), npcs)
+				end
+			else
+				local midPos = getMiddlePosition(npcs)
+				if midPos then
+					humanoidRoot.CFrame = CFrame.new(midPos + safeOffset)
+				end
+			end
+		end
+		task.wait(0.25)
+	end
+end
+
+-- Bật/tắt Auto
+button.MouseButton1Click:Connect(function()
+	autoRunning = not autoRunning
+	button.Text = autoRunning and "Tắt Auto Skill" or "Bật Auto Skill"
+	button.BackgroundColor3 = autoRunning and Color3.fromRGB(170, 0, 0) or Color3.fromRGB(0, 170, 0)
+
+	if autoRunning then
+		refreshCharacter()
+		coroutine.wrap(autoSkillLoop)()
+	end
+end)
+
+-- Đảm bảo hoạt động khi hồi sinh
+player.CharacterAdded:Connect(function()
+	task.wait(1)
+	if autoRunning then
+		refreshCharacter()
+	end
+end)
