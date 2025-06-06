@@ -18,7 +18,7 @@ ab.TextColor3=Color3.new(0,1,1)ab.TextSize=20;local bb=game:service'VirtualUser'
 game:service'Players'.LocalPlayer.Idled:connect(function()
 bb:CaptureController()bb:ClickButton2(Vector2.new())
 ab.Text="Roblox tried to kick u but i kicked him instead"wait(2)ab.Text="Status : Active"end)
-loadstring(game:HttpGet("https://raw.githubusercontent.com/Huynesoi/Cat-Hub/205053d199a090fbe59ed042292e9bbbcc402e8b/Heal"))()
 loadstring(game:HttpGet("https://raw.githubusercontent.com/keepitLowkey/Cat-Hub/c5378d68afe201a122772572981f6924a3a9a82c/TpDug"))()
 loadstring(game:HttpGet("https://raw.githubusercontent.com/keepitLowkey/Cat-Hub/f503650ac4a8766b4119f972664618d39c138162/KgtauGIJ"))()
 loadstring(game:HttpGet("https://raw.githubusercontent.com/keepitLowkey/Cat-Hub/ca894d61367920d1b8bf8019ea9969137e597e28/Iakqmqjq"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/Huynesoi/Cat-Hub/205053d199a090fbe59ed042292e9bbbcc402e8b/Heal"))()
