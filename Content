@@ -1,0 +1,44 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local rootPart = character:WaitForChild("HumanoidRootPart")
+
+-- Gốc trung tâm và kích thước vùng
+local centerCFrame = CFrame.new(10963.30078125, 133.8351287841797, 1250.3118896484375)
+local regionSize = Vector3.new(2048, 2048, 2048)
+
+-- Biến để kiểm tra trạng thái bên trong vùng
+local isInsideRegion = false
+
+-- Hàm kiểm tra player có trong vùng không
+local function isInRegion()
+	local min = (centerCFrame.Position - (regionSize / 2))
+	local max = (centerCFrame.Position + (regionSize / 2))
+	local pos = rootPart.Position
+
+	return (pos.X >= min.X and pos.X <= max.X) and
+	       (pos.Y >= min.Y and pos.Y <= max.Y) and
+	       (pos.Z >= min.Z and pos.Z <= max.Z)
+end
+
+-- Lặp kiểm tra mỗi frame
+RunService.RenderStepped:Connect(function()
+	if not character or not character.Parent then
+		character = player.Character or player.CharacterAdded:Wait()
+		rootPart = character:WaitForChild("HumanoidRootPart")
+	end
+
+	local inRegionNow = isInRegion()
+
+	if inRegionNow and not isInsideRegion then
+		-- Vừa mới vào vùng
+		isInsideRegion = true
+		-- Teleport đến đúng giữa vùng
+		rootPart.CFrame = centerCFrame
+	elseif not inRegionNow and isInsideRegion then
+		-- Vừa rời khỏi vùng
+		isInsideRegion = false
+	end
+end)
