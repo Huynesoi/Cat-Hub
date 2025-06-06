@@ -1,0 +1,46 @@
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local rootPart = character:WaitForChild("HumanoidRootPart")
+
+-- Hàm cập nhật nhân vật khi chết hoặc reset
+local function updateCharacter()
+    character = player.Character or player.CharacterAdded:Wait()
+    rootPart = character:WaitForChild("HumanoidRootPart")
+end
+player.CharacterAdded:Connect(updateCharacter)
+
+-- Tạo GUI
+local screenGui = Instance.new("ScreenGui", game.CoreGui)
+local button = Instance.new("TextButton", screenGui)
+
+button.Size = UDim2.new(0, 200, 0, 50)
+button.Position = UDim2.new(0.5, -100, 0.8, 0)
+button.Text = "Kill Everything (30,30,30)"
+button.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+button.TextColor3 = Color3.fromRGB(255, 255, 255)
+button.AutoButtonColor = true
+button.Draggable = true
+button.Active = true
+
+button.MouseButton1Click:Connect(function()
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("Model") and obj ~= character then
+            local humanoid = obj:FindFirstChildOfClass("Humanoid")
+            local hrp = obj:FindFirstChild("HumanoidRootPart")
+
+            if humanoid and hrp then
+                local distance = (rootPart.Position - hrp.Position).Magnitude
+                if distance <= 60 then
+                    humanoid.Health = 0
+                end
+            end
+        end
+    end
+end)
+
+-- Cập nhật nhân vật của tất cả người chơi khi họ reset hoặc chết
+game.Players.PlayerAdded:Connect(function(plr)
+    plr.CharacterAdded:Connect(function()
+        wait(0.5) -- Đợi nhân vật load
+    end)
+end)
