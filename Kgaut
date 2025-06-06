@@ -1,0 +1,201 @@
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local HumanoidRootPart
+
+Workspace.Gravity = 1
+
+-- Vị trí vùng hoạt động & các vùng đặc biệt
+local scanCenter = Vector3.new(20072.912109375, 15584.1640625, 20049.546875)
+local scanSize = Vector3.new(1500, 10000, 1500)
+local closeSize = Vector3.new(10, 10, 10)
+local airOffset = Vector3.new(0, 70, 0)
+local dungeonTeleport = Vector3.new(10960.2626953125, 133.30380249023438, 1255.708251953125)
+
+-- Remote skill
+local skillRemote = ReplicatedStorage:WaitForChild("Chest"):WaitForChild("Remotes"):WaitForChild("Functions"):WaitForChild("SkillAction")
+
+-- Auto on/off
+local autoRunning = false
+local dungeonCooldown = false
+
+-- GUI
+local gui = player:WaitForChild("PlayerGui"):FindFirstChild("AutoSkillGui") or Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+gui.Name = "AutoSkillGui"
+
+local toggleButton = gui:FindFirstChild("ToggleButton") or Instance.new("TextButton", gui)
+toggleButton.Name = "ToggleButton"
+toggleButton.Size = UDim2.new(0, 160, 0, 50)
+toggleButton.Position = UDim2.new(0, 20, 0, 100)
+toggleButton.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+toggleButton.TextColor3 = Color3.new(1, 1, 1)
+toggleButton.TextScaled = true
+toggleButton.Text = "Bật Auto Skill"
+
+-- Hàm hỗ trợ
+local function getNPCsInRegion(center, size)
+	local region = Region3.new(center - size / 2, center + size / 2):ExpandToGrid(4)
+	local parts = Workspace:FindPartsInRegion3(region, nil, math.huge)
+
+	local result = {}
+	for _, part in pairs(parts) do
+		local model = part:FindFirstAncestorOfClass("Model")
+		if model and model:FindFirstChild("Humanoid") and model:FindFirstChild("HumanoidRootPart") and model ~= character then
+			if not table.find(result, model) then
+				table.insert(result, model)
+			end
+		end
+	end
+	return result
+end
+
+local function areNPCsClose(npcs, threshold)
+	for i = 1, #npcs do
+		for j = i + 1, #npcs do
+			local p1 = npcs[i]:FindFirstChild("HumanoidRootPart")
+			local p2 = npcs[j]:FindFirstChild("HumanoidRootPart")
+			if p1 and p2 then
+				local diff = (p1.Position - p2.Position)
+				if math.abs(diff.X) > threshold.X or math.abs(diff.Y) > threshold.Y or math.abs(diff.Z) > threshold.Z then
+					return false
+				end
+			end
+		end
+	end
+	return true
+end
+
+local function getMidpoint(npcs)
+	if #npcs == 0 then return nil end
+	local total = Vector3.zero
+	local count = 0
+	for _, npc in ipairs(npcs) do
+		local hrp = npc:FindFirstChild("HumanoidRootPart")
+		if hrp then
+			total += hrp.Position
+			count += 1
+		end
+	end
+	return count > 0 and (total / count) or nil
+end
+
+local function useSkillAt(cframe)
+	local args = {
+		"DF_GoldGold_V",
+		{
+			MouseHit = cframe,
+			Mobile = true
+		}
+	}
+	skillRemote:InvokeServer(unpack(args))
+end
+
+local function killNPCs(npcs)
+	for _, npc in ipairs(npcs) do
+		if npc and npc:FindFirstChild("Humanoid") and npc:FindFirstChild("HumanoidRootPart") and npc ~= character then
+			local humanoid = npc:FindFirstChild("Humanoid")
+			if humanoid and humanoid.Health > 0 then
+				humanoid.Health = 0
+			end
+		end
+	end
+end
+
+local function teleportTo(pos)
+	if HumanoidRootPart then
+		HumanoidRootPart.CFrame = CFrame.new(pos)
+	end
+end
+
+local function waitForCharacter()
+	character = player.Character or player.CharacterAdded:Wait()
+	repeat wait() HumanoidRootPart = character:FindFirstChild("HumanoidRootPart") until HumanoidRootPart
+end
+
+local function autoSkillLoop()
+	waitForCharacter()
+	local noNPCtimer = 0
+	local teleToDungeonOnce = false
+
+	while autoRunning do
+		waitForCharacter()
+		local npcs = getNPCsInRegion(scanCenter, scanSize)
+
+		if #npcs == 0 then
+			noNPCtimer += 0.5
+			if noNPCtimer >= 15 and not teleToDungeonOnce then
+				teleportTo(dungeonTeleport)
+				teleToDungeonOnce = true
+			end
+		else
+			noNPCtimer = 0
+			teleToDungeonOnce = false
+		end
+
+		if #npcs == 1 then
+			local npcHRP = npcs[1]:FindFirstChild("HumanoidRootPart")
+			if npcHRP then
+				-- Bay trên đầu NPC
+				teleportTo(npcHRP.Position + airOffset)
+				wait(0.25)
+				teleportTo(npcHRP.Position + Vector3.new(0, 3, 0))
+				wait(0.1)
+				useSkillAt(npcHRP.CFrame)
+				wait(1)
+				teleportTo(npcHRP.Position + airOffset)
+
+				-- Kill NPC liên tục trong 18s
+				for i = 1, 72 do
+					killNPCs({npcs[1]})
+					wait(0.25)
+				end
+			end
+
+		elseif #npcs >= 2 then
+			if areNPCsClose(npcs, closeSize) then
+				local mid = getMidpoint(npcs)
+				if mid then
+					teleportTo(mid + airOffset)
+					wait(0.25)
+					teleportTo(mid + Vector3.new(0, 3, 0))
+					wait(0.1)
+					useSkillAt(CFrame.new(mid))
+					wait(1)
+					teleportTo(mid + airOffset)
+					for i = 1, 72 do
+						killNPCs(npcs)
+						wait(0.25)
+					end
+				end
+			else
+				local mid = getMidpoint(npcs)
+				if mid then
+					teleportTo(mid + airOffset)
+				end
+			end
+		end
+
+		wait(0.5)
+	end
+end
+
+-- GUI Button toggle
+toggleButton.MouseButton1Click:Connect(function()
+	autoRunning = not autoRunning
+	toggleButton.Text = autoRunning and "Tắt Auto Skill" or "Bật Auto Skill"
+	toggleButton.BackgroundColor3 = autoRunning and Color3.fromRGB(170, 0, 0) or Color3.fromRGB(0, 170, 0)
+
+	if autoRunning then
+		coroutine.wrap(autoSkillLoop)()
+	end
+end)
+
+-- Khi nhân vật chết, chờ hồi sinh rồi chạy lại
+player.CharacterAdded:Connect(function()
+	wait(1)
+	waitForCharacter()
+end)
