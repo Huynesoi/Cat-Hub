@@ -1,0 +1,43 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local hrp = character:WaitForChild("HumanoidRootPart")
+
+-- Trung tâm vùng cần kiểm tra
+local centerPos = Vector3.new(10963.30078125, 133.8351287841797, 1250.3118896484375)
+-- Kích thước vùng
+local regionSize = Vector3.new(2048, 2048, 2048)
+-- Thời gian giữa các lần teleport
+local teleportInterval = 0.1
+local lastTeleport = 0
+
+-- Cập nhật khi nhân vật mới được spawn
+player.CharacterAdded:Connect(function(newChar)
+	character = newChar
+	hrp = newChar:WaitForChild("HumanoidRootPart")
+end)
+
+-- Hàm kiểm tra xem người chơi có đang ở trong vùng không
+local function isInRegion(pos)
+	local halfSize = regionSize / 2
+	return (
+		pos.X >= centerPos.X - halfSize.X and pos.X <= centerPos.X + halfSize.X and
+		pos.Y >= centerPos.Y - halfSize.Y and pos.Y <= centerPos.Y + halfSize.Y and
+		pos.Z >= centerPos.Z - halfSize.Z and pos.Z <= centerPos.Z + halfSize.Z
+	)
+end
+
+-- Theo dõi liên tục
+RunService.Heartbeat:Connect(function()
+	if not character or not hrp or not hrp:IsDescendantOf(workspace) then return end
+
+	local pos = hrp.Position
+	if isInRegion(pos) then
+		if tick() - lastTeleport >= teleportInterval then
+			hrp.CFrame = CFrame.new(centerPos)
+			lastTeleport = tick()
+		end
+	end
+end)
