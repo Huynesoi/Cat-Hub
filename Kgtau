@@ -1,0 +1,212 @@
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+
+-- Gravity
+workspace.Gravity = 1
+player.CharacterAdded:Connect(function(char)
+	task.wait(1)
+	char:WaitForChild("HumanoidRootPart")
+	workspace.Gravity = 1
+end)
+
+-- Vùng chính
+local mainCFrame = CFrame.new(20072.912109375, 15584.1640625, 20049.546875)
+local scanSize = Vector3.new(1500, 10000, 1500)
+local closeSize = Vector3.new(10, 10, 10)
+local stuckThreshold = 15
+local stuckTime = 15
+
+local skillRemote = ReplicatedStorage:WaitForChild("Chest"):WaitForChild("Remotes"):WaitForChild("Functions"):WaitForChild("SkillAction")
+local autoRunning = false
+
+-- Giao diện
+local screenGui = player:WaitForChild("PlayerGui"):FindFirstChild("AutoSkillGui") or Instance.new("ScreenGui")
+screenGui.Name = "AutoSkillGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+local toggleButton = screenGui:FindFirstChild("ToggleButton") or Instance.new("TextButton")
+toggleButton.Name = "ToggleButton"
+toggleButton.Size = UDim2.new(0, 150, 0, 50)
+toggleButton.Position = UDim2.new(0, 20, 0, 100)
+toggleButton.Text = "Bật Auto Skill"
+toggleButton.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+toggleButton.TextColor3 = Color3.new(1, 1, 1)
+toggleButton.TextScaled = true
+toggleButton.Parent = screenGui
+
+-- Kiểm tra NPC
+local function getNPCs()
+	local region = Region3.new(mainCFrame.Position - scanSize/2, mainCFrame.Position + scanSize/2):ExpandToGrid(4)
+	local parts = Workspace:FindPartsInRegion3(region, nil, math.huge)
+	local npcs = {}
+
+	for _, part in ipairs(parts) do
+		local model = part:FindFirstAncestorOfClass("Model")
+		if model and model:FindFirstChild("Humanoid") and model:FindFirstChild("HumanoidRootPart") and model ~= character then
+			if not model:FindFirstAncestorWhichIsA("Player") then
+				if not table.find(npcs, model) then
+					table.insert(npcs, model)
+				end
+			end
+		end
+	end
+
+	return npcs
+end
+
+-- Kiểm tra NPC có gần nhau không
+local function areNPCsClose(npcs)
+	for i = 1, #npcs do
+		for j = i + 1, #npcs do
+			local hrp1 = npcs[i]:FindFirstChild("HumanoidRootPart")
+			local hrp2 = npcs[j]:FindFirstChild("HumanoidRootPart")
+			if hrp1 and hrp2 then
+				local diff = (hrp1.Position - hrp2.Position)
+				if math.abs(diff.X) > closeSize.X or math.abs(diff.Y) > closeSize.Y or math.abs(diff.Z) > closeSize.Z then
+					return false
+				end
+			end
+		end
+	end
+	return true
+end
+
+-- Tính vị trí trung bình
+local function getAveragePosition(npcs)
+	local sum = Vector3.new(0, 0, 0)
+	local count = 0
+	for _, npc in ipairs(npcs) do
+		local hrp = npc:FindFirstChild("HumanoidRootPart")
+		if hrp then
+			sum += hrp.Position
+			count += 1
+		end
+	end
+	if count > 0 then
+		return sum / count
+	end
+	return mainCFrame.Position
+end
+
+-- Use Skill
+local function useSkillAt(cframe)
+	local args = {
+		"DF_GoldGold_V",
+		{
+			MouseHit = cframe,
+			Mobile = true
+		}
+	}
+	skillRemote:InvokeServer(unpack(args))
+end
+
+-- Kill NPCs
+task.spawn(function()
+	while true do
+		local npcs = getNPCs()
+		for _, npc in ipairs(npcs) do
+			if npc and npc:FindFirstChild("Humanoid") and npc ~= character then
+				npc.Humanoid.Health = 0
+			end
+		end
+		task.wait(0.45)
+	end
+end)
+
+-- Tele liên tục
+local function autoSkillLoop()
+	local stuckTracker = {}
+	while autoRunning do
+		character = player.Character or player.CharacterAdded:Wait()
+		humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+
+		if not humanoidRootPart then
+			task.wait(1)
+			continue
+		end
+
+		local npcs = getNPCs()
+
+		-- Ưu tiên Heartbreaker
+		for _, npc in ipairs(npcs) do
+			if npc.Name == "Heartbreaker Queen [Lv. 5000]" then
+				humanoidRootPart.CFrame = npc.HumanoidRootPart.CFrame + Vector3.new(0, 70, 0)
+				useSkillAt(npc.HumanoidRootPart.CFrame)
+				task.wait(1)
+			end
+		end
+
+		if #npcs == 1 then
+			local npc = npcs[1]
+			humanoidRootPart.CFrame = npc.HumanoidRootPart.CFrame + Vector3.new(0, 70, 0)
+			useSkillAt(npc.HumanoidRootPart.CFrame)
+		elseif #npcs > 1 then
+			if areNPCsClose(npcs) then
+				local midPos = getAveragePosition(npcs)
+				humanoidRootPart.CFrame = CFrame.new(midPos + Vector3.new(0, 70, 0))
+				useSkillAt(CFrame.new(midPos))
+			else
+				local lastPos = {}
+				local stuckStart = tick()
+
+				while autoRunning and not areNPCsClose(npcs) do
+					local currentTime = tick()
+					local newNpcs = getNPCs()
+					local stucked = false
+
+					for _, npc in ipairs(newNpcs) do
+						local hrp = npc:FindFirstChild("HumanoidRootPart")
+						if hrp then
+							local id = tostring(npc)
+							local last = lastPos[id]
+							if last and (hrp.Position - last).Magnitude < stuckThreshold then
+								if currentTime - stuckStart >= stuckTime then
+									humanoidRootPart.CFrame = hrp.CFrame + Vector3.new(0, 70, 0)
+									useSkillAt(hrp.CFrame)
+									stucked = true
+									break
+								end
+							else
+								stuckStart = currentTime
+							end
+							lastPos[id] = hrp.Position
+						end
+					end
+
+					if stucked then break end
+
+					local avgPos = getAveragePosition(newNpcs)
+					humanoidRootPart.CFrame = CFrame.new(avgPos + Vector3.new(0, 70, 0))
+					task.wait(0.5)
+					npcs = newNpcs
+				end
+
+				if areNPCsClose(npcs) then
+					local midPos = getAveragePosition(npcs)
+					humanoidRootPart.CFrame = CFrame.new(midPos + Vector3.new(0, 70, 0))
+					useSkillAt(CFrame.new(midPos))
+				end
+			end
+		end
+
+		task.wait(1)
+	end
+end
+
+-- Bật / Tắt
+toggleButton.MouseButton1Click:Connect(function()
+	autoRunning = not autoRunning
+	toggleButton.Text = autoRunning and "Tắt Auto Skill" or "Bật Auto Skill"
+	toggleButton.BackgroundColor3 = autoRunning and Color3.fromRGB(170, 0, 0) or Color3.fromRGB(0, 170, 0)
+
+	if autoRunning then
+		coroutine.wrap(autoSkillLoop)()
+	end
+end)
