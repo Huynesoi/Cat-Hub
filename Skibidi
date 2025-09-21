@@ -1,0 +1,696 @@
+-- Aim v6 - Full rebuilt (final)
+-- Features:
+-- - GUI draggable, ResetOnSpawn = false
+-- - Aim center fix (CFrame.lookAt)
+-- - Prediction ON/OFF
+-- - AimPart selection (Root/Head/Torso/LeftLimb/RightLimb) with legacy names support
+-- - Players / PVP / NPC filtering, TeamAim toggle (ignore same team)
+-- - Switch & Lock cycles through players (recentTargets) instead of always nearest
+-- - NameBox to lock by partial name
+-- - External toggle button (beside chat) to hide GUI and disable aim
+-- - Safe heartbeat: only clear fullLock when target invalid or dead
+-- - Buttons clickable (ZIndex / Active / Selectable fixes)
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+-- STATES
+local aimMode = "off"         -- "off", "players", "pvpOnly", "npcOnly", "nearestNoLock"
+local aimLock = false
+local fullLock = false
+local target = nil            -- current auto target (Part)
+local lockedTarget = nil      -- locked Part (Part)
+local lastSwitchTime = 0
+local recentTargets = {}
+
+local predictionTime = 0.27
+local usePrediction = true
+
+local aimPartMode = 1 -- 1=Root,2=Head,3=Torso,4=Left Limb,5=Right Limb
+local aimPartNames = {"Root","Head","Torso","Left Limb","Right Limb"}
+
+local playersEnabled = true
+local pvpEnabled = true
+local npcEnabled = true
+local teamCheckEnabled = false
+
+-- GUI
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "AimLockGUI"
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+local menuFrame = Instance.new("Frame", screenGui)
+menuFrame.Size = UDim2.new(0, 230, 0, 300)
+menuFrame.Position = UDim2.new(0.35, 0, 0.55, 0)
+menuFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+menuFrame.BackgroundTransparency = 0.2
+menuFrame.BorderSizePixel = 1
+menuFrame.Active = true
+menuFrame.Draggable = true
+menuFrame.ClipsDescendants = false
+menuFrame.ZIndex = 1
+
+local titleLabel = Instance.new("TextLabel", menuFrame)
+titleLabel.Size = UDim2.new(1, 0, 0, 28)
+titleLabel.Position = UDim2.new(0,0,0,0)
+titleLabel.Text = "Aim Menu"
+titleLabel.TextColor3 = Color3.new(1, 1, 1)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Font = Enum.Font.SourceSansBold
+titleLabel.TextScaled = true
+titleLabel.ZIndex = 1
+
+-- helper to create standardized buttons
+local function makeButton(parent, props)
+	local b = Instance.new("TextButton", parent)
+	for k, v in pairs(props or {}) do
+		pcall(function() b[k] = v end)
+	end
+	b.AutoButtonColor = false
+	b.Selectable = true
+	b.Active = true
+	b.ZIndex = 5
+	return b
+end
+
+-- MAIN BUTTONS
+local aimButton = makeButton(menuFrame, {
+	Size = UDim2.new(1, 0, 0, 36),
+	Position = UDim2.new(0, 0, 0, 30),
+	Text = "Aim Mode: OFF",
+	BackgroundColor3 = Color3.fromRGB(255, 0, 0),
+	Font = Enum.Font.SourceSansBold,
+	TextScaled = true
+})
+
+local nearestButton = makeButton(menuFrame, {
+	Size = UDim2.new(1, 0, 0, 30),
+	Position = UDim2.new(0, 0, 0, 68),
+	Text = "Aim Nearest (no lock)",
+	BackgroundColor3 = Color3.fromRGB(80, 80, 80),
+	Font = Enum.Font.SourceSans,
+	TextScaled = true
+})
+
+local lockButton = makeButton(menuFrame, {
+	Size = UDim2.new(1, 0, 0, 30),
+	Position = UDim2.new(0, 0, 0, 102),
+	Text = "Lock: OFF",
+	BackgroundColor3 = Color3.fromRGB(128, 128, 128),
+	Font = Enum.Font.SourceSansBold,
+	TextScaled = true
+})
+
+local switchLockButton = makeButton(menuFrame, {
+	Size = UDim2.new(1, 0, 0, 30),
+	Position = UDim2.new(0, 0, 0, 136),
+	Text = "Switch & Lock",
+	BackgroundColor3 = Color3.fromRGB(0, 150, 255),
+	Font = Enum.Font.SourceSansBold,
+	TextScaled = true
+})
+
+-- Name search box
+local nameBox = Instance.new("TextBox", menuFrame)
+nameBox.Size = UDim2.new(1, -10, 0, 28)
+nameBox.Position = UDim2.new(0, 5, 0, 170)
+nameBox.PlaceholderText = "Type player name + Enter"
+nameBox.Text = ""
+nameBox.ClearTextOnFocus = false
+nameBox.Font = Enum.Font.SourceSans
+nameBox.TextScaled = true
+nameBox.Selectable = true
+nameBox.Active = true
+nameBox.ZIndex = 5
+
+-- Prediction Button
+local predictButton = makeButton(menuFrame, {
+	Size = UDim2.new(1, 0, 0, 28),
+	Position = UDim2.new(0, 0, 0, 200),
+	Text = "Prediction: ON",
+	BackgroundColor3 = Color3.fromRGB(0, 170, 255),
+	Font = Enum.Font.SourceSansBold,
+	TextScaled = true
+})
+
+-- AimPart Button
+local partButton = makeButton(menuFrame, {
+	Size = UDim2.new(1, 0, 0, 28),
+	Position = UDim2.new(0, 0, 0, 230),
+	Text = "AimPart: Root",
+	BackgroundColor3 = Color3.fromRGB(200, 100, 200),
+	Font = Enum.Font.SourceSansBold,
+	TextScaled = true
+})
+
+-- BOTTOM: 4 small toggles (Players / PVP / NPC / TeamAim) — equal sizes so no GUI overlap
+local togglePlayersButton = makeButton(menuFrame, {
+	Size = UDim2.new(0.25, -2, 0, 26),
+	Position = UDim2.new(0, 0, 1, -28),
+	Text = "Players",
+	TextScaled = true,
+	BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+})
+
+local togglePVPButton = makeButton(menuFrame, {
+	Size = UDim2.new(0.25, -2, 0, 26),
+	Position = UDim2.new(0.25, 0, 1, -28),
+	Text = "PVP",
+	TextScaled = true,
+	BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+})
+
+local toggleNPCButton = makeButton(menuFrame, {
+	Size = UDim2.new(0.25, -2, 0, 26),
+	Position = UDim2.new(0.5, 0, 1, -28),
+	Text = "NPC",
+	TextScaled = true,
+	BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+})
+
+local teamButton = makeButton(menuFrame, {
+	Size = UDim2.new(0.25, -2, 0, 26),
+	Position = UDim2.new(0.75, 0, 1, -28),
+	Text = "TeamAim: OFF",
+	TextScaled = true,
+	BackgroundColor3 = Color3.fromRGB(150, 150, 150)
+})
+
+-- External toggle button (not inside the menu) — placed near chat (bottom-left)
+local toggleGuiButton = Instance.new("TextButton", screenGui)
+toggleGuiButton.Size = UDim2.new(0, 120, 0, 28)
+toggleGuiButton.Position = UDim2.new(0, 8, 1, -40) -- tweak if you want to move
+toggleGuiButton.AnchorPoint = Vector2.new(0, 1)
+toggleGuiButton.Text = "Toggle Aim GUI"
+toggleGuiButton.TextScaled = true
+toggleGuiButton.BackgroundColor3 = Color3.fromRGB(100,100,100)
+toggleGuiButton.ZIndex = 60
+
+-- === Button logic ===
+
+-- Prediction toggle
+predictButton.MouseButton1Click:Connect(function()
+	usePrediction = not usePrediction
+	if usePrediction then
+		predictButton.Text = "Prediction: ON"
+		predictButton.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+	else
+		predictButton.Text = "Prediction: OFF"
+		predictButton.BackgroundColor3 = Color3.fromRGB(150, 150, 150)
+	end
+end)
+
+-- AimPart toggle
+partButton.MouseButton1Click:Connect(function()
+	aimPartMode = aimPartMode + 1
+	if aimPartMode > #aimPartNames then aimPartMode = 1 end
+	partButton.Text = "AimPart: " .. aimPartNames[aimPartMode]
+end)
+
+-- Bottom toggles
+togglePlayersButton.MouseButton1Click:Connect(function()
+	playersEnabled = not playersEnabled
+	togglePlayersButton.BackgroundColor3 = playersEnabled and Color3.fromRGB(0,255,0) or Color3.fromRGB(80,80,80)
+end)
+togglePVPButton.MouseButton1Click:Connect(function()
+	pvpEnabled = not pvpEnabled
+	togglePVPButton.BackgroundColor3 = pvpEnabled and Color3.fromRGB(0,255,0) or Color3.fromRGB(80,80,80)
+end)
+toggleNPCButton.MouseButton1Click:Connect(function()
+	npcEnabled = not npcEnabled
+	toggleNPCButton.BackgroundColor3 = npcEnabled and Color3.fromRGB(0,255,0) or Color3.fromRGB(80,80,80)
+end)
+teamButton.MouseButton1Click:Connect(function()
+	teamCheckEnabled = not teamCheckEnabled
+	if teamCheckEnabled then
+		teamButton.Text = "TeamAim: ON"
+		teamButton.BackgroundColor3 = Color3.fromRGB(0,255,0)
+	else
+		teamButton.Text = "TeamAim: OFF"
+		teamButton.BackgroundColor3 = Color3.fromRGB(150,150,150)
+	end
+end)
+
+-- External toggle: hide/show menu and force disable aim when hiding
+local guiVisible = true
+toggleGuiButton.MouseButton1Click:Connect(function()
+	guiVisible = not guiVisible
+	menuFrame.Visible = guiVisible
+	if not guiVisible then
+		aimMode = "off"
+		aimLock = false
+		fullLock = false
+		target = nil
+		lockedTarget = nil
+		aimButton.Text = "Aim Mode: OFF"
+		aimButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+		lockButton.Text = "Lock: OFF"
+		lockButton.BackgroundColor3 = Color3.fromRGB(128, 128, 128)
+	end
+end)
+
+-- === Helpers ===
+
+local function getHumanoidFromChar(char)
+	if not char then return nil end
+	return char:FindFirstChildWhichIsA("Humanoid")
+end
+
+-- Robust getAimPart: supports legacy names and patterns
+local function getAimPart(character)
+	if not character then return nil end
+
+	local function findByList(list)
+		for _, name in ipairs(list) do
+			local p = character:FindFirstChild(name)
+			if p and p:IsA("BasePart") then return p end
+		end
+		-- case-insensitive search in descendants for exact name match
+		for _, obj in ipairs(character:GetDescendants()) do
+			if obj:IsA("BasePart") then
+				local lname = string.lower(obj.Name)
+				for _, name in ipairs(list) do
+					if lname == string.lower(name) then
+						return obj
+					end
+				end
+			end
+		end
+		return nil
+	end
+
+	local function findByPatterns(patterns)
+		for _, obj in ipairs(character:GetDescendants()) do
+			if obj:IsA("BasePart") then
+				local lname = string.lower(obj.Name)
+				for _, pat in ipairs(patterns) do
+					if string.find(lname, pat, 1, true) then
+						return obj
+					end
+				end
+			end
+		end
+		return nil
+	end
+
+	if aimPartMode == 1 then
+		local rootNames = {"HumanoidRootPart", "HumanoidRoot", "RootPart", "Root"}
+		local p = findByList(rootNames)
+		if p then return p end
+		return findByPatterns({"root"})
+	elseif aimPartMode == 2 then
+		local headNames = {"Head"}
+		local p = findByList(headNames)
+		if p then return p end
+		return findByPatterns({"head"})
+	elseif aimPartMode == 3 then
+		local torsoNames = {"Torso", "UpperTorso", "LowerTorso", "Chest", "Pelvis"}
+		local p = findByList(torsoNames)
+		if p then return p end
+		return findByPatterns({"torso","chest","pelvis"})
+	elseif aimPartMode == 4 then
+		local leftArmNames = {"Left Arm", "LeftArm", "LeftUpperArm", "LeftLowerArm"}
+		local leftLegNames = {"Left Leg", "LeftLeg", "LeftUpperLeg", "LeftLowerLeg"}
+		local p = findByList(leftArmNames)
+		if p then return p end
+		p = findByList(leftLegNames)
+		if p then return p end
+		-- look for parts with both 'left' and 'arm'|'leg'
+		for _, obj in ipairs(character:GetDescendants()) do
+			if obj:IsA("BasePart") then
+				local lname = string.lower(obj.Name)
+				if string.find(lname, "left", 1, true) and (string.find(lname, "arm", 1, true) or string.find(lname, "leg", 1, true)) then
+					return obj
+				end
+			end
+		end
+		return findByPatterns({"left"})
+	elseif aimPartMode == 5 then
+		local rightArmNames = {"Right Arm", "RightArm", "RightUpperArm", "RightLowerArm"}
+		local rightLegNames = {"Right Leg", "RightLeg", "RightUpperLeg", "RightLowerLeg"}
+		local p = findByList(rightArmNames)
+		if p then return p end
+		p = findByList(rightLegNames)
+		if p then return p end
+		for _, obj in ipairs(character:GetDescendants()) do
+			if obj:IsA("BasePart") then
+				local lname = string.lower(obj.Name)
+				if string.find(lname, "right", 1, true) and (string.find(lname, "arm", 1, true) or string.find(lname, "leg", 1, true)) then
+					return obj
+				end
+			end
+		end
+		return findByPatterns({"right"})
+	end
+
+	-- fallback
+	local fallback = character:FindFirstChild("HumanoidRootPart") or character:FindFirstChild("Head")
+	if fallback and fallback:IsA("BasePart") then return fallback end
+	for _, obj in ipairs(character:GetDescendants()) do
+		if obj:IsA("BasePart") then return obj end
+	end
+	return nil
+end
+
+local function predictPosition(part, time)
+	if not part then return Vector3.new(0,0,0) end
+	if not usePrediction then return part.Position end
+	local ok, vel = pcall(function() return part.Velocity end)
+	if not ok then vel = Vector3.new(0,0,0) end
+	return part.Position + vel * time
+end
+
+local function isValidPlayerCandidate(p)
+	if not p or not p.Character then return false end
+	-- team check
+	if teamCheckEnabled and p.Team == player.Team then return false end
+	local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+	local h = getHumanoidFromChar(p.Character)
+	if not hrp or not h then return false end
+	if h.Health <= 0 then return false end
+	-- PVP-only check
+	if aimMode == "pvpOnly" then
+		local stats = p:FindFirstChild("PlayerStats")
+		if not stats or not stats:FindFirstChild("PVP") or not stats.PVP.Value then
+			return false
+		end
+	end
+	return true
+end
+
+-- Get nearest target, allowing skipList of Player objects (not parts)
+local function getNearestTarget(skipList)
+	skipList = skipList or {}
+	local skipMap = {}
+	for _, sp in ipairs(skipList) do skipMap[sp] = true end
+
+	local closest = nil
+	local shortest = math.huge
+
+	if aimMode == "npcOnly" then
+		for _, obj in ipairs(workspace:GetDescendants()) do
+			if obj:IsA("Model") and not Players:GetPlayerFromCharacter(obj) then
+				local hrp = obj:FindFirstChild("HumanoidRootPart")
+				if hrp and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+					local dist = (player.Character.HumanoidRootPart.Position - hrp.Position).Magnitude
+					if dist < shortest then
+						shortest = dist
+						closest = hrp
+					end
+				end
+			end
+		end
+	else
+		for _, p in ipairs(Players:GetPlayers()) do
+			if p ~= player and not skipMap[p] and p.Character then
+				-- check filters
+				if not playersEnabled then
+					-- players disabled
+				else
+					-- pvp filter
+					if aimMode == "pvpOnly" then
+						local stats = p:FindFirstChild("PlayerStats")
+						if not stats or not stats:FindFirstChild("PVP") or not stats.PVP.Value then
+							-- skip
+						else
+							if isValidPlayerCandidate(p) then
+								local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+								if hrp then
+									local dist = (player.Character.HumanoidRootPart.Position - hrp.Position).Magnitude
+									if dist < shortest then
+										shortest = dist
+										closest = hrp
+									end
+								end
+							end
+						end
+					else
+						-- normal player search
+						if not isValidPlayerCandidate(p) then
+							-- skip
+						else
+							local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+							if hrp then
+								local dist = (player.Character.HumanoidRootPart.Position - hrp.Position).Magnitude
+								if dist < shortest then
+									shortest = dist
+									closest = hrp
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+
+	return closest
+end
+
+-- Auto-update target
+RunService.Heartbeat:Connect(function()
+	-- nearestNoLock update
+	if aimMode == "nearestNoLock" and aimLock then
+		target = getNearestTarget()
+		return
+	end
+
+	-- auto switch when aimLock and not fully locked
+	if aimLock and not fullLock and tick() - lastSwitchTime >= 1 then
+		local exclude = {}
+		for _, p in ipairs(recentTargets) do table.insert(exclude, p) end
+		local new = getNearestTarget(exclude)
+		if new then
+			target = new
+			lastSwitchTime = tick()
+		end
+	end
+end)
+
+-- RENDER: aim camera
+RunService.RenderStepped:Connect(function()
+	local camPos = camera.CFrame.Position
+	local aimPart = nil
+	if fullLock and lockedTarget then
+		aimPart = getAimPart(lockedTarget.Parent)
+	elseif aimLock and target then
+		aimPart = getAimPart(target.Parent)
+	end
+	if aimPart then
+		local predicted = predictPosition(aimPart, predictionTime)
+		camera.CFrame = CFrame.lookAt(camPos, predicted)
+	end
+end)
+
+-- NAMEBOX: lock by partial name (press Enter)
+nameBox.FocusLost:Connect(function(enterPressed)
+	if not enterPressed then return end
+	local text = tostring(nameBox.Text or "")
+	if text == "" then return end
+	local lowerText = string.lower(text)
+	local found = nil
+	for _, p in ipairs(Players:GetPlayers()) do
+		if p ~= player and p.Character then
+			if string.find(string.lower(p.Name), lowerText, 1, true) then
+				if isValidPlayerCandidate(p) then
+					found = p
+					break
+				end
+			end
+		end
+	end
+	if found and found.Character then
+		local hrp = found.Character:FindFirstChild("HumanoidRootPart")
+		if hrp then
+			lockedTarget = hrp
+			fullLock = true
+			aimLock = false
+			target = nil
+			lockButton.Text = "Lock: ON"
+			lockButton.BackgroundColor3 = Color3.fromRGB(0,255,0)
+		end
+	end
+end)
+
+-- AIM Button cycle
+aimButton.MouseButton1Click:Connect(function()
+	local nextMode = {
+		off = playersEnabled and "players" or (pvpEnabled and "pvpOnly") or (npcEnabled and "npcOnly") or "off",
+		players = pvpEnabled and "pvpOnly" or (npcEnabled and "npcOnly") or "off",
+		pvpOnly = npcEnabled and "npcOnly" or "off",
+		npcOnly = "off",
+		nearestNoLock = "off"
+	}
+	if aimMode == "off" then
+		aimMode = nextMode["off"] or "off"
+	else
+		aimMode = nextMode[aimMode] or "off"
+	end
+
+	if aimMode == "off" then
+		aimLock = false
+		fullLock = false
+		target = nil
+		lockedTarget = nil
+		recentTargets = {}
+		aimButton.Text = "Aim Mode: OFF"
+		aimButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+		lockButton.Text = "Lock: OFF"
+		lockButton.BackgroundColor3 = Color3.fromRGB(128, 128, 128)
+	else
+		target = getNearestTarget()
+		if target then
+			aimLock = true
+			lastSwitchTime = tick()
+			recentTargets = {}
+			local p = Players:GetPlayerFromCharacter(target.Parent)
+			if p then table.insert(recentTargets, p) end
+
+			if aimMode == "players" then
+				aimButton.Text = "Aim: Players"
+				aimButton.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+			elseif aimMode == "pvpOnly" then
+				aimButton.Text = "Aim: PVP Only"
+				aimButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+			elseif aimMode == "npcOnly" then
+				aimButton.Text = "Aim: NPC Only"
+				aimButton.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+			elseif aimMode == "nearestNoLock" then
+				aimButton.Text = "Aim: Nearest"
+				aimButton.BackgroundColor3 = Color3.fromRGB(200, 200, 50)
+			end
+
+			lockButton.Visible = (aimMode ~= "npcOnly" and aimMode ~= "nearestNoLock")
+			switchLockButton.Visible = (aimMode ~= "npcOnly" and aimMode ~= "nearestNoLock")
+		else
+			aimMode = "off"
+			aimLock = false
+			target = nil
+			aimButton.Text = "Aim Mode: OFF"
+			aimButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+			lockButton.Visible = true
+			switchLockButton.Visible = true
+		end
+	end
+end)
+
+-- Nearest toggle
+nearestButton.MouseButton1Click:Connect(function()
+	if aimMode == "nearestNoLock" and aimLock then
+		aimMode = "off"
+		aimLock = false
+		target = nil
+		aimButton.Text = "Aim Mode: OFF"
+		aimButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+	else
+		aimMode = "nearestNoLock"
+		aimLock = true
+		target = getNearestTarget()
+		lastSwitchTime = tick()
+		aimButton.Text = "Aim: Nearest"
+		aimButton.BackgroundColor3 = Color3.fromRGB(200, 200, 50)
+		lockButton.Visible = false
+		switchLockButton.Visible = false
+	end
+end)
+
+-- Lock button
+lockButton.MouseButton1Click:Connect(function()
+	if aimMode == "off" then
+		fullLock = false
+		lockedTarget = nil
+		lockButton.Text = "Lock: OFF"
+		lockButton.BackgroundColor3 = Color3.fromRGB(128, 128, 128)
+		return
+	end
+
+	if fullLock then
+		fullLock = false
+		lockedTarget = nil
+		lockButton.Text = "Lock: OFF"
+		lockButton.BackgroundColor3 = Color3.fromRGB(128, 128, 128)
+	else
+		if target then
+			lockedTarget = target
+			fullLock = true
+			lockButton.Text = "Lock: ON"
+			lockButton.BackgroundColor3 = Color3.fromRGB(255, 255, 0)
+		end
+	end
+end)
+
+-- Switch & Lock (sequential, skip recentTargets)
+switchLockButton.MouseButton1Click:Connect(function()
+	local all = {}
+	for _, p in ipairs(Players:GetPlayers()) do
+		if p ~= player and isValidPlayerCandidate(p) then table.insert(all, p) end
+	end
+	if #recentTargets >= #all then recentTargets = {} end
+
+	local newTarget = getNearestTarget(recentTargets)
+	if newTarget then
+		target = newTarget
+		lockedTarget = newTarget
+		fullLock = true
+		lastSwitchTime = tick()
+		local p = Players:GetPlayerFromCharacter(newTarget.Parent)
+		if p then table.insert(recentTargets, p) end
+		lockButton.Text = "Lock: ON"
+		lockButton.BackgroundColor3 = Color3.fromRGB(255, 255, 0)
+	end
+end)
+
+-- keep layering safe
+for _, obj in ipairs(menuFrame:GetDescendants()) do
+	if obj:IsA("TextButton") or obj:IsA("TextBox") then
+		obj.Selectable = true
+		obj.Active = true
+		obj.ZIndex = 50
+		if obj:IsA("TextButton") then obj.TextTransparency = 0 end
+	elseif obj:IsA("GuiObject") then
+		obj.ZIndex = 1
+	end
+end
+titleLabel.ZIndex = 1
+menuFrame.ZIndex = 1
+toggleGuiButton.ZIndex = 60
+
+-- Player leaving cleanup
+Players.PlayerRemoving:Connect(function(p)
+	for i = #recentTargets, 1, -1 do
+		if recentTargets[i] == p then table.remove(recentTargets, i) end
+	end
+end)
+
+-- Final heartbeat: ensure lockedTarget validity (redundant safety)
+RunService.Heartbeat:Connect(function()
+	if lockedTarget and lockedTarget.Parent then
+		local pl = Players:GetPlayerFromCharacter(lockedTarget.Parent)
+		if pl then
+			local hum = getHumanoidFromChar(lockedTarget.Parent)
+			if not hum or hum.Health <= 0 then
+				fullLock = false
+				lockedTarget = nil
+				lockButton.Text = "Lock: OFF"
+				lockButton.BackgroundColor3 = Color3.fromRGB(128,128,128)
+			end
+		end
+	end
+
+	if target and target.Parent then
+		local p = Players:GetPlayerFromCharacter(target.Parent)
+		if p then
+			local humanoid = getHumanoidFromChar(target.Parent)
+			if not humanoid or humanoid.Health <= 0 then
+				target = nil
+			end
+		end
+	end
+end)
+
+-- End of script
