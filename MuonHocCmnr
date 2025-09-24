@@ -1,0 +1,344 @@
+--// Seed + Gear AutoBuy + Anti AFK + Image + Toggle Menu Style (Header + Border Sync)
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local VirtualUser = game:GetService("VirtualUser")
+local player = Players.LocalPlayer
+
+local remote = ReplicatedStorage:WaitForChild("BridgeNet2"):WaitForChild("dataRemoteEvent")
+
+local seedsFrame = player:WaitForChild("PlayerGui"):WaitForChild("Main")
+    :WaitForChild("Seeds"):WaitForChild("Frame"):WaitForChild("ScrollingFrame")
+
+local gearsFrame = player:WaitForChild("PlayerGui"):WaitForChild("Main")
+    :WaitForChild("Gears"):WaitForChild("Frame"):WaitForChild("ScrollingFrame")
+
+-- parse số trong stock text
+local function parseStockNumber(stockText)
+    if not stockText then return 0 end
+    local s = tostring(stockText):gsub("×", "x")
+    local n = s:match("x%s*(%d+)") or s:match("(%d+)")
+    return tonumber(n) or 0
+end
+
+-- lấy giá item (seed hoặc gear)
+local function getItemPrice(frame, itemName)
+    local obj = frame:FindFirstChild(itemName)
+    if obj and obj:FindFirstChild("Price") then
+        local n = tonumber(obj.Price.Text:match("(%d+)"))
+        return n or 0
+    end
+    return 0
+end
+
+-- gom tất cả item (seed + gear)
+local function getAllItems()
+    local items = {}
+
+    for _, child in ipairs(seedsFrame:GetChildren()) do
+        if child:IsA("GuiObject") and child.Name ~= "" and child.Name ~= "Padding" then
+            table.insert(items, {name = child.Name, type = "Seed", frame = seedsFrame, layout = child.LayoutOrder})
+        end
+    end
+
+    for _, child in ipairs(gearsFrame:GetChildren()) do
+        if child:IsA("GuiObject") and child.Name ~= "" and child.Name ~= "Padding" then
+            table.insert(items, {name = child.Name, type = "Gear", frame = gearsFrame, layout = child.LayoutOrder})
+        end
+    end
+
+    table.sort(items, function(a,b)
+        if a.type == b.type then
+            return a.layout < b.layout
+        else
+            return a.type < b.type
+        end
+    end)
+
+    return items
+end
+
+-- GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ShopChecker"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = player:WaitForChild("PlayerGui")
+
+-- nút bật/tắt GUI
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Size = UDim2.new(0, 30, 0, 30)
+toggleBtn.Position = UDim2.new(0, 12, 0, 100)
+toggleBtn.Text = "Q"
+toggleBtn.BackgroundColor3 = Color3.fromRGB(0,0,0)
+toggleBtn.BorderColor3 = Color3.fromRGB(255,255,255)
+toggleBtn.BorderSizePixel = 2
+toggleBtn.TextColor3 = Color3.fromRGB(255,255,255)
+toggleBtn.Parent = ScreenGui
+
+-- nút đổi menu
+local switchBtn = Instance.new("TextButton")
+switchBtn.Size = UDim2.new(0, 30, 0, 30)
+switchBtn.Position = UDim2.new(0, 50, 0, 100)
+switchBtn.Text = "Z"
+switchBtn.BackgroundColor3 = Color3.fromRGB(0,0,0)
+switchBtn.BorderColor3 = Color3.fromRGB(255,255,255)
+switchBtn.BorderSizePixel = 2
+switchBtn.TextColor3 = Color3.fromRGB(255,255,255)
+switchBtn.Parent = ScreenGui
+
+-- MainFrame
+local MainFrame = Instance.new("ImageLabel")
+MainFrame.Size = UDim2.new(0, 230, 0, 300)
+MainFrame.Position = UDim2.new(0.05, 0, 0.18, 0)
+MainFrame.Image = "rbxassetid://2938826191"
+MainFrame.ScaleType = Enum.ScaleType.Stretch
+MainFrame.BackgroundColor3 = Color3.fromRGB(0,0,0)
+MainFrame.BorderColor3 = Color3.fromRGB(255,255,0)
+MainFrame.BorderSizePixel = 2
+MainFrame.Active = true
+MainFrame.Parent = ScreenGui
+
+-- Header
+local Header = Instance.new("Frame")
+Header.Size = UDim2.new(1, 0, 0, 36)
+Header.BackgroundColor3 = Color3.fromRGB(255,255,0)
+Header.BorderColor3 = Color3.fromRGB(255,255,0)
+Header.BorderSizePixel = 2
+Header.Parent = MainFrame
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(0.65, 0, 1, 0)
+Title.Position = UDim2.new(0, 6, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "Seed + Gear AutoBuy + Anti AFK"
+Title.Font = Enum.Font.SourceSansBold
+Title.TextSize = 14
+Title.TextColor3 = Color3.fromRGB(0,0,0)
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = Header
+
+local TotalCollectLabel = Instance.new("TextLabel")
+TotalCollectLabel.Size = UDim2.new(0.35, -6, 1, 0)
+TotalCollectLabel.Position = UDim2.new(0.65, 0, 0, 0)
+TotalCollectLabel.BackgroundTransparency = 1
+TotalCollectLabel.Text = "Total: 0"
+TotalCollectLabel.Font = Enum.Font.SourceSans
+TotalCollectLabel.TextSize = 14
+TotalCollectLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
+TotalCollectLabel.Parent = Header
+
+local ScrollingFrame = Instance.new("ScrollingFrame")
+ScrollingFrame.Size = UDim2.new(1, -6, 1, -70)
+ScrollingFrame.Position = UDim2.new(0, 3, 0, 40)
+ScrollingFrame.CanvasSize = UDim2.new(0,0,0,0)
+ScrollingFrame.ScrollBarThickness = 5
+ScrollingFrame.BackgroundTransparency = 1
+ScrollingFrame.Parent = MainFrame
+
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.Parent = ScrollingFrame
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.Padding = UDim.new(0,4)
+
+-- Anti AFK frame
+local AntiFrame = Instance.new("Frame")
+AntiFrame.Size = UDim2.new(1, -6, 0, 28)
+AntiFrame.Position = UDim2.new(0, 3, 1, -32)
+AntiFrame.BackgroundColor3 = Color3.fromRGB(255,255,0)
+AntiFrame.BorderColor3 = Color3.fromRGB(255,255,0)
+AntiFrame.BorderSizePixel = 2
+AntiFrame.Parent = MainFrame
+
+local AntiText = Instance.new("TextLabel")
+AntiText.Size = UDim2.new(1, 0, 1, 0)
+AntiText.BackgroundTransparency = 1
+AntiText.Text = "Anti AFK: On | Active: On"
+AntiText.Font = Enum.Font.SourceSansBold
+AntiText.TextSize = 14
+AntiText.TextColor3 = Color3.fromRGB(0,0,0)
+AntiText.Parent = AntiFrame
+
+-- Toggle GUI
+toggleBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+end)
+
+-- đổi style
+local styleYellow = true
+switchBtn.MouseButton1Click:Connect(function()
+    styleYellow = not styleYellow
+    if styleYellow then
+        MainFrame.BorderColor3 = Color3.fromRGB(255,255,0)
+        MainFrame.Image = "rbxassetid://2938826191"
+        Header.BackgroundColor3 = Color3.fromRGB(255,255,0)
+        Header.BorderColor3 = Color3.fromRGB(255,255,0)
+        Title.TextColor3 = Color3.fromRGB(0,0,0)
+        TotalCollectLabel.TextColor3 = Color3.fromRGB(0,0,0)
+        AntiFrame.BackgroundColor3 = Color3.fromRGB(255,255,0)
+        AntiFrame.BorderColor3 = Color3.fromRGB(255,255,0)
+        AntiText.TextColor3 = Color3.fromRGB(0,0,0)
+    else
+        MainFrame.BorderColor3 = Color3.fromRGB(0,0,0)
+        MainFrame.Image = "rbxassetid://12194248148"
+        Header.BackgroundColor3 = Color3.fromRGB(0,0,0)
+        Header.BorderColor3 = Color3.fromRGB(0,0,0)
+        Title.TextColor3 = Color3.fromRGB(255,255,255)
+        TotalCollectLabel.TextColor3 = Color3.fromRGB(255,255,255)
+        AntiFrame.BackgroundColor3 = Color3.fromRGB(0,0,0)
+        AntiFrame.BorderColor3 = Color3.fromRGB(0,0,0)
+        AntiText.TextColor3 = Color3.fromRGB(255,255,255)
+    end
+end)
+
+-- drag gui
+do
+    local dragging, dragInput, dragStart, startPos
+    Header.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragInput = input
+            dragStart = input.Position
+            startPos = MainFrame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X,
+                                           startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+-- data
+local selectedItems, collectPerItem, itemRows = {}, {}, {}
+local totalCollect, lastBoughtTime = 0, 0
+
+-- hàm mua
+local function buyItem(itemType, itemName)
+    local args
+    if itemType == "Seed" then
+        args = { {itemName, "\a"} }
+    else
+        args = { {itemName, " "} }
+    end
+
+    local success, err = pcall(function() remote:FireServer(unpack(args)) end)
+    if success then
+        collectPerItem[itemName] = (collectPerItem[itemName] or 0) + 1
+        totalCollect += 1
+        TotalCollectLabel.Text = "Total: "..totalCollect
+    else
+        warn("Buy failed", err)
+    end
+end
+
+-- tạo row
+local function createItemRow(item)
+    if itemRows[item.name] then return end
+    local container = Instance.new("Frame")
+    container.Size = UDim2.new(1, -6, 0, 28)
+    container.BackgroundTransparency = 1
+    container.Parent = ScrollingFrame
+
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0.55, 0, 1, 0)
+    btn.Text = "["..item.type.."] "..item.name
+    btn.Font = Enum.Font.SourceSans
+    btn.TextSize = 14
+    btn.BackgroundColor3 = Color3.fromRGB(0,100,0)
+    btn.TextColor3 = Color3.fromRGB(255,255,255)
+    btn.Parent = container
+
+    local info = Instance.new("TextLabel")
+    info.Size = UDim2.new(0.45, -4, 1, 0)
+    info.Position = UDim2.new(0.55, 4, 0, 0)
+    info.BackgroundTransparency = 1
+    info.Font = Enum.Font.SourceSans
+    info.TextSize = 13
+    info.Text = "Checking..."
+    info.TextXAlignment = Enum.TextXAlignment.Left
+    info.Parent = container
+
+    selectedItems[item.name] = false
+    collectPerItem[item.name] = 0
+
+    btn.MouseButton1Click:Connect(function()
+        selectedItems[item.name] = not selectedItems[item.name]
+        btn.BackgroundColor3 = selectedItems[item.name] and Color3.fromRGB(0,200,0) or Color3.fromRGB(0,100,0)
+    end)
+
+    itemRows[item.name] = {name = item.name, type = item.type, info = info}
+end
+
+for _, item in ipairs(getAllItems()) do
+    createItemRow(item)
+end
+
+UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    ScrollingFrame.CanvasSize = UDim2.new(0,0,0,UIListLayout.AbsoluteContentSize.Y+8)
+end)
+
+task.spawn(function()
+    while task.wait(1) do
+        for _, item in ipairs(getAllItems()) do
+            if not itemRows[item.name] then createItemRow(item) end
+        end
+    end
+end)
+
+-- loop chính
+task.spawn(function()
+    while true do
+        local ordered = {}
+        for _, row in pairs(itemRows) do table.insert(ordered, row) end
+        table.sort(ordered, function(a,b)
+            local pa = getItemPrice(a.type=="Seed" and seedsFrame or gearsFrame, a.name)
+            local pb = getItemPrice(b.type=="Seed" and seedsFrame or gearsFrame, b.name)
+            if pa == pb then
+                return a.name < b.name
+            else
+                return pa > pb
+            end
+        end)
+
+        local now = tick()
+        for _, row in ipairs(ordered) do
+            local frame = row.type=="Seed" and seedsFrame or gearsFrame
+            local stockText
+            local ok, result = pcall(function()
+                local obj = frame:FindFirstChild(row.name)
+                return obj and obj:FindFirstChild("Stock") and obj.Stock.Text or nil
+            end)
+            if ok then stockText = result end
+
+            if stockText then
+                local stockNum = parseStockNumber(stockText)
+                row.info.Text = tostring(stockText).." | Collect:"..collectPerItem[row.name]
+                row.info.TextColor3 = stockNum > 0 and Color3.fromRGB(0,255,0) or Color3.fromRGB(255,80,80)
+                if selectedItems[row.name] and stockNum > 0 and (now - lastBoughtTime) >= 0.5 then
+                    buyItem(row.type, row.name)
+                    lastBoughtTime = now
+                    break
+                end
+            else
+                row.info.Text = "N/A | Collect:"..collectPerItem[row.name]
+                row.info.TextColor3 = Color3.fromRGB(200,200,200)
+            end
+            task.wait(0.05)
+        end
+    end
+end)
+
+-- Anti AFK
+player.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new())
+    AntiText.Text = "Anti AFK: On | Active: On"
+end)
+
+print("Seed + Gear AutoBuy + Anti AFK + Toggle Menu Style loaded.")
