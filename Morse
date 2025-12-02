@@ -1,0 +1,417 @@
+-- MorsePlatformStand_Cleaned.lua
+-- LocalScript (client) - nghe/phát Morse bằng Swim/Sit + PlatformStand để báo kết thúc letter
+-- - Chỉ 2 textbox: playerInput (cho Button 1) và messageInput (cho Button 2)
+-- - Nếu không có mã morse trong 3s, khi có mã mới sẽ xóa output/morse cũ rồi nhận mã mới
+-- - Partial, case-insensitive name matching khi Listen
+-- - SuperFast mặc định; cho phép Listen & Send cùng lúc
+-- Dán nguyên file này vào StarterPlayerScripts (LocalScript)
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- ===== Morse table =====
+local morse = {
+    A = ".-",    B = "-...",  C = "-.-.",  D = "-..",
+    E = ".",     F = "..-.",  G = "--.",   H = "....",
+    I = "..",    J = ".---",  K = "-.-",   L = ".-..",
+    M = "--",    N = "-.",    O = "---",   P = ".--.",
+    Q = "--.-",  R = ".-.",   S = "...",   T = "-",
+    U = "..-",   V = "...-",  W = ".--",   X = "-..-",
+    Y = "-.--",  Z = "--..",
+    ["0"] = "-----", ["1"] = ".----", ["2"] = "..---",
+    ["3"] = "...--", ["4"] = "....-", ["5"] = ".....",
+    ["6"] = "-....", ["7"] = "--...", ["8"] = "---..",
+    ["9"] = "----."
+}
+local morseToChar = {}
+for k,v in pairs(morse) do morseToChar[v] = k end
+
+-- SPACE code (short)
+local SPACE_CODE = ".-.-"
+
+-- ===== UI (clean: two text inputs only + 2 buttons + 2 outputs) =====
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "MorseGui_Clean"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
+
+local frame = Instance.new("Frame")
+frame.Name = "Main"
+frame.Size = UDim2.new(0, 360, 0, 150)
+frame.Position = UDim2.new(0.5, -180, 0.08, 0)
+frame.BackgroundColor3 = Color3.fromRGB(22,22,22)
+frame.BorderSizePixel = 0
+frame.Parent = screenGui
+frame.Active = true
+
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1, -12, 0, 22)
+title.Position = UDim2.new(0, 6, 0, 6)
+title.BackgroundTransparency = 1
+title.Text = "Morse — Listen/Send (Swim/Sit + PlatformStand)"
+title.TextColor3 = Color3.fromRGB(230,230,230)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 14
+
+-- player input (for Listen)
+local playerInput = Instance.new("TextBox", frame)
+playerInput.Size = UDim2.new(0.48, -6, 0, 32)
+playerInput.Position = UDim2.new(0, 6, 0, 34)
+playerInput.PlaceholderText = "Tên player (Listen)"
+playerInput.ClearTextOnFocus = false
+playerInput.Font = Enum.Font.Gotham
+playerInput.TextSize = 14
+playerInput.BackgroundColor3 = Color3.fromRGB(38,38,38)
+playerInput.TextColor3 = Color3.fromRGB(230,230,230)
+
+-- message input (for Send)
+local messageInput = Instance.new("TextBox", frame)
+messageInput.Size = UDim2.new(0.48, -6, 0, 32)
+messageInput.Position = UDim2.new(0.52, 0, 0, 34)
+messageInput.PlaceholderText = "Tin nhắn (Send)"
+messageInput.ClearTextOnFocus = false
+messageInput.Font = Enum.Font.Gotham
+messageInput.TextSize = 14
+messageInput.BackgroundColor3 = Color3.fromRGB(38,38,38)
+messageInput.TextColor3 = Color3.fromRGB(230,230,230)
+
+local btnListen = Instance.new("TextButton", frame)
+btnListen.Size = UDim2.new(0.48, -6, 0, 30)
+btnListen.Position = UDim2.new(0, 6, 0, 72)
+btnListen.Text = "Button 1: Nghe"
+btnListen.Font = Enum.Font.GothamSemibold
+btnListen.TextSize = 14
+btnListen.BackgroundColor3 = Color3.fromRGB(70,130,180)
+btnListen.TextColor3 = Color3.fromRGB(255,255,255)
+
+local btnSend = Instance.new("TextButton", frame)
+btnSend.Size = UDim2.new(0.48, -6, 0, 30)
+btnSend.Position = UDim2.new(0.52, 0, 0, 72)
+btnSend.Text = "Button 2: Phát"
+btnSend.Font = Enum.Font.GothamSemibold
+btnSend.TextSize = 14
+btnSend.BackgroundColor3 = Color3.fromRGB(70,130,180)
+btnSend.TextColor3 = Color3.fromRGB(255,255,255)
+
+-- decoded output (Listen)
+local outLabel = Instance.new("TextLabel", frame)
+outLabel.Size = UDim2.new(1, -12, 0, 22)
+outLabel.Position = UDim2.new(0, 6, 0, 108)
+outLabel.BackgroundColor3 = Color3.fromRGB(34,34,34)
+outLabel.TextColor3 = Color3.fromRGB(220,220,220)
+outLabel.Font = Enum.Font.Gotham
+outLabel.TextSize = 14
+outLabel.Text = "Output: "
+outLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+-- send status (Send)
+local sendOutputLabel = Instance.new("TextLabel", frame)
+sendOutputLabel.Size = UDim2.new(1, -12, 0, 18)
+sendOutputLabel.Position = UDim2.new(0, 6, 0, 130)
+sendOutputLabel.BackgroundColor3 = Color3.fromRGB(30,30,30)
+sendOutputLabel.TextColor3 = Color3.fromRGB(190,190,190)
+sendOutputLabel.Font = Enum.Font.Gotham
+sendOutputLabel.TextSize = 12
+sendOutputLabel.Text = "Send: "
+sendOutputLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+-- draggable (mobile-friendly)
+local dragging, dragStart, startPos
+frame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = frame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+frame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement then
+        if dragging and dragStart and startPos then
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end
+end)
+
+-- ===== Timing / speed (super fast default) =====
+local speedLevels = {0.03, 0.05, 0.09}
+local speedIndex = 1
+local function unit() return speedLevels[speedIndex] end
+
+-- ===== Helper: partial player find (case-insensitive, anywhere) =====
+local function findPlayerByPartial(nameFragment)
+    if not nameFragment or nameFragment == "" then return nil end
+    local lowerFrag = nameFragment:lower()
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p.Name:lower():find(lowerFrag, 1, true) then
+            return p
+        end
+    end
+    return nil
+end
+
+-- ===== Listening logic =====
+local listenConnState, listenConnSit, listenConnPlatform
+local listening = false
+local currentBuffer = ""      -- '.' and '-' for current letter
+local outputText = ""         -- decoded text to show in outLabel
+local swimDebounce = false
+local sitDebounce = false
+local platformDebounce = false
+
+-- track last symbol time (tick seconds). If gap > 3, then clear old outputs when new symbol arrives.
+local lastSymbolTime = 0
+local INACTIVITY_CLEAR_SECONDS = 3
+
+local function clearAllOutputs()
+    outputText = ""
+    currentBuffer = ""
+    outLabel.Text = "Output: "
+    sendOutputLabel.Text = "Send: "
+end
+
+local function onNewSymbolAboutToAppend()
+    local now = tick()
+    if lastSymbolTime > 0 and (now - lastSymbolTime) > INACTIVITY_CLEAR_SECONDS then
+        -- clear old when new morse starts after inactivity
+        clearAllOutputs()
+    end
+    -- we'll update lastSymbolTime after appending
+end
+
+local function flushBufferToOutput()
+    if currentBuffer ~= "" then
+        if currentBuffer == SPACE_CODE then
+            outputText = outputText .. " "
+        else
+            local ch = morseToChar[currentBuffer] or "?"
+            outputText = outputText .. ch
+        end
+        outLabel.Text = "Output: " .. outputText
+        currentBuffer = ""
+    end
+end
+
+local function startListening(targetPlayer)
+    if listening then return end
+    if not targetPlayer or not targetPlayer.Character then return end
+    local char = targetPlayer.Character
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return end
+
+    listening = true
+    outputText = ""
+    currentBuffer = ""
+    swimDebounce = false
+    sitDebounce = false
+    platformDebounce = false
+    lastSymbolTime = 0
+
+    outLabel.Text = "Output: Đang nghe " .. targetPlayer.Name .. " ..."
+    -- swim -> dot when entering Swimming state
+    listenConnState = humanoid.StateChanged:Connect(function(old, new)
+        if new == Enum.HumanoidStateType.Swimming then
+            if not swimDebounce then
+                onNewSymbolAboutToAppend()
+                currentBuffer = currentBuffer .. "."
+                lastSymbolTime = tick()
+                swimDebounce = true
+            end
+        else
+            if swimDebounce then swimDebounce = false end
+        end
+    end)
+    -- sit -> dash when Sit true
+    listenConnSit = humanoid:GetPropertyChangedSignal("Sit"):Connect(function()
+        if humanoid.Sit == true then
+            if not sitDebounce then
+                onNewSymbolAboutToAppend()
+                currentBuffer = currentBuffer .. "-"
+                lastSymbolTime = tick()
+                sitDebounce = true
+            end
+        else
+            if sitDebounce then sitDebounce = false end
+        end
+    end)
+    -- PlatformStand true -> flush letter
+    listenConnPlatform = humanoid:GetPropertyChangedSignal("PlatformStand"):Connect(function()
+        if humanoid.PlatformStand == true then
+            if not platformDebounce then
+                platformDebounce = true
+                -- if last activity gap large, ensure we clear old outputs (safety)
+                if lastSymbolTime > 0 and (tick() - lastSymbolTime) > INACTIVITY_CLEAR_SECONDS then
+                    clearAllOutputs()
+                end
+                flushBufferToOutput()
+                task.delay(0.06, function() platformDebounce = false end)
+            end
+        end
+    end)
+end
+
+local function stopListening()
+    listening = false
+    if listenConnState then listenConnState:Disconnect(); listenConnState = nil end
+    if listenConnSit then listenConnSit:Disconnect(); listenConnSit = nil end
+    if listenConnPlatform then listenConnPlatform:Disconnect(); listenConnPlatform = nil end
+    outLabel.Text = "Output: "
+end
+
+btnListen.MouseButton1Click:Connect(function()
+    if listening then
+        stopListening()
+        btnListen.Text = "Button 1: Nghe"
+        return
+    end
+    local name = playerInput.Text:match("^%s*(.-)%s*$")
+    if name == "" then
+        outLabel.Text = "Output: Nhập tên player vào ô bên trái"
+        return
+    end
+    local target = findPlayerByPartial(name)
+    if not target then
+        outLabel.Text = "Output: Player không tìm thấy"
+        return
+    end
+    if not target.Character or not target.Character:FindFirstChildOfClass("Humanoid") then
+        outLabel.Text = "Output: Player chưa có character"
+        return
+    end
+    startListening(target)
+    btnListen.Text = "Nghe (Stop)"
+end)
+
+-- ===== Sending logic (Button 2) =====
+local function encodeTextToSequence(txt)
+    local seq = {}
+    txt = txt:upper()
+    local words = {}
+    for w in txt:gmatch("%S+") do table.insert(words, w) end
+    for wi, w in ipairs(words) do
+        for i = 1, #w do
+            local ch = w:sub(i,i)
+            local code = morse[ch]
+            if code then table.insert(seq, code) end
+        end
+        if wi < #words then
+            table.insert(seq, SPACE_CODE)
+        end
+    end
+    return seq
+end
+
+local function tryGetLocalHumanoid()
+    if not player.Character then return nil end
+    return player.Character:FindFirstChildOfClass("Humanoid")
+end
+
+local isSending = false
+btnSend.MouseButton1Click:Connect(function()
+    if isSending then return end
+
+    local text = messageInput.Text:match("^%s*(.-)%s*$")
+    if text == "" then
+        sendOutputLabel.Text = "Send: Nhập tin nhắn vào ô bên phải"
+        return
+    end
+    local hum = tryGetLocalHumanoid()
+    if not hum then
+        sendOutputLabel.Text = "Send: Chưa có humanoid (hãy spawn)"
+        return
+    end
+
+    local seq = encodeTextToSequence(text)
+    if #seq == 0 then
+        sendOutputLabel.Text = "Send: Không có kí tự tương thích"
+        return
+    end
+
+    -- CLEAR previous morse/output to avoid being overwritten when new send starts
+    clearAllOutputs()
+
+    -- show sending status
+    sendOutputLabel.Text = "Send: Đang phát..."
+    isSending = true
+
+    local u = unit()
+    local elementPause = math.max(u * 0.18, 0.005)
+    local letterSignalHold = math.max(u * 0.5, 0.02)
+    local ensureSitTimeout = 0.35
+
+    local function ensureSitFalse()
+        hum.Sit = false
+        local t = 0
+        while hum.Sit and t < ensureSitTimeout do
+            task.wait(0.01); t = t + 0.01
+        end
+    end
+
+    for idx, code in ipairs(seq) do
+        if code == SPACE_CODE then
+            for si = 1, #code do
+                local s = code:sub(si,si)
+                if s == "." then
+                    pcall(function() hum:ChangeState(Enum.HumanoidStateType.Swimming) end)
+                    task.wait(u)
+                    pcall(function() hum:ChangeState(Enum.HumanoidStateType.GettingUp) end)
+                    task.wait(elementPause)
+                elseif s == "-" then
+                    hum.Sit = true
+                    task.wait(u * 3)
+                    hum.Sit = false
+                    task.wait(elementPause)
+                    ensureSitFalse()
+                end
+                task.wait(0.004)
+            end
+            pcall(function() hum.PlatformStand = true end)
+            task.wait(letterSignalHold)
+            pcall(function() hum.PlatformStand = false end)
+            task.wait(u * 0.6)
+        else
+            for si = 1, #code do
+                local s = code:sub(si,si)
+                if s == "." then
+                    pcall(function() hum:ChangeState(Enum.HumanoidStateType.Swimming) end)
+                    task.wait(u)
+                    pcall(function() hum:ChangeState(Enum.HumanoidStateType.GettingUp) end)
+                    task.wait(elementPause)
+                elseif s == "-" then
+                    hum.Sit = true
+                    task.wait(u * 3)
+                    hum.Sit = false
+                    task.wait(elementPause)
+                    ensureSitFalse()
+                end
+                task.wait(0.004)
+            end
+            pcall(function() hum.PlatformStand = true end)
+            task.wait(letterSignalHold)
+            pcall(function() hum.PlatformStand = false end)
+            task.wait(u * 0.4)
+        end
+        task.wait(0.001)
+    end
+
+    sendOutputLabel.Text = "Send: Phát xong — " .. (text or "")
+    isSending = false
+end)
+
+-- Clean up on leave
+player.AncestryChanged:Connect(function()
+    if not player:IsDescendantOf(game) then
+        if listenConnState then listenConnState:Disconnect() end
+        if listenConnSit then listenConnSit:Disconnect() end
+        if listenConnPlatform then listenConnPlatform:Disconnect() end
+        screenGui:Destroy()
+    end
+end)
