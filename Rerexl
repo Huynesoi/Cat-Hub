@@ -390,10 +390,36 @@ end
         ]]
     },
     {
-        name = "Rejoin",
+        name = "cfame",
         code = [[
-            local ts = game:GetService("TeleportService")
-            ts:Teleport(game.PlaceId, game.Players.LocalPlayer)
+            -- LocalScript: Tele liên tục tới 10000,10000,10000
+-- Đặt vào StarterPlayer > StarterPlayerScripts hoặc chạy qua executor
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local TARGET_CFRAME = CFrame.new(10000, 10000, 10000)
+local INTERVAL = 0 -- số giây giữa mỗi lần tele (đổi theo ý bạn)
+
+local last = 0
+
+local function getRoot(char)
+    return char:FindFirstChild("HumanoidRootPart")
+end
+
+RunService.Heartbeat:Connect(function()
+    if os.clock() - last < INTERVAL then return end
+    last = os.clock()
+
+    local char = player.Character
+    if not char then return end
+
+    local hrp = getRoot(char)
+    if hrp then
+        hrp.CFrame = TARGET_CFRAME
+    end
+end)
         ]]
     }
 }
