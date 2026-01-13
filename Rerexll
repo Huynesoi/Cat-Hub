@@ -216,44 +216,34 @@ end
     {
         name = "gamepass",
         code = [[
-            -- LocalScript
--- Set toàn bộ Gamepasses = true và auto set lại khi reset
+      -- LocalScript
+-- Set TẤT CẢ Value trong Gamepasses = true
+-- Tự set lại khi chết / respawn
 
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 
--- danh sách gamepass cần set
-local passNames = {
-	["+12 Item Storage"] = true,
-	["+6 Ability Storage"] = true,
-	["2x Tower Luck"] = true,
-	["Blacklist Item"] = true,
-	["VIP"] = true,
-	["X2 Gold"] = true,
-	["X2 Mastery"] = true,
-	["x2 Luck"] = true,
-	["x3 Luck Dungeon"] = true,
-}
+local function setAllValuesTrue()
+	local gamepasses = player:FindFirstChild("Gamepasses")
+	if not gamepasses then return end
 
-local function applyGamepasses()
-	local gpFolder = player:FindFirstChild("Gamepasses")
-	if not gpFolder then return end
-
-	for name in pairs(passNames) do
-		local v = gpFolder:FindFirstChild(name)
-		if v and v:IsA("BoolValue") then
-			v.Value = true
+	for _, obj in ipairs(gamepasses:GetDescendants()) do
+		if obj:IsA("ValueBase") then
+			-- chỉ set nếu Value chấp nhận true
+			pcall(function()
+				obj.Value = true
+			end)
 		end
 	end
 end
 
--- áp dụng lần đầu
-applyGamepasses()
+-- chạy lần đầu
+setAllValuesTrue()
 
--- auto set lại khi reset
+-- khi chết / respawn
 player.CharacterAdded:Connect(function()
 	task.wait(0.2)
-	applyGamepasses()
+	setAllValuesTrue()
 end)
         ]]
     },
