@@ -11,19 +11,160 @@ local playerGui = player:WaitForChild("PlayerGui")
 -- CHỈ THAY CODE TRONG "code", KHÔNG ĐỔI LOGIC
 local ScriptList = {
     {
-        name = "Open gate",
+        name = "Fly",
         code = [[
-           _G.Loop = true
-while _G.Loop and task.wait(0.2) do
+            loadstring(game:HttpGet("https://pastebin.com/raw/FLY_EXAMPLE"))()
+        ]]
+    },
+    {
+        name = "Flud",
+        code = [[
+            -- LocalScript
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local remote = ReplicatedStorage
+	:WaitForChild("RemoteEvents")
+	:WaitForChild("FluidMovementsRemote")
+
 local args = {
-	"Towers:OpenGate"
+	false,
+	Vector3.new(1327.279296875, 1170.01806640625, 7767.89208984375),
+	CFrame.new(
+		1327.279296875, 1170.01806640625, 7767.89208984375,
+		0.26126232743263245, -0.5304916501045227, 0.8064246773719788,
+		0, 0.8354414105415344, 0.5495797395706177,
+		-0.9652678966522217, -0.1435844749212265, 0.21826934814453125
+	),
+	1
 }
-game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Signal"):WaitForChild("RemoteEvent"):FireServer(unpack(args))
+
+local spamming = false
+
+-- spam mỗi frame (0s)
+task.spawn(function()
+	while true do
+		if spamming then
+			remote:FireServer(unpack(args))
+		end
+		RunService.Heartbeat:Wait()
+	end
+end)
+
+-- reset nhân vật
+task.wait()
+player.Character:BreakJoints()
+
+-- đợi 1s SAU reset mới bắt đầu spam
+task.wait(1)
+spamming = true
+
+-- đợi nhân vật hồi sinh hoàn toàn
+local character = player.CharacterAdded:Wait()
+character:WaitForChild("Humanoid")
+character:WaitForChild("HumanoidRootPart")
+
+-- hồi sinh xong → spam thêm 2s
+task.wait(2)
+
+-- dừng hẳn
+spamming = false
+        ]]
+    },
+    {
+        name = "antilag1",
+        code = [[
+            -- LocalScript
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local player = Players.LocalPlayer
+
+-- Danh sách đường dẫn cần destroy (dạng string)
+local targetPaths = {
+    "ReplicatedStorage.ReiNew.DamageShower",
+    "ReplicatedStorage.Modules.DamageModule",
+    "Players.LocalPlayer.Backpack.Scripts.CameraShaker",
+    "Players.LocalPlayer.Backpack.Scripts.StatLevelingScript",
+    "Players.LocalPlayer.Backpack.Scripts.MasteryLevelingScript",
+    "Players.LocalPlayer.Backpack.Scripts.CameraShakeScript",
+    "ReplicatedStorage.Remotes.DamageDetector",
+    "ReplicatedStorage.KevModules.CameraShaker",
+    "ReplicatedStorage.Dependencies.CameraShaker",
+    "ReplicatedStorage.Modules.CameraShaker",
+    "Players.LocalPlayer.CharacterCreation",
+    "Players.LocalPlayer.Blacklisted",
+    "Players.LocalPlayer.Codes",
+    "Players.LocalPlayer.Mastery",
+    "Workspace.Debris",
+    "Players.LocalPlayer.Backpack.Scripts.ClientEffectScripts",
+    "Players.LocalPlayer.Backpack.Scripts.Movement",
+    "Players.LocalPlayer.Backpack.Scripts.NewModules",
+    "Players.LocalPlayer.Backpack.Scripts.Specializations",
+    "Players.LocalPlayer.Backpack.Scripts.Race Skills",
+    "ReplicatedStorage.Assets",
+    "ReplicatedStorage.CharacterCreationItems",
+    "ReplicatedStorage.Color3Values",
+    "ReplicatedStorage.FX",
+    "ReplicatedStorage.Particles",
+    "ReplicatedStorage.VFX",
+    "ReplicatedStorage.KevSFX",
+    "ReplicatedStorage.RemoteEvents.VFXLowRemote",
+    "ReplicatedStorage.RemoteEvents.VFXCutscenesRemote",
+    "ReplicatedStorage.ReiNew.VFXReplicate",
+    "ReplicatedStorage.VFXModules",
+    "Players.LocalPlayer.PlayerScripts.VFXReplicator",
+    "Players.LocalPlayer.Backpack.Scripts.LightBlindScript",
+    "ReplicatedStorage.Animations",
+    "ReplicatedStorage.KevAssets",
+    "ReplicatedStorage.WeaponTrails",
+    "ReplicatedStorage.Sounds",
+    "ReplicatedStorage.Modules.RaycastHitboxV4",
+    "ReplicatedStorage.Dependencies"
+}
+
+-- Hàm tìm object an toàn theo path
+local function findByPath(path)
+    local current = game
+    for part in string.gmatch(path, "[^%.]+") do
+        if part == "Players" then
+            current = Players
+        elseif part == "LocalPlayer" then
+            current = player
+        elseif part == "Workspace" then
+            current = workspace
+        else
+            current = current:FindFirstChild(part)
+        end
+        if not current then
+            return nil
+        end
+    end
+    return current
+end
+
+-- Destroy an toàn
+for _, path in ipairs(targetPaths) do
+    local obj = findByPath(path)
+    if obj then
+        pcall(function()
+            obj:Destroy()
+        end)
+    end
 end
         ]]
     },
     {
-        name = "Afk",
+        name = "antilag2",
+        code = [[
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/Huynesoi/Cat-Hub/refs/heads/master/Lagv2"))()
+        ]]
+    },
+    {
+        name = "afk",
         code = [[
             --Anti AFK Script
 wait(0.5)local ba=Instance.new("ScreenGui")
@@ -48,9 +189,273 @@ ab.Text="Roblox tried to kick u but i kicked him instead"wait(2)ab.Text="Status 
         ]]
     },
     {
+        name = "gate",
+        code = [[
+            _G.Loop = true
+while _G.Loop and task.wait(0.2) do
+local args = {
+	"Towers:OpenGate"
+}
+game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Signal"):WaitForChild("RemoteEvent"):FireServer(unpack(args))
+end
+        ]]
+    },
+    {
+        name = "spam",
+        code = [[
+            _G.Loop = true
+while _G.Loop and task.wait(0.05) do
+local args = {
+	"MadaraFifth"
+}
+game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("AbilityHandler"):FireServer(unpack(args))
+
+end
+        ]]
+    },
+    {
+        name = "gamepass",
+        code = [[
+            -- LocalScript
+-- Set toàn bộ Gamepasses = true và auto set lại khi reset
+
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+-- danh sách gamepass cần set
+local passNames = {
+	["+12 Item Storage"] = true,
+	["+6 Ability Storage"] = true,
+	["2x Tower Luck"] = true,
+	["Blacklist Item"] = true,
+	["VIP"] = true,
+	["X2 Gold"] = true,
+	["X2 Mastery"] = true,
+	["x2 Luck"] = true,
+	["x3 Luck Dungeon"] = true,
+}
+
+local function applyGamepasses()
+	local gpFolder = player:FindFirstChild("Gamepasses")
+	if not gpFolder then return end
+
+	for name in pairs(passNames) do
+		local v = gpFolder:FindFirstChild(name)
+		if v and v:IsA("BoolValue") then
+			v.Value = true
+		end
+	end
+end
+
+-- áp dụng lần đầu
+applyGamepasses()
+
+-- auto set lại khi reset
+player.CharacterAdded:Connect(function()
+	task.wait(0.2)
+	applyGamepasses()
+end)
+        ]]
+    },
+    {
+        name = "inf tower",
+        code = [[
+          -- LocalScript FIX (LOGIC ĐÃ ĐỔI ĐÚNG)
+-- Khi Live rỗng -> tìm ProximityPrompt gần nhất theo MODEL, tele + fire LIÊN TỤC
+-- Đặt vào StarterPlayer > StarterPlayerScripts
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+local ProximityPromptService = game:GetService("ProximityPromptService")
+
+local player = Players.LocalPlayer
+
+-- ===== CHAR =====
+local character, root
+local function refreshChar()
+	character = player.Character or player.CharacterAdded:Wait()
+	root = character:WaitForChild("HumanoidRootPart")
+end
+refreshChar()
+player.CharacterAdded:Connect(refreshChar)
+
+-- ===== GUI =====
+local gui = Instance.new("ScreenGui")
+gui.Name = "CenterTPGui"
+gui.ResetOnSpawn = false
+gui.Parent = player:WaitForChild("PlayerGui")
+
+local btn = Instance.new("TextButton")
+btn.Size = UDim2.new(0, 140, 0, 50)
+btn.Position = UDim2.new(0.05, 0, 0.75, 0)
+btn.Text = "CENTER TP : OFF"
+btn.BackgroundColor3 = Color3.fromRGB(35,35,35)
+btn.TextColor3 = Color3.new(1,1,1)
+btn.BorderSizePixel = 0
+btn.Parent = gui
+
+-- ===== STATE =====
+local enabled = false
+local lastTick = 0
+local promptMode = false
+local promptRoutineActive = false
+
+-- ===== UTILS =====
+local function getModelPosition(model)
+	if not model then return nil end
+	local ok, pivot = pcall(function()
+		return model:GetPivot()
+	end)
+	if ok then
+		return pivot.Position
+	end
+	return nil
+end
+
+-- Live còn model không
+local function liveHasValidModels()
+	local live = Workspace:FindFirstChild("Live")
+	if not live then return false end
+	for _, m in ipairs(live:GetChildren()) do
+		if m:IsA("Model") then
+			if getModelPosition(m) then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+-- ===== PROMPT LOGIC (MODEL BASED) =====
+local function findClosestPromptModel()
+	if not root then return end
+
+	local bestModel, bestPrompt
+	local bestDist = math.huge
+
+	for _, inst in ipairs(game:GetDescendants()) do
+		if inst:IsA("ProximityPrompt") then
+			local model = inst.Parent
+			if model and model:IsA("Model") and not model:IsDescendantOf(character) then
+				local ok, pivot = pcall(function()
+					return model:GetPivot()
+				end)
+				if ok then
+					local dist = (root.Position - pivot.Position).Magnitude
+					if dist < bestDist then
+						bestDist = dist
+						bestModel = model
+						bestPrompt = inst
+					end
+				end
+			end
+		end
+	end
+
+	return bestModel, bestPrompt
+end
+
+local function firePromptOnce(prompt)
+	if not prompt then return end
+	if typeof(fireproximityprompt) == "function" then
+		pcall(function()
+			fireproximityprompt(prompt)
+		end)
+	else
+		pcall(function()
+			ProximityPromptService:InputHoldBegin(prompt)
+			task.wait(math.max(prompt.HoldDuration, 0.05))
+			ProximityPromptService:InputHoldEnd(prompt)
+		end)
+	end
+end
+
+local function teleportToModel(model)
+	if not root or not model then return end
+	local ok, pivot = pcall(function()
+		return model:GetPivot()
+	end)
+	if ok then
+		root.CFrame = pivot * CFrame.new(0, 3, 0)
+	end
+end
+
+-- ===== PROMPT LOOP =====
+local function startPromptRoutine()
+	if promptRoutineActive then return end
+	promptRoutineActive = true
+
+	task.spawn(function()
+		while enabled and promptMode and root do
+			if liveHasValidModels() then
+				promptMode = false
+				break
+			end
+
+			local model, prompt = findClosestPromptModel()
+			if model and prompt then
+				teleportToModel(model)
+				task.wait(0.03) -- nhanh ×2
+				firePromptOnce(prompt)
+			end
+
+			task.wait(0.05) -- loop nhanh
+		end
+
+		promptRoutineActive = false
+	end)
+end
+
+-- ===== MAIN LOOP =====
+RunService.Heartbeat:Connect(function()
+	if not enabled then return end
+	if tick() - lastTick < 0.1 then return end
+	lastTick = tick()
+
+	if not root then return end
+
+	local live = Workspace:FindFirstChild("Live")
+	local sum = Vector3.zero
+	local count = 0
+
+	if live then
+		for _, m in ipairs(live:GetChildren()) do
+			if m:IsA("Model") then
+				local pos = getModelPosition(m)
+				if pos then
+					sum += pos
+					count += 1
+				end
+			end
+		end
+	end
+
+	if count > 0 then
+		promptMode = false
+		pcall(function()
+			root.CFrame = CFrame.new(sum / count)
+		end)
+	else
+		if not promptMode then
+			promptMode = true
+			startPromptRoutine()
+		end
+	end
+end)
+
+-- ===== BUTTON =====
+btn.MouseButton1Click:Connect(function()
+	enabled = not enabled
+	btn.Text = enabled and "CENTER TP : ON" or "CENTER TP : OFF"
+	promptMode = false
+end)  
+        ]]
+    },
+    {
         name = "false",
         code = [[
-           _G.Loop = false
+            _G.Loop = false
 while _G.Loop and task.wait() do
 game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("ItemRemote"):FireServer()
 
@@ -58,43 +463,7 @@ end
         ]]
     },
     {
-        name = "flud",
-        code = [[
-            local args = {
-	false,
-	vector.create(1327.279296875, 1170.01806640625, 7767.89208984375),
-	CFrame.new(1327.279296875, 1170.01806640625, 7767.89208984375, 0.26126232743263245, -0.5304916501045227, 0.8064246773719788, -0, 0.8354414105415344, 0.5495797395706177, -0.9652678966522217, -0.1435844749212265, 0.21826934814453125),
-	1
-}
-game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("FluidMovementsRemote"):FireServer(unpack(args))
-
-        ]]
-    },
-    {
-        name = "sieumuot",
-        code = [[
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/Huynesoi/Cat-Hub/refs/heads/master/Lagv2"))()
-        ]]
-    },
-    {
-        name = "Instan kill",
-        code = [[
-            getgenv().G = true
-getgenv().Creator = 'https://discord.gg/B3HqPPzFYr - HalloweenGaster'
-while getgenv().G and getgenv().Creator == 'https://discord.gg/B3HqPPzFYr - HalloweenGaster' do
-wait(1)
-sethiddenproperty(game.Players.LocalPlayer, "SimulationRadius", 112412400000)
-sethiddenproperty(game.Players.LocalPlayer, "MaxSimulationRadius", 112412400000)
-for i,d in pairs(game.Workspace:GetDescendants()) do
-    if d.ClassName == 'Humanoid' and d.Parent.Name ~= game.Players.LocalPlayer.Name then
-        d.Health = 0
-    end
-end
-end
-        ]]
-    },
-    {
-        name = "Spawn Part",
+        name = "spawn part",
         code = [[
             local Players = game:GetService("Players")
 local player = Players.LocalPlayer
@@ -122,45 +491,123 @@ part.CFrame = CFrame.new(
         ]]
     },
     {
-        name = "Sieumuot:rexl",
+        name = "Xx",
         code = [[
-            local targets = {
-    game:GetService("ReplicatedStorage").ReiNew.DamageShower,
-game:GetService("ReplicatedStorage").Modules.DamageModule,
-game:GetService("Players").LocalPlayer.Backpack.Scripts.CameraShaker,
-game:GetService("Players").LocalPlayer.Backpack.Scripts.StatLevelingScript,
-game:GetService("Players").LocalPlayer.Backpack.Scripts.MasteryLevelingScript,
-game:GetService("Players").LocalPlayer.Backpack.Scripts.CameraShakeScript,
-game:GetService("ReplicatedStorage").Remotes.DamageDetector,
-game:GetService("ReplicatedStorage").KevModules.CameraShaker,
-game:GetService("ReplicatedStorage").Dependencies.CameraShaker,
-game:GetService("ReplicatedStorage").Modules.CameraShaker,
-game:GetService("Players").LocalPlayer.CharacterCreation,
-game:GetService("Players").LocalPlayer.Blacklisted,
-game:GetService("Players").LocalPlayer.Codes,
-game:GetService("Players").LocalPlayer.Mastery,
-workspace.Debris,
-game:GetService("Players").LocalPlayer.Backpack.Scripts.ClientEffectScripts,
-game:GetService("Players").LocalPlayer.Backpack.Scripts.Movement,
-game:GetService("Players").LocalPlayer.Backpack.Scripts.NewModules,
-game:GetService("Players").LocalPlayer.Backpack.Scripts.Specializations,
-game:GetService("Players").LocalPlayer.Backpack.Scripts["Race Skills"],
-game:GetService("ReplicatedStorage").Assets,
-game:GetService("ReplicatedStorage").CharacterCreationItems,
-game:GetService("ReplicatedStorage").Color3Values,
-game:GetService("ReplicatedStorage").FX,
-game:GetService("ReplicatedStorage").Particles,
-game:GetService("Players").LocalPlayer.Backpack.Scripts.CameraShakeScript,
-game:GetService("Players").LocalPlayer.Backpack.Scripts.CameraShaker,
-game:GetService("ReplicatedStorage").VFX,
-game:GetService("ReplicatedStorage").KevSFX,
-game:GetService("ReplicatedStorage").ReiNew,
-game:GetService("ReplicatedStorage").RemoteEvents.VFXLowRemote,
-game:GetService("ReplicatedStorage").RemoteEvents.VFXCutscenesRemote,
-game:GetService("ReplicatedStorage").ReiNew.VFXReplicate,
-game:GetService("ReplicatedStorage").VFXModules,
-game:GetService("Players").LocalPlayer.PlayerScripts.VFXReplicator,
-game:GetService("Players").LocalPlayer.Backpack.Scripts.LightBlindScript,
+            Xx
+        ]]
+    },
+    {
+        name = "Xx",
+        code = [[
+            Xx
+        ]]
+    },
+    {
+        name = "Xx",
+        code = [[
+      Xx
+        ]]
+    }
+}
+-- ======================================================
+
+-- GUI
+local gui = Instance.new("ScreenGui")
+gui.Name = "ExecutorGUI"
+gui.ResetOnSpawn = false
+gui.Parent = playerGui
+
+local main = Instance.new("Frame")
+main.Size = UDim2.new(0, 320, 0, 200)
+main.Position = UDim2.new(0.5, -210, 0.5, -150)
+main.BackgroundColor3 = Color3.fromRGB(25,25,25)
+main.BorderSizePixel = 0
+main.Parent = gui
+
+-- Drag
+local dragging, dragStart, startPos
+main.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragStart = input.Position
+        startPos = main.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+UIS.InputChanged:Connect(function(input)
+    if dragging then
+        local delta = input.Position - dragStart
+        main.Position = UDim2.new(
+            startPos.X.Scale, startPos.X.Offset + delta.X,
+            startPos.Y.Scale, startPos.Y.Offset + delta.Y
+        )
+    end
+end)
+
+-- Title
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1,0,0,40)
+title.BackgroundTransparency = 1
+title.Text = "GUI EXECUTOR"
+title.Font = Enum.Font.SourceSansBold
+title.TextSize = 22
+title.TextColor3 = Color3.fromRGB(255,255,255)
+title.Parent = main
+
+-- Scroll
+local scroll = Instance.new("ScrollingFrame")
+scroll.Position = UDim2.new(0,10,0,50)
+scroll.Size = UDim2.new(1,-20,1,-60)
+scroll.CanvasSize = UDim2.new(0,0,0,0)
+scroll.ScrollBarImageTransparency = 0.3
+scroll.Parent = main
+
+local layout = Instance.new("UIListLayout", scroll)
+layout.Padding = UDim.new(0,8)
+
+layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    scroll.CanvasSize = UDim2.new(0,0,0,layout.AbsoluteContentSize.Y + 10)
+end)
+
+-- Tạo button cho từng script
+for _,data in ipairs(ScriptList) do
+    local item = Instance.new("Frame")
+    item.Size = UDim2.new(1,-5,0,50)
+    item.BackgroundColor3 = Color3.fromRGB(35,35,35)
+item.BorderSizePixel = 0
+    item.Parent = scroll
+
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Size = UDim2.new(0.6,0,1,0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = data.name
+    nameLabel.Font = Enum.Font.SourceSansBold
+    nameLabel.TextSize = 18
+    nameLabel.TextColor3 = Color3.fromRGB(255,255,255)
+    nameLabel.Parent = item
+
+    local exec = Instance.new("TextButton")
+    exec.Size = UDim2.new(0.35,0,0.7,0)
+    exec.Position = UDim2.new(0.63,0,0.15,0)
+    exec.Text = "EXEC"
+    exec.Font = Enum.Font.SourceSansBold
+    exec.TextSize = 18
+    exec.BackgroundColor3 = Color3.fromRGB(70,120,255)
+    exec.TextColor3 = Color3.fromRGB(255,255,255)
+    exec.BorderSizePixel = 0
+    exec.Parent = item
+
+    exec.MouseButton1Click:Connect(function()
+        pcall(function()
+            loadstring(data.code)()
+        end)
+    end)
+endgame:GetService("Players").LocalPlayer.Backpack.Scripts.LightBlindScript,
 game:GetService("ReplicatedStorage").Animations,
 game:GetService("ReplicatedStorage").Quests,
 game:GetService("ReplicatedStorage").KevAssets,
