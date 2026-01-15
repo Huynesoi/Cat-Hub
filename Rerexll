@@ -535,7 +535,7 @@ end
         name = "Rng",
         code = [[
       _G.Loop = true
-while _G.Loop and task.wait(0.05) do
+while _G.Loop and task.wait() do
 local args = {
 	"Auras:Roll",
 	false
