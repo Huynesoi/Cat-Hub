@@ -214,6 +214,16 @@ end
         ]]
     },
     {
+        name = "Reset cd",
+        code = [[
+           local args = {
+    [1] = "PainFifth"
+}
+
+game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("PainAbility"):FireServer(unpack(args)) 
+        ]]
+    },
+    {
         name = "gamepass",
         code = [[
       -- LocalScript
