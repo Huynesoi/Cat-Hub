@@ -204,7 +204,7 @@ end
         name = "spam",
         code = [[
             _G.Loop = true
-while _G.Loop and task.wait(0.3) do
+while _G.Loop and task.wait(0.5) do
 local args = {
 	"MadaraFifth"
 }
