@@ -204,7 +204,7 @@ end
         name = "spam",
         code = [[
             _G.Loop = true
-while _G.Loop and task.wait(0.15) do
+while _G.Loop and task.wait(0.3) do
 local args = {
 	"MadaraFifth"
 }
@@ -516,13 +516,13 @@ local args = {
 	"Iruma_sama999"
 }
 game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Signal"):WaitForChild("RemoteEvent"):FireServer(unpack(args))
-wait(1)
+wait(2)
 local args = {
 	"Towers:InviteByName",
 	"Ulami_hello8"
 }
 game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Signal"):WaitForChild("RemoteEvent"):FireServer(unpack(args))
-wait(1)
+wait(2)
 local args = {
 	"Towers:InviteByName",
 	"hahahaha1903842"
