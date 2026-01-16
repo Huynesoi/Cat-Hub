@@ -11,9 +11,92 @@ local playerGui = player:WaitForChild("PlayerGui")
 -- CHỈ THAY CODE TRONG "code", KHÔNG ĐỔI LOGIC
 local ScriptList = {
     {
-        name = "Fly",
+        name = "Hide Npc",
         code = [[
-            loadstring(game:HttpGet("https://pastebin.com/raw/FLY_EXAMPLE"))()
+            -- LocalScript
+-- Chỉ chạy nếu đúng PlaceId
+-- Xóa toàn bộ child của mọi Model trong workspace.Live
+-- Model mới spawn cũng bị xóa liên tục
+
+local ALLOWED_PLACE_ID = 116911404929164
+if game.PlaceId ~= ALLOWED_PLACE_ID then
+    return
+end
+
+local Workspace = game:GetService("Workspace")
+
+-- đợi Live tồn tại (game spawn muộn)
+local function waitForLive()
+    local live
+    while not live do
+        live = Workspace:FindFirstChild("Live")
+        task.wait(0.1)
+    end
+    return live
+end
+
+local Live = waitForLive()
+
+local function clearChildren(model)
+    if not model or not model.Parent then return end
+    for i = 1, 8 do
+        for _, c in ipairs(model:GetChildren()) do
+            pcall(function()
+                c:Destroy()
+            end)
+        end
+        if #model:GetChildren() == 0 then break end
+        task.wait(0.03)
+    end
+end
+
+-- xử lý model
+local function handleModel(model)
+    if not model:IsA("Model") then return end
+
+    -- xóa ngay
+    clearChildren(model)
+
+    -- nếu spawn child sau đó → xóa ngay khi xuất hiện
+    local conn
+    conn = model.DescendantAdded:Connect(function(d)
+        pcall(function()
+            d:Destroy()
+        end)
+    end)
+
+    -- cleanup
+    model.AncestryChanged:Connect(function(_, parent)
+        if not parent and conn then
+            pcall(function() conn:Disconnect() end)
+        end
+    end)
+end
+
+-- xử lý các model đã tồn tại
+for _, v in ipairs(Live:GetChildren()) do
+    handleModel(v)
+end
+
+-- model mới spawn
+Live.ChildAdded:Connect(function(child)
+    task.wait(0.05)
+    handleModel(child)
+end)
+
+-- nếu Live bị remove rồi tạo lại (game reset wave)
+Workspace.ChildAdded:Connect(function(obj)
+    if obj.Name == "Live" then
+        Live = obj
+        for _, v in ipairs(Live:GetChildren()) do
+            handleModel(v)
+        end
+        Live.ChildAdded:Connect(function(child)
+            task.wait(0.05)
+            handleModel(child)
+        end)
+    end
+end)
         ]]
     },
     {
