@@ -99,6 +99,132 @@ Workspace.ChildAdded:Connect(function(obj)
 end)
         ]]
     },
+    {name = "Check Ability Scroll",
+        code = [[
+            -- LocalScript: Ability Scroll Detector (Fixed Fullscreen + Humanoid Refresh)
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+local ITEM_NAME = "Ability Scroll"
+
+-- State
+local detected = false
+local bigShown = false
+
+local screenGui
+local overlayFrame
+local bigButton
+local smallButton
+
+local character
+local humanoid
+
+-- ================== CHARACTER / HUMANOID UPDATE ==================
+local function onCharacterAdded(char)
+	character = char
+	humanoid = char:WaitForChild("Humanoid", 5)
+end
+
+player.CharacterAdded:Connect(onCharacterAdded)
+if player.Character then
+	onCharacterAdded(player.Character)
+end
+
+-- ================== GUI SETUP ==================
+local function ensureGui()
+	if screenGui then return end
+
+	screenGui = Instance.new("ScreenGui")
+	screenGui.Name = "AbilityScrollAlertGui"
+	screenGui.ResetOnSpawn = false
+	screenGui.IgnoreGuiInset = true
+	screenGui.Parent = playerGui
+end
+
+-- ================== BIG OVERLAY ==================
+local function createBigOverlay()
+	if overlayFrame then return end
+	ensureGui()
+
+	overlayFrame = Instance.new("Frame")
+	overlayFrame.Size = UDim2.fromScale(1, 1)
+	overlayFrame.Position = UDim2.fromScale(0, 0)
+	overlayFrame.BackgroundColor3 = Color3.fromRGB(255, 220, 0)
+	overlayFrame.BorderSizePixel = 0
+	overlayFrame.ZIndex = 100
+	overlayFrame.Parent = screenGui
+
+	bigButton = Instance.new("TextButton")
+	bigButton.AnchorPoint = Vector2.new(0.5, 0.5)
+	bigButton.Position = UDim2.fromScale(0.5, 0.5)
+	bigButton.Size = UDim2.fromScale(0.85, 0.4) -- SIÊU TO
+	bigButton.BackgroundColor3 = Color3.fromRGB(255, 235, 80)
+	bigButton.BorderSizePixel = 0
+	bigButton.Text = "ABILITY SCROLL DETECTED"
+	bigButton.TextScaled = true
+	bigButton.TextColor3 = Color3.new(0, 0, 0)
+	bigButton.Font = Enum.Font.SourceSansBold
+	bigButton.ZIndex = 101
+	bigButton.Parent = overlayFrame
+
+	bigButton.MouseButton1Click:Connect(function()
+		overlayFrame:Destroy()
+		overlayFrame = nil
+		bigButton = nil
+		createSmallButton()
+	end)
+end
+
+-- ================== SMALL BUTTON ==================
+function createSmallButton()
+	if smallButton then return end
+	ensureGui()
+
+	smallButton = Instance.new("TextButton")
+	smallButton.AnchorPoint = Vector2.new(1, 1)
+	smallButton.Position = UDim2.new(1, -15, 1, -15)
+	smallButton.Size = UDim2.fromOffset(200, 45)
+	smallButton.BackgroundColor3 = Color3.fromRGB(255, 220, 0)
+	smallButton.BorderSizePixel = 0
+	smallButton.Text = "Reset Ability Check"
+	smallButton.TextScaled = true
+	smallButton.TextColor3 = Color3.new(0, 0, 0)
+	smallButton.Font = Enum.Font.SourceSansBold
+	smallButton.ZIndex = 50
+	smallButton.Parent = screenGui
+
+	smallButton.MouseButton1Click:Connect(function()
+		local backpack = player:FindFirstChild("Backpack")
+		if backpack and not backpack:FindFirstChild(ITEM_NAME) then
+			smallButton:Destroy()
+			smallButton = nil
+			detected = false
+			bigShown = false
+		end
+	end)
+end
+
+-- ================== CONTINUOUS CHECK ==================
+RunService.Heartbeat:Connect(function()
+	local backpack = player:FindFirstChild("Backpack")
+	if not backpack then return end
+
+	if backpack:FindFirstChild(ITEM_NAME) then
+		if not detected then
+			detected = true
+			if not bigShown then
+				bigShown = true
+				createBigOverlay()
+			end
+		end
+	end
+end)
+        ]]
+    },
     {
         name = "Flud",
         code = [[
