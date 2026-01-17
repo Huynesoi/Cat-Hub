@@ -1,0 +1,439 @@
+-- Combined launcher (order swapped): 
+-- Block B (Auto-use Dungeon Ticket for PlaceId 73066215063285) is placed first
+-- Block A (Master launcher for PlaceId 96853634935072) is placed after
+
+-- -----------------------
+-- Block B: PlaceId 73066215063285 (Auto-use Dungeon Ticket)
+-- -----------------------
+task.spawn(function()
+	-- delay 3s trước khi check
+	-- Auto-use Dungeon Ticket script (WORKING – FIX FLOW + 3 CHECK ĐÚNG)
+task.wait(3)
+
+if tostring(game.PlaceId) ~= "73066215063285" then
+	return
+end
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+if not game:GetService("Players").LocalPlayer
+or game:GetService("Players").LocalPlayer.Name ~= "huynesoi2" then
+	return
+end
+
+local player = Players.LocalPlayer
+if not player then return end
+
+local backpack = player:WaitForChild("Backpack")
+local character = player.Character or player.CharacterAdded:Wait()
+
+-- ===== UTIL =====
+
+local function refreshChar()
+	character = player.Character or player.CharacterAdded:Wait()
+end
+
+local function findBag()
+	for _, v in ipairs(backpack:GetChildren()) do
+		if v.Name == "Bag" then
+			return v
+		end
+	end
+	for _, v in ipairs(character:GetChildren()) do
+		if v.Name == "Bag" then
+			return v
+		end
+	end
+	return nil
+end
+
+local function equipBag(bag)
+	if not bag or not bag:IsA("Tool") then return end
+	refreshChar()
+	local hum = character:FindFirstChildOfClass("Humanoid")
+	if not hum then return end
+
+	if bag.Parent ~= character then
+		pcall(function()
+			bag.Parent = character
+		end)
+	end
+
+	pcall(function()
+		hum:EquipTool(bag)
+	end)
+end
+
+local itemRemote = ReplicatedStorage
+	:WaitForChild("RemoteEvents")
+	:WaitForChild("ItemStorageRemote")
+
+local function fireStorage(name)
+	pcall(function()
+		itemRemote:FireServer("", name)
+	end)
+end
+
+local function useDungeon()
+	local Players = game:GetService("Players")
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+	local dungeonEvent = ReplicatedStorage
+		:WaitForChild("NEW37")
+		:WaitForChild("DUNGEONS")
+		:WaitForChild("DungeonEvent")
+
+	-- 1) Tạo phòng
+	dungeonEvent:FireServer(
+		"Use Dungeon Ticket",
+		{ "SS Dungeon Ticket", "SSDTickets" }
+	)
+
+	task.wait(1)
+
+	-- danh sách invite
+	local inviteNames = {
+		"hahahaha1903842",
+		"Ulami_hello8",
+		"Iruma_sama999"
+	}
+
+	-- gửi invite (bỏ qua nếu player không tồn tại trong server)
+	local function sendInvites()
+		for _, name in ipairs(inviteNames) do
+			local plr = Players:FindFirstChild(name)
+			if plr then
+				pcall(function()
+					dungeonEvent:FireServer(
+						"Send Dungeon Invite",
+						{ plr }
+					)
+				end)
+				task.wait(1)
+			end
+		end
+	end
+
+	-- check GUI đã đủ người chưa
+	local function hasEnoughPlayers()
+		local gui = player:FindFirstChild("PlayerGui")
+		if not gui then return false end
+
+		local scroller = gui
+			:WaitForChild("Dungeon", 5)
+			:WaitForChild("Frames", 5)
+			:WaitForChild("Dungeon", 5)
+			:WaitForChild("Back", 5)
+			:WaitForChild("Scroller", 5)
+
+		if not scroller then return false end
+
+		local count = 0
+		for _, name in ipairs(inviteNames) do
+			if scroller:FindFirstChild(name) then
+				count += 1
+			end
+		end
+
+		return count >= 3
+	end
+
+	-- check player thiếu có Bag không
+	local function missingPlayerHasBag()
+		for _, name in ipairs(inviteNames) do
+			local plr = Players:FindFirstChild(name)
+			if plr then
+				local bp = plr:FindFirstChild("Backpack")
+				if bp then
+					if bp:FindFirstChild("Bag") then
+						return true
+					end
+				end
+			end
+		end
+		return false
+	end
+
+	-- ===== FLOW =====
+
+	-- INVITE LẦN 1
+	sendInvites()
+	task.wait(2)
+
+	if hasEnoughPlayers() then
+		dungeonEvent:FireServer("Start Dungeon")
+		return
+	end
+
+	-- INVITE LẦN 2
+	sendInvites()
+	task.wait(2)
+
+	if hasEnoughPlayers() then
+		dungeonEvent:FireServer("Start Dungeon")
+		return
+	end
+
+	-- vẫn thiếu → check Bag hoặc player không tồn tại → start luôn
+	if missingPlayerHasBag() then
+		dungeonEvent:FireServer("Start Dungeon")
+		return
+	end
+
+	-- player không tồn tại / server khác → vẫn start
+	dungeonEvent:FireServer("Start Dungeon")
+end
+
+-- ===== LOGIC =====
+
+-- Không có Bag ngay từ đầu → dùng dungeon luôn
+if not findBag() then
+	useDungeon()
+	return
+end
+
+-- ===== CHECK 1 =====
+local bag = findBag()
+equipBag(bag)
+fireStorage("ArmorStorage1")
+
+task.wait(5)
+refreshChar()
+if not findBag() then
+	useDungeon()
+	return
+end
+
+-- ===== CHECK 2 =====
+bag = findBag()
+equipBag(bag)
+fireStorage("ArmorStorage2")
+
+task.wait(5)
+refreshChar()
+if not findBag() then
+	useDungeon()
+	return
+end
+
+-- ===== CHECK 3 =====
+bag = findBag()
+equipBag(bag)
+fireStorage("ArmorStorage3")
+
+task.wait(5)
+refreshChar()
+
+-- Sau 3 lần vẫn còn Bag → DỪNG HOÀN TOÀN
+if findBag() then
+	return
+end
+
+-- Bag biến mất đúng ở check 3 → dùng dungeon
+useDungeon()
+
+end)
+
+-- -----------------------
+-- Block A: PlaceId 96853634935072
+-- -----------------------
+task.spawn(function()
+	if tostring(game.PlaceId) ~= "96853634935072" then
+		return
+	end
+
+	local Players = game:GetService("Players")
+	local RunService = game:GetService("RunService")
+	local Workspace = game:GetService("Workspace")
+	local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+if not game:GetService("Players").LocalPlayer
+or game:GetService("Players").LocalPlayer.Name ~= "huynesoi2" then
+	return
+end
+
+	local player = Players.LocalPlayer
+	if not player then return end
+
+	-- 1) Auto Tele NPC (Auto ON) + GUI toggle
+	task.spawn(function()
+		getgenv().AutoTeleNPC = true
+
+		local PlayerGui = player:WaitForChild("PlayerGui")
+
+		-- tránh tạo GUI trùng
+		local gui = PlayerGui:FindFirstChild("AutoTeleNPC_GUI")
+		if not gui then
+			gui = Instance.new("ScreenGui")
+			gui.Name = "AutoTeleNPC_GUI"
+			gui.ResetOnSpawn = false
+			gui.Parent = PlayerGui
+
+			local btn = Instance.new("TextButton")
+			btn.Name = "AutoTeleNPC_Button"
+			btn.Size = UDim2.fromOffset(140, 50)
+			btn.Position = UDim2.new(0, 20, 0.5, -25)
+			btn.Text = "AutoTele: ON"
+			btn.BackgroundColor3 = Color3.fromRGB(50, 180, 50)
+			btn.TextColor3 = Color3.new(1,1,1)
+			btn.TextScaled = true
+			btn.Parent = gui
+
+			btn.MouseButton1Click:Connect(function()
+				getgenv().AutoTeleNPC = not getgenv().AutoTeleNPC
+				if getgenv().AutoTeleNPC then
+					btn.Text = "AutoTele: ON"
+					btn.BackgroundColor3 = Color3.fromRGB(50, 180, 50)
+				else
+					btn.Text = "AutoTele: OFF"
+					btn.BackgroundColor3 = Color3.fromRGB(180, 50, 50)
+				end
+			end)
+		end
+
+		local FRONT_DISTANCE = 5
+		local HEIGHT_OFFSET = 3
+
+		local function getRandomNPC()
+			local list = {}
+			for _, m in pairs(Workspace:GetDescendants()) do
+				if m:IsA("Model") then
+					local hum = m:FindFirstChildOfClass("Humanoid")
+					local hrp = m:FindFirstChild("HumanoidRootPart")
+					if hum and hrp and hum.Health > 0 then
+						if not Players:GetPlayerFromCharacter(m) then
+							table.insert(list, hrp)
+						end
+					end
+				end
+			end
+			if #list == 0 then return nil end
+			return list[math.random(1, #list)]
+		end
+
+		local function teleToFront(npcHRP)
+			local char = player.Character
+			if not char then return end
+			local hrp = char:FindFirstChild("HumanoidRootPart")
+			if not hrp then return end
+
+			local look = npcHRP.CFrame.LookVector
+			local pos = npcHRP.Position + (look * FRONT_DISTANCE)
+			pos = Vector3.new(pos.X, npcHRP.Position.Y + HEIGHT_OFFSET, pos.Z)
+
+			hrp.CFrame = CFrame.new(pos, npcHRP.Position)
+		end
+
+		RunService.Heartbeat:Connect(function()
+			if not getgenv().AutoTeleNPC then return end
+			local npc = getRandomNPC()
+			if npc then
+				teleToFront(npc)
+			end
+		end)
+	end)
+
+	-- 2) LOADSTRING (chạy trực tiếp)
+	task.spawn(function()
+		-- chạy trực tiếp như bạn yêu cầu
+		loadstring(game:HttpGet("https://raw.githubusercontent.com/Huynesoi/Cat-Hub/refs/heads/master/Lagv2"))()
+	end)
+
+	-- 3) Destroy danh sách target (chạy 1 lần, an toàn)
+	task.spawn(function()
+		local targetPaths = {
+		    "ReplicatedStorage.ReiNew.DamageShower",
+		    "ReplicatedStorage.Modules.DamageModule",
+		    "Players.LocalPlayer.Backpack.Scripts.CameraShaker",
+		    "Players.LocalPlayer.Backpack.Scripts.StatLevelingScript",
+		    "Players.LocalPlayer.Backpack.Scripts.MasteryLevelingScript",
+		    "Players.LocalPlayer.Backpack.Scripts.CameraShakeScript",
+		    "ReplicatedStorage.Remotes.DamageDetector",
+		    "ReplicatedStorage.KevModules.CameraShaker",
+		    "ReplicatedStorage.Dependencies.CameraShaker",
+		    "ReplicatedStorage.Modules.CameraShaker",
+		    "Players.LocalPlayer.CharacterCreation",
+		    "Players.LocalPlayer.Blacklisted",
+		    "Players.LocalPlayer.Codes",
+		    "Players.LocalPlayer.Mastery",
+		    "Workspace.Debris",
+		    "Players.LocalPlayer.Backpack.Scripts.ClientEffectScripts",
+		    "Players.LocalPlayer.Backpack.Scripts.Movement",
+		    "Players.LocalPlayer.Backpack.Scripts.NewModules",
+		    "Players.LocalPlayer.Backpack.Scripts.Specializations",
+		    "Players.LocalPlayer.Backpack.Scripts.Race Skills",
+		    "ReplicatedStorage.Assets",
+		    "ReplicatedStorage.CharacterCreationItems",
+		    "ReplicatedStorage.Color3Values",
+		    "ReplicatedStorage.FX",
+		    "ReplicatedStorage.Particles",
+		    "ReplicatedStorage.VFX",
+		    "ReplicatedStorage.KevSFX",
+		    "ReplicatedStorage.ReiNew",
+		    "ReplicatedStorage.RemoteEvents.VFXLowRemote",
+		    "ReplicatedStorage.RemoteEvents.VFXCutscenesRemote",
+		    "ReplicatedStorage.ReiNew.VFXReplicate",
+		    "ReplicatedStorage.VFXModules",
+		    "Players.LocalPlayer.PlayerScripts.VFXReplicator",
+		    "Players.LocalPlayer.Backpack.Scripts.LightBlindScript",
+		    "ReplicatedStorage.Animations",
+		    "ReplicatedStorage.Quests",
+		    "ReplicatedStorage.KevAssets",
+		    "ReplicatedStorage.WeaponTrails",
+		    "ReplicatedStorage.Sounds",
+		    "ReplicatedStorage.Modules.RaycastHitboxV4",
+		    "ReplicatedStorage.Dependencies"
+		}
+
+		local function findByPath(path)
+		    local current = game
+		    for part in string.gmatch(path, "[^%.]+") do
+		        if part == "Players" then
+		            current = Players
+		        elseif part == "LocalPlayer" then
+		            current = player
+		        elseif part == "Workspace" then
+		            current = workspace
+		        elseif part == "ReplicatedStorage" then
+		            current = ReplicatedStorage
+		        else
+		            if type(current) ~= "userdata" then
+		                return nil
+		            end
+		            current = current:FindFirstChild(part)
+		        end
+		        if not current then
+		            return nil
+		        end
+		    end
+		    return current
+		end
+
+		for _, path in ipairs(targetPaths) do
+		    local obj = findByPath(path)
+		    if obj then
+		        pcall(function()
+		            obj:Destroy()
+		        end)
+		    end
+		end
+	end)
+
+	-- 4) AbilityHandler spam loop (MadaraFifth)
+	task.spawn(function()
+		_G.Loop = true
+		local ok, remotes = pcall(function() return ReplicatedStorage:WaitForChild("Remotes", 5) end)
+		if not ok or not remotes then return end
+
+		local abilityRemote = remotes:FindFirstChild("AbilityHandler")
+		if not abilityRemote then return end
+
+		while _G.Loop do
+			pcall(function()
+				abilityRemote:FireServer("MadaraFifth")
+			end)
+			task.wait(0.1)
+		end
+	end)
+end)
