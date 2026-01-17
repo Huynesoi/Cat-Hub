@@ -95,7 +95,7 @@ local function useDungeon()
 	-- danh sách invite
 	local inviteNames = {
 		"hahahaha1903842",
-		"Ulami_hello8",
+		"huynesoi",
 		"Iruma_sama999"
 	}
 
