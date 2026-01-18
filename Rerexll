@@ -704,12 +704,12 @@ part.CFrame = CFrame.new(
         code = [[
             local args = {
 	"Towers:CreateParty",
-	game:GetService("Players"):WaitForChild("huynesoi2")
+	game:GetService("Players")
 }
 game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Signal"):WaitForChild("RemoteEvent"):FireServer(unpack(args))
 local args = {
 	"Towers:GiveGui",
-	game:GetService("Players"):WaitForChild("huynesoi2")
+	game:GetService("Players")
 }
 game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Signal"):WaitForChild("RemoteEvent"):FireServer(unpack(args))
 
@@ -734,7 +734,25 @@ game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Signa
 wait(2)
 local args = {
 	"Towers:InviteByName",
-	"hahahaha1903842"
+	"NgocHoangDaiDe999"
+}
+game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Signal"):WaitForChild("RemoteEvent"):FireServer(unpack(args))
+wait(2)
+local args = {
+	"Towers:InviteByName",
+	"huynesoi2"
+}
+game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Signal"):WaitForChild("RemoteEvent"):FireServer(unpack(args))
+wait(2)
+local args = {
+	"Towers:InviteByName",
+	"soicon199112"
+}
+game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Signal"):WaitForChild("RemoteEvent"):FireServer(unpack(args))
+wait(2)
+local args = {
+	"Towers:InviteByName",
+	"Uzumaki_shahara1"
 }
 game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Signal"):WaitForChild("RemoteEvent"):FireServer(unpack(args))
 end
