@@ -752,6 +752,24 @@ game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Signa
 wait(2)
 local args = {
 	"Towers:InviteByName",
+	"GojoSatoruMagenkyo"
+}
+game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Signal"):WaitForChild("RemoteEvent"):FireServer(unpack(args))
+wait(2)
+local args = {
+	"Towers:InviteByName",
+	"huynesoi2"
+}
+game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Signal"):WaitForChild("RemoteEvent"):FireServer(unpack(args))
+wait(2)
+local args = {
+	"Towers:InviteByName",
+	"hahahaha1903842"
+}
+game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Signal"):WaitForChild("RemoteEvent"):FireServer(unpack(args))
+wait(2)
+local args = {
+	"Towers:InviteByName",
 	"Uzumaki_shahara"
 }
 game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Signal"):WaitForChild("RemoteEvent"):FireServer(unpack(args))
