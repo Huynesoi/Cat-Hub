@@ -752,7 +752,7 @@ game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Signa
 wait(2)
 local args = {
 	"Towers:InviteByName",
-	"Uzumaki_shahara1"
+	"Uzumaki_shahara"
 }
 game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Signal"):WaitForChild("RemoteEvent"):FireServer(unpack(args))
 end
