@@ -1,0 +1,264 @@
+-- LocalScript: Aura Tracker (Compact Y - FIX SORT)
+-- StarterPlayer > StarterPlayerScripts
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+local auraValue = player:WaitForChild("PlayerValues"):WaitForChild("Aura")
+
+-- ================= GUI =================
+local gui = Instance.new("ScreenGui")
+gui.Name = "AuraTrackerGUI"
+gui.ResetOnSpawn = false
+gui.Parent = playerGui
+
+local main = Instance.new("Frame")
+main.Size = UDim2.new(0, 300, 0, 380)
+main.Position = UDim2.new(0.05, 0, 0.25, 0)
+main.BackgroundColor3 = Color3.fromRGB(25,25,25)
+main.BorderSizePixel = 0
+main.Parent = gui
+Instance.new("UICorner", main).CornerRadius = UDim.new(0,8)
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, -40, 0, 32)
+title.Position = UDim2.new(0, 10, 0, 0)
+title.BackgroundTransparency = 1
+title.Text = "Aura Tracker"
+title.Font = Enum.Font.SourceSansBold
+title.TextSize = 20
+title.TextColor3 = Color3.new(1,1,1)
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.Parent = main
+
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Size = UDim2.new(0, 80, 0, 28)
+toggleBtn.Position = UDim2.new(1, -90, 0, 4)
+toggleBtn.Text = "OFF"
+toggleBtn.Font = Enum.Font.SourceSansBold
+toggleBtn.TextSize = 16
+toggleBtn.BackgroundColor3 = Color3.fromRGB(120,30,30)
+toggleBtn.TextColor3 = Color3.new(1,1,1)
+toggleBtn.Parent = main
+Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0,6)
+
+-- ===== INFO =====
+local totalLabel = Instance.new("TextLabel")
+totalLabel.Size = UDim2.new(1, -20, 0, 18)
+totalLabel.Position = UDim2.new(0, 10, 0, 34)
+totalLabel.BackgroundTransparency = 1
+totalLabel.Text = "Total Changes: 0"
+totalLabel.Font = Enum.Font.SourceSans
+totalLabel.TextSize = 14
+totalLabel.TextColor3 = Color3.new(1,1,1)
+totalLabel.TextXAlignment = Enum.TextXAlignment.Left
+totalLabel.Parent = main
+
+local fpsLabel = Instance.new("TextLabel")
+fpsLabel.Size = UDim2.new(1, -20, 0, 18)
+fpsLabel.Position = UDim2.new(0, 10, 0, 52)
+fpsLabel.BackgroundTransparency = 1
+fpsLabel.Text = "Aura/s: 0"
+fpsLabel.Font = Enum.Font.SourceSans
+fpsLabel.TextSize = 14
+fpsLabel.TextColor3 = Color3.new(1,1,1)
+fpsLabel.TextXAlignment = Enum.TextXAlignment.Left
+fpsLabel.Parent = main
+
+local timeLabel = Instance.new("TextLabel")
+timeLabel.Size = UDim2.new(1, -20, 0, 18)
+timeLabel.Position = UDim2.new(0, 10, 0, 70)
+timeLabel.BackgroundTransparency = 1
+timeLabel.Text = "Time ON: 0:00"
+timeLabel.Font = Enum.Font.SourceSans
+timeLabel.TextSize = 14
+timeLabel.TextColor3 = Color3.new(1,1,1)
+timeLabel.TextXAlignment = Enum.TextXAlignment.Left
+timeLabel.Parent = main
+
+-- ===== TIME INPUT =====
+local timeBox = Instance.new("TextBox")
+timeBox.Size = UDim2.new(1, -20, 0, 26)
+timeBox.Position = UDim2.new(0, 10, 0, 92)
+timeBox.PlaceholderText = "Auto stop (seconds) | vd: 600"
+timeBox.ClearTextOnFocus = false
+timeBox.Font = Enum.Font.SourceSans
+timeBox.TextSize = 15
+timeBox.TextColor3 = Color3.new(1,1,1)
+timeBox.BackgroundColor3 = Color3.fromRGB(40,40,40)
+timeBox.Parent = main
+Instance.new("UICorner", timeBox).CornerRadius = UDim.new(0,6)
+
+-- ===== SCROLL =====
+local scroll = Instance.new("ScrollingFrame")
+scroll.Size = UDim2.new(1, -20, 1, -135)
+scroll.Position = UDim2.new(0, 10, 0, 125)
+scroll.CanvasSize = UDim2.new(0,0,0,0)
+scroll.ScrollBarThickness = 5
+scroll.BackgroundColor3 = Color3.fromRGB(35,35,35)
+scroll.BorderSizePixel = 0
+scroll.Parent = main
+Instance.new("UICorner", scroll).CornerRadius = UDim.new(0,6)
+
+local layout = Instance.new("UIListLayout")
+layout.Padding = UDim.new(0,6)
+layout.SortOrder = Enum.SortOrder.LayoutOrder
+layout.Parent = scroll
+
+-- ================= DRAG =================
+local dragging, dragStart, startPos
+main.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+		dragStart = input.Position
+		startPos = main.Position
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+			end
+		end)
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if dragging then
+		local delta = input.Position - dragStart
+		main.Position = UDim2.new(
+			startPos.X.Scale, startPos.X.Offset + delta.X,
+			startPos.Y.Scale, startPos.Y.Offset + delta.Y
+		)
+	end
+end)
+
+-- ================= DATA =================
+local auraData = {} -- [name] = {count, label, order}
+local totalChanges = 0
+local auraPerSec = 0
+local orderId = 0
+
+local isOn = false
+local onTime = 0
+local maxSeconds = nil
+
+local function updateCanvas()
+	task.wait()
+	scroll.CanvasSize = UDim2.new(0,0,0, layout.AbsoluteContentSize.Y + 6)
+end
+
+-- 🔧 FIX SORT
+local function resort()
+	local list = {}
+	for _, d in pairs(auraData) do
+		table.insert(list, d)
+	end
+
+	table.sort(list, function(a, b)
+		if a.count == b.count then
+			return a.order < b.order -- giữ ổn định
+		end
+		return a.count > b.count
+	end)
+
+	for i, d in ipairs(list) do
+		d.label.LayoutOrder = i
+	end
+end
+
+local function recordAura(name)
+	if not name or name == "" then return end
+
+	totalChanges += 1
+	auraPerSec += 1
+	totalLabel.Text = "Total Changes: " .. totalChanges
+
+	if auraData[name] then
+		auraData[name].count += 1
+		auraData[name].label.Text = name .. " : " .. auraData[name].count
+	else
+		orderId += 1
+
+		local lb = Instance.new("TextLabel")
+		lb.Size = UDim2.new(1, -10, 0, 28)
+		lb.BackgroundColor3 = Color3.fromRGB(45,45,45)
+		lb.TextColor3 = Color3.new(1,1,1)
+		lb.Font = Enum.Font.SourceSans
+		lb.TextSize = 15
+		lb.TextXAlignment = Enum.TextXAlignment.Left
+		lb.Parent = scroll
+		Instance.new("UICorner", lb).CornerRadius = UDim.new(0,6)
+
+		auraData[name] = {
+			count = 1,
+			label = lb,
+			order = orderId
+		}
+
+		lb.Text = name .. " : 1"
+	end
+
+	resort()
+	updateCanvas()
+end
+
+auraValue.Changed:Connect(function(v)
+	recordAura(tostring(v))
+end)
+
+-- ===== FPS =====
+task.spawn(function()
+	while true do
+		task.wait(1)
+		fpsLabel.Text = "Aura/s: " .. auraPerSec
+		auraPerSec = 0
+	end
+end)
+
+-- ===== TIMER =====
+RunService.Heartbeat:Connect(function(dt)
+	if isOn and maxSeconds then
+		onTime += dt
+		timeLabel.Text = string.format("Time ON: %d:%02d",
+			math.floor(onTime/60),
+			math.floor(onTime%60)
+		)
+
+		if onTime >= maxSeconds then
+			isOn = false
+			_G.Loop = false
+			onTime = 0
+			timeLabel.Text = "Time ON: 0:00"
+			toggleBtn.Text = "OFF"
+			toggleBtn.BackgroundColor3 = Color3.fromRGB(120,30,30)
+		end
+	end
+end)
+
+-- ===== TOGGLE =====
+_G.Loop = false
+toggleBtn.MouseButton1Click:Connect(function()
+	_G.Loop = not _G.Loop
+	isOn = _G.Loop
+
+	if _G.Loop then
+		maxSeconds = tonumber(timeBox.Text)
+		onTime = 0
+		toggleBtn.Text = "ON"
+		toggleBtn.BackgroundColor3 = Color3.fromRGB(30,120,30)
+
+		task.spawn(function()
+			while _G.Loop and task.wait() do
+				ReplicatedStorage.Modules.Signal.RemoteEvent
+					:FireServer("Auras:Roll", false)
+			end
+		end)
+	else
+		onTime = 0
+		timeLabel.Text = "Time ON: 0:00"
+		toggleBtn.Text = "OFF"
+		toggleBtn.BackgroundColor3 = Color3.fromRGB(120,30,30)
+	end
+end)
