@@ -731,7 +731,7 @@ local InviteList = {
 	"huynesoi2",
 	"NgocHoangDaiDe999",
 	"FlowerFlorentino1",
-	"Uzumaki_Shahara",
+	"Uzumaki_shahara",
 	"hahahaha1903842",
 	"Soicon199112",
 	"Ulami_hello8",
@@ -758,10 +758,11 @@ task.spawn(function()
 
 	while true do
 		local targetName = InviteList[index]
+		local didInvite = false
 
 		if targetName ~= localPlayer.Name then
-			if not invited[targetName] then
-				if isPlayerInServer(targetName) then
+			if isPlayerInServer(targetName) then
+				if not invited[targetName] then
 					local args = {
 						"Towers:InviteByName",
 						targetName
@@ -773,6 +774,7 @@ task.spawn(function()
 
 					if success then
 						invited[targetName] = true
+						didInvite = true
 					end
 				end
 			end
@@ -783,7 +785,11 @@ task.spawn(function()
 			index = 1
 		end
 
-		task.wait(2)
+		if didInvite then
+			task.wait(2)
+		else
+			task.wait()
+		end
 	end
 end)
         ]]
