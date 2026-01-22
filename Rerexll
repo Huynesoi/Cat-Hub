@@ -718,62 +718,72 @@ game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Signa
     {
         name = "Invite",
         code = [[
-            _G.Loop = true
-while _G.Loop and task.wait(10) do
-local args = {
-	"Towers:InviteByName",
-	"Iruma_sama999"
+            -- SERVICES
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local player = Players.LocalPlayer
+
+-- REMOTE
+local InviteRemote = ReplicatedStorage
+	:WaitForChild("Modules")
+	:WaitForChild("Signal")
+	:WaitForChild("RemoteEvent")
+
+-- ===== PLAYER LIST (CỐ ĐỊNH – KHÔNG RANDOM) =====
+local InviteList = {
+	"Huynesoi2",
+	"NgocHoangDaiDe999",
+	"FlowerFlorentino1",
+	"Uzumaki_Shahara",
+	"Hahahaha1903842",
+	"Soicon199112",
+	"Ulami_hello8",
+	"GojoSatoruMagenkyo",
+	"TeThienDaiThanh888",
+	"HollowUmi",
+	"DuyNgaDocTonThienHa",
+	"KingOfCursed182"
 }
-game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Signal"):WaitForChild("RemoteEvent"):FireServer(unpack(args))
-wait(2)
-local args = {
-	"Towers:InviteByName",
-	"Ulami_hello8"
-}
-game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Signal"):WaitForChild("RemoteEvent"):FireServer(unpack(args))
-wait(2)
-local args = {
-	"Towers:InviteByName",
-	"NgocHoangDaiDe999"
-}
-game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Signal"):WaitForChild("RemoteEvent"):FireServer(unpack(args))
-wait(2)
-local args = {
-	"Towers:InviteByName",
-	"huynesoi2"
-}
-game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Signal"):WaitForChild("RemoteEvent"):FireServer(unpack(args))
-wait(2)
-local args = {
-	"Towers:InviteByName",
-	"soicon199112"
-}
-game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Signal"):WaitForChild("RemoteEvent"):FireServer(unpack(args))
-wait(2)
-local args = {
-	"Towers:InviteByName",
-	"GojoSatoruMagenkyo"
-}
-game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Signal"):WaitForChild("RemoteEvent"):FireServer(unpack(args))
-wait(2)
-local args = {
-	"Towers:InviteByName",
-	"huynesoi2"
-}
-game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Signal"):WaitForChild("RemoteEvent"):FireServer(unpack(args))
-wait(2)
-local args = {
-	"Towers:InviteByName",
-	"hahahaha1903842"
-}
-game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Signal"):WaitForChild("RemoteEvent"):FireServer(unpack(args))
-wait(2)
-local args = {
-	"Towers:InviteByName",
-	"Uzumaki_shahara"
-}
-game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Signal"):WaitForChild("RemoteEvent"):FireServer(unpack(args))
+
+-- ===== UTIL =====
+local function isPlayerInServer(name)
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if plr.Name == name then
+			return true
+		end
+	end
+	return false
 end
+
+-- ===== MAIN LOOP =====
+task.spawn(function()
+	local index = 1
+
+	while true do
+		local targetName = InviteList[index]
+
+		-- check player có trong server không
+		if isPlayerInServer(targetName) then
+			local args = {
+				"Towers:InviteByName",
+				targetName
+			}
+
+			pcall(function()
+				InviteRemote:FireServer(unpack(args))
+			end)
+		end
+
+		-- sang player tiếp theo (KHÔNG reset dù player không tồn tại)
+		index += 1
+		if index > #InviteList then
+			index = 1
+		end
+
+		task.wait(2) -- mỗi 2 giây
+	end
+end)
         ]]
     },
     {
