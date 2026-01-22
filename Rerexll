@@ -783,6 +783,7 @@ task.spawn(function()
 		index += 1
 		if index > #InviteList then
 			index = 1
+			invited = {} -- RESET để loop lại từ đầu đúng nghĩa
 		end
 
 		if didInvite then
