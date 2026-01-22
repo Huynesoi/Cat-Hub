@@ -702,6 +702,21 @@ part.CFrame = CFrame.new(
     {
         name = "Creator room",
         code = [[
+            local args = {
+	"Towers:GiveGui",
+	game:GetService("Players")
+}
+game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Signal"):WaitForChild("RemoteEvent"):FireServer(unpack(args))
+local args = {
+	"Towers:CreateParty",
+	game:GetService("Players")
+}
+game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Signal"):WaitForChild("RemoteEvent"):FireServer(unpack(args))
+        ]]
+    },
+    {
+        name = "Invite",
+        code = [[
             -- SERVICES
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -716,7 +731,7 @@ local InviteRemote = ReplicatedStorage
 
 -- ===== PLAYER LIST (CỐ ĐỊNH – KHÔNG RANDOM) =====
 local InviteList = {
-	"huynesoi2",
+	"Huynesoi2",
 	"NgocHoangDaiDe999",
 	"FlowerFlorentino1",
 	"Uzumaki_Shahara",
@@ -740,33 +755,42 @@ local function isPlayerInServer(name)
 	return false
 end
 
+-- ===== COOLDOWN PER PLAYER =====
+local lastInviteTime = {} -- [playerName] = os.clock()
+
 -- ===== MAIN LOOP =====
 task.spawn(function()
 	local index = 1
 
 	while true do
 		local targetName = InviteList[index]
+		local now = os.clock()
 
-		-- CHỈ invite nếu player ĐANG TỒN TẠI trong server
 		if isPlayerInServer(targetName) then
-			local args = {
-				"Towers:InviteByName",
-				targetName
-			}
+			local lastTime = lastInviteTime[targetName]
 
-			pcall(function()
-				InviteRemote:FireServer(unpack(args))
-			end)
+			-- CHỈ invite nếu tên này CHƯA được invite trong 2s gần nhất
+			if not lastTime or (now - lastTime) >= 2 then
+				local args = {
+					"Towers:InviteByName",
+					targetName
+				}
+
+				pcall(function()
+					InviteRemote:FireServer(unpack(args))
+				end)
+
+				lastInviteTime[targetName] = now
+			end
 		end
-		-- ❌ KHÔNG tồn tại -> SKIP hoàn toàn, không FireServer
 
-		-- sang player tiếp theo (không reset, không random)
+		-- sang tên tiếp theo, không reset, không random
 		index += 1
 		if index > #InviteList then
 			index = 1
 		end
 
-		task.wait(2) -- mỗi 2 giây
+		task.wait(0.1) -- loop mượt, cooldown đã kiểm soát spam
 	end
 end)
         ]]
