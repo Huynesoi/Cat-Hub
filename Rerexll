@@ -702,22 +702,6 @@ part.CFrame = CFrame.new(
     {
         name = "Creator room",
         code = [[
-            local args = {
-	"Towers:CreateParty",
-	game:GetService("Players")
-}
-game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Signal"):WaitForChild("RemoteEvent"):FireServer(unpack(args))
-local args = {
-	"Towers:GiveGui",
-	game:GetService("Players")
-}
-game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Signal"):WaitForChild("RemoteEvent"):FireServer(unpack(args))
-
-        ]]
-    },
-    {
-        name = "Invite",
-        code = [[
             -- SERVICES
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -732,7 +716,7 @@ local InviteRemote = ReplicatedStorage
 
 -- ===== PLAYER LIST (CỐ ĐỊNH – KHÔNG RANDOM) =====
 local InviteList = {
-	"Huynesoi2",
+	"huynesoi2",
 	"NgocHoangDaiDe999",
 	"FlowerFlorentino1",
 	"Uzumaki_Shahara",
@@ -763,7 +747,7 @@ task.spawn(function()
 	while true do
 		local targetName = InviteList[index]
 
-		-- check player có trong server không
+		-- CHỈ invite nếu player ĐANG TỒN TẠI trong server
 		if isPlayerInServer(targetName) then
 			local args = {
 				"Towers:InviteByName",
@@ -774,8 +758,9 @@ task.spawn(function()
 				InviteRemote:FireServer(unpack(args))
 			end)
 		end
+		-- ❌ KHÔNG tồn tại -> SKIP hoàn toàn, không FireServer
 
-		-- sang player tiếp theo (KHÔNG reset dù player không tồn tại)
+		-- sang player tiếp theo (không reset, không random)
 		index += 1
 		if index > #InviteList then
 			index = 1
