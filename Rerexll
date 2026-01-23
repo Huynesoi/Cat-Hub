@@ -856,7 +856,7 @@ RunService.Heartbeat:Connect(function()
     local label = waveGui:FindFirstChild("TextLabel")
     if not label then return end
 
-    if label.Text == "Floor: 2400" then
+    if label.Text == "Floor: 2500" then
         screenGui.Enabled = true
 
         -- destroy remote 1 lần duy nhất
