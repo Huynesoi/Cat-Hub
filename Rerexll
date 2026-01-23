@@ -321,7 +321,6 @@ local targetPaths = {
     "ReplicatedStorage.Particles",
     "ReplicatedStorage.VFX",
     "ReplicatedStorage.KevSFX",
-    "ReplicatedStorage.RemoteEvents.VFXCutscenesRemote",
     "ReplicatedStorage.ReiNew.VFXReplicate",
     "ReplicatedStorage.VFXModules",
     "Players.LocalPlayer.PlayerScripts.VFXReplicator",
