@@ -1,124 +1,109 @@
--- LocalScript: clean-effects-simple.lua
--- Put in StarterPlayerScripts.
--- DOES NOT touch LocalPlayer.PlayerGui or LocalPlayer.Character.
--- DESTROY trực tiếp các effect/GUI/light spawn trong Workspace.
-
 local Players = game:GetService("Players")
-local Lighting = game:GetService("Lighting")
-local workspace = game:GetService("Workspace")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local CollectionService = game:GetService("CollectionService")
 local player = Players.LocalPlayer
 
--- lớp cần xóa
-local DESTROY_CLASSES = {
-	ParticleEmitter = true,
-	Snap = true,
-	Beam = true,
-	Trail = true,
-	Fire = true,
-	Smoke = true,
-	Sparkles = true,
-	Decal = true,
-	Texture = true,
-	SurfaceAppearance = true,
-	BillboardGui = true,
-	SurfaceGui = true,
-	TextLabel = true,
-	ImageLabel = true,
-	ImageButton = true,
-	TextButton = true,
-	TextBox = true,
-	PointLight = true,
-	SpotLight = true,
-	SurfaceLight = true,
-	Highlight = true,
-	SelectionBox = true,
-	SelectionSphere = true
-}
+local SWEEP_INTERVAL = 3
+local BATCH_YIELD = 250
 
-local function isLocalCharacterDescendant(obj)
-	local char = player and player.Character
-	return char and obj:IsDescendantOf(char)
-end
-
-local function isLocalPlayerGuiDescendant(obj)
+local function isCoreOrGui(obj)
+	local cg = game:GetService("CoreGui")
 	local pg = player and player:FindFirstChild("PlayerGui")
-	return pg and obj:IsDescendantOf(pg)
+	if cg and obj:IsDescendantOf(cg) then return true end
+	if pg and obj:IsDescendantOf(pg) then return true end
+	return false
 end
 
-local function shouldDestroy(obj)
+local function isWhitelisted(obj)
 	if not obj then return false end
-	return DESTROY_CLASSES[obj.ClassName] == true
+	if obj.GetAttribute and obj:GetAttribute("DoNotDestroy") == true then return true end
+	if CollectionService:HasTag(obj, "NoClean") or CollectionService:HasTag(obj, "Keep") or CollectionService:HasTag(obj, "Protected") then return true end
+	return false
 end
 
-local function hideHumanoidNameIfNeeded(model)
-	if not model or not model.Parent then return end
-	local humanoid = model:FindFirstChildOfClass("Humanoid")
-	if humanoid and Players:GetPlayerFromCharacter(model) ~= player then
-		pcall(function()
-			if pcall(function() return humanoid.DisplayDistanceType end) then
-				humanoid.DisplayDistanceType = Enum.NameDisplayDistanceType.None
-			end
-			if pcall(function() return humanoid.NameDisplayDistance end) then
-				humanoid.NameDisplayDistance = 0
-			end
-		end)
+local function inTool(obj)
+	local cur = obj
+	while cur and cur.Parent do
+		if cur:IsA("Tool") then return true end
+		cur = cur.Parent
+	end
+	return false
+end
+
+local function shouldDestroyEffect(inst)
+	if not inst or not inst.Parent then return false end
+	if isCoreOrGui(inst) then return false end
+	if isWhitelisted(inst) then return false end
+	if inTool(inst) then return false end
+	if inst:IsA("ParticleEmitter") or inst:IsA("MeshParticleEmitter") or inst:IsA("Trail") or inst:IsA("Beam") then
+		return true
+	end
+	return false
+end
+
+local function destroyEffect(inst)
+	if not inst or not inst.Parent then return end
+	pcall(function() inst:Destroy() end)
+end
+
+local function handleDescendant(obj)
+	if not obj then return end
+	if shouldDestroyEffect(obj) then
+		destroyEffect(obj)
 	end
 end
 
-local function clean(obj)
-	if not obj or not obj.Parent then return end
-	-- never touch local player's Character or PlayerGui
-	if isLocalCharacterDescendant(obj) then return end
-	if isLocalPlayerGuiDescendant(obj) then return end
-
-	-- If top-level Model, hide humanoid names (for non-local models)
-	if obj:IsA("Model") then
-		hideHumanoidNameIfNeeded(obj)
-	end
-
-	-- destroy matching instances
-	if shouldDestroy(obj) then
-		pcall(function() obj:Destroy() end)
-	end
-end
-
--- initial sweep (batched to avoid freeze)
-task.spawn(function()
-	local desc = workspace:GetDescendants()
-	for i = 1, #desc do
-		clean(desc[i])
-		if i % 100 == 0 then task.wait() end
-	end
-	-- also do top-level models humanoid tweak
-	for _, c in ipairs(workspace:GetChildren()) do
-		if c:IsA("Model") then
-			hideHumanoidNameIfNeeded(c)
+local function quickSweep(container)
+	local ok, list = pcall(function() return container:GetDescendants() end)
+	if not ok or not list then return end
+	for i = 1, #list do
+		local v = list[i]
+		if v then
+			pcall(handleDescendant, v)
 		end
+		if i % BATCH_YIELD == 0 then task.wait() end
 	end
+end
+
+local function attachListener(container)
+	if not container then return end
+	pcall(function()
+		container.DescendantAdded:Connect(function(obj)
+			task.defer(handleDescendant, obj)
+		end)
+	end)
+end
+
+task.spawn(function()
+	quickSweep(Workspace)
+	if workspace.CurrentCamera then quickSweep(workspace.CurrentCamera) end
+	if player.Character then quickSweep(player.Character) end
 end)
 
--- destroy new spawns immediately (defer 0 frame)
-workspace.DescendantAdded:Connect(function(obj)
-	task.defer(clean, obj)
+attachListener(Workspace)
+if workspace.CurrentCamera then attachListener(workspace.CurrentCamera) end
+player.CharacterAdded:Connect(function(char)
+	task.defer(function() quickSweep(char) end)
+	attachListener(char)
 end)
 
--- Lighting: client-side disable shadows/effects
-pcall(function()
-	Lighting.GlobalShadows = false
-	Lighting.EnvironmentDiffuseScale = 0
-	Lighting.EnvironmentSpecularScale = 0
-	pcall(function() Lighting.ShadowSoftness = 0 end)
-	Lighting.Brightness = 1
-	Lighting.Ambient = Color3.new(1,1,1)
-	Lighting.OutdoorAmbient = Color3.new(1,1,1)
-	for _, v in ipairs(Lighting:GetChildren()) do
-		if v:IsA("BloomEffect") or v:IsA("BlurEffect") or v:IsA("ColorCorrectionEffect")
-		or v:IsA("DepthOfFieldEffect") or v:IsA("SunRaysEffect") or v:IsA("Atmosphere") or v:IsA("Sky") then
-			pcall(function() v:Destroy() end)
+task.spawn(function()
+	while true do
+		local start = tick()
+		quickSweep(Workspace)
+		if workspace.CurrentCamera then quickSweep(workspace.CurrentCamera) end
+		if player.Character then quickSweep(player.Character) end
+		local elapsed = tick() - start
+		local waitTime = SWEEP_INTERVAL - elapsed
+		if waitTime > 0 then
+			task.wait(waitTime)
+		else
+			task.wait(0.1)
 		end
 	end
 end)
 
 RunService.Heartbeat:Connect(function()
-	collectgarbage("step", 200)
+	collectgarbage("step", 50)
 end)
