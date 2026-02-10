@@ -76,7 +76,9 @@ end
 local function clean(obj)
     if not obj or not obj.Parent then return end
     if shouldDestroy(obj) then
-        pcall(function() obj:Destroy() end)
+        pcall(function()
+            obj:Destroy()
+        end)
     end
 end
 
@@ -84,8 +86,11 @@ task.spawn(function()
     local desc = Workspace:GetDescendants()
     for i = 1, #desc do
         clean(desc[i])
-        if i % 200 == 0 then task.wait() end
+        if i % 200 == 0 then
+            task.wait()
+        end
     end
+
     for _, c in ipairs(Workspace:GetChildren()) do
         if c:IsA("Model") then
             hideHumanoidNameIfNeeded(c)
@@ -101,17 +106,24 @@ pcall(function()
     Lighting.GlobalShadows = false
     Lighting.EnvironmentDiffuseScale = 0
     Lighting.EnvironmentSpecularScale = 0
-    pcall(function() Lighting.ShadowSoftness = 0 end)
+    pcall(function()
+        Lighting.ShadowSoftness = 0
+    end)
     Lighting.Brightness = 1
+
     for _, v in ipairs(Lighting:GetChildren()) do
-        if v:IsA("BloomEffect") or v:IsA("BlurEffect") or v:IsA("ColorCorrectionEffect")
-        or v:IsA("DepthOfFieldEffect") or v:IsA("SunRaysEffect") then
-            pcall(function() v:Destroy() end)
+        if v:IsA("BloomEffect")
+        or v:IsA("BlurEffect")
+        or v:IsA("ColorCorrectionEffect")
+        or v:IsA("DepthOfFieldEffect")
+        or v:IsA("SunRaysEffect") then
+            pcall(function()
+                v:Destroy()
+            end)
         end
     end
 end)
 
 RunService.Heartbeat:Connect(function()
     collectgarbage("step", 200)
-end)tep", 200)
 end)
