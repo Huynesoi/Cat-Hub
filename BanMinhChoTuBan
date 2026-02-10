@@ -1,1 +1,117 @@
+local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
+local Workspace = game:GetService("Workspace")
+local CollectionService = game:GetService("CollectionService")
+local RunService = game:GetService("RunService")
+local player = Players.LocalPlayer
 
+local DESTROY_CLASSES = {
+    ParticleEmitter = true,
+    Beam = true,
+    Trail = true,
+    Fire = true,
+    Smoke = true,
+    Sparkles = true,
+    PointLight = true,
+    SpotLight = true,
+    SurfaceLight = true,
+}
+
+local function isLocalCharacterDescendant(obj)
+    local char = player and player.Character
+    return char and obj:IsDescendantOf(char)
+end
+
+local function isLocalPlayerGuiDescendant(obj)
+    local pg = player and player:FindFirstChild("PlayerGui")
+    return pg and obj:IsDescendantOf(pg)
+end
+
+local function isWhitelisted(obj)
+    if not obj then return false end
+    if obj.GetAttribute and obj:GetAttribute("DoNotDestroy") == true then
+        return true
+    end
+    if CollectionService:HasTag(obj, "NoClean") or CollectionService:HasTag(obj, "Keep") then
+        return true
+    end
+    return false
+end
+
+local function guiAttachedToHumanoid(obj)
+    if obj and (obj:IsA("BillboardGui") or obj:IsA("SurfaceGui")) then
+        local ancestor = obj:FindFirstAncestorOfClass("Model")
+        if ancestor and ancestor:FindFirstChildOfClass("Humanoid") then
+            return true
+        end
+    end
+    return false
+end
+
+local function shouldDestroy(obj)
+    if not obj or not obj.Parent then return false end
+    if isLocalCharacterDescendant(obj) then return false end
+    if isLocalPlayerGuiDescendant(obj) then return false end
+    if isWhitelisted(obj) then return false end
+    if guiAttachedToHumanoid(obj) then return false end
+    if DESTROY_CLASSES[obj.ClassName] == true then
+        return true
+    end
+    return false
+end
+
+local function hideHumanoidNameIfNeeded(model)
+    if not model or not model.Parent then return end
+    local humanoid = model:FindFirstChildOfClass("Humanoid")
+    if humanoid and Players:GetPlayerFromCharacter(model) ~= player then
+        pcall(function()
+            humanoid.DisplayDistanceType = Enum.NameDisplayDistanceType.None
+        end)
+        pcall(function()
+            humanoid.NameDisplayDistance = 0
+        end)
+    end
+end
+
+local function clean(obj)
+    if not obj or not obj.Parent then return end
+    if shouldDestroy(obj) then
+        pcall(function() obj:Destroy() end)
+    end
+end
+
+task.spawn(function()
+    local desc = Workspace:GetDescendants()
+    for i = 1, #desc do
+        clean(desc[i])
+        if i % 200 == 0 then task.wait() end
+    end
+    for _, c in ipairs(Workspace:GetChildren()) do
+        if c:IsA("Model") then
+            hideHumanoidNameIfNeeded(c)
+        end
+    end
+end)
+
+Workspace.DescendantAdded:Connect(function(obj)
+    task.defer(clean, obj)
+end)
+
+pcall(function()
+    Lighting.GlobalShadows = false
+    Lighting.EnvironmentDiffuseScale = 0
+    Lighting.EnvironmentSpecularScale = 0
+    pcall(function() Lighting.ShadowSoftness = 0 end)
+    Lighting.Brightness = 1
+    for _, v in ipairs(Lighting:GetChildren()) do
+        if v:IsA("BloomEffect") or v:IsA("BlurEffect") or v:IsA("ColorCorrectionEffect")
+        or v:IsA("DepthOfFieldEffect") or v:IsA("SunRaysEffect") then
+            pcall(function() v:Destroy() end)
+        end
+    end
+end)
+
+RunService.Heartbeat:Connect(function()
+    collectgarbage("step", 200)
+end)tep", 200)
+end)
