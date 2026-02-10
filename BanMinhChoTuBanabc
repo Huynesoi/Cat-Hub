@@ -1,129 +1,124 @@
+-- LocalScript: clean-effects-simple.lua
+-- Put in StarterPlayerScripts.
+-- DOES NOT touch LocalPlayer.PlayerGui or LocalPlayer.Character.
+-- DESTROY trực tiếp các effect/GUI/light spawn trong Workspace.
+
 local Players = game:GetService("Players")
 local Lighting = game:GetService("Lighting")
-local Workspace = game:GetService("Workspace")
-local CollectionService = game:GetService("CollectionService")
-local RunService = game:GetService("RunService")
+local workspace = game:GetService("Workspace")
 local player = Players.LocalPlayer
 
+-- lớp cần xóa
 local DESTROY_CLASSES = {
-    ParticleEmitter = true,
-    Beam = true,
-    Trail = true,
-    Fire = true,
-    Smoke = true,
-    Sparkles = true,
-    PointLight = true,
-    SpotLight = true,
-    SurfaceLight = true,
+	ParticleEmitter = true,
+	Snap = true,
+	Beam = true,
+	Trail = true,
+	Fire = true,
+	Smoke = true,
+	Sparkles = true,
+	Decal = true,
+	Texture = true,
+	SurfaceAppearance = true,
+	BillboardGui = true,
+	SurfaceGui = true,
+	TextLabel = true,
+	ImageLabel = true,
+	ImageButton = true,
+	TextButton = true,
+	TextBox = true,
+	PointLight = true,
+	SpotLight = true,
+	SurfaceLight = true,
+	Highlight = true,
+	SelectionBox = true,
+	SelectionSphere = true
 }
 
 local function isLocalCharacterDescendant(obj)
-    local char = player and player.Character
-    return char and obj:IsDescendantOf(char)
+	local char = player and player.Character
+	return char and obj:IsDescendantOf(char)
 end
 
 local function isLocalPlayerGuiDescendant(obj)
-    local pg = player and player:FindFirstChild("PlayerGui")
-    return pg and obj:IsDescendantOf(pg)
-end
-
-local function isWhitelisted(obj)
-    if not obj then return false end
-    if obj.GetAttribute and obj:GetAttribute("DoNotDestroy") == true then
-        return true
-    end
-    if CollectionService:HasTag(obj, "NoClean") or CollectionService:HasTag(obj, "Keep") then
-        return true
-    end
-    return false
-end
-
-local function guiAttachedToHumanoid(obj)
-    if obj and (obj:IsA("BillboardGui") or obj:IsA("SurfaceGui")) then
-        local ancestor = obj:FindFirstAncestorOfClass("Model")
-        if ancestor and ancestor:FindFirstChildOfClass("Humanoid") then
-            return true
-        end
-    end
-    return false
+	local pg = player and player:FindFirstChild("PlayerGui")
+	return pg and obj:IsDescendantOf(pg)
 end
 
 local function shouldDestroy(obj)
-    if not obj or not obj.Parent then return false end
-    if isLocalCharacterDescendant(obj) then return false end
-    if isLocalPlayerGuiDescendant(obj) then return false end
-    if isWhitelisted(obj) then return false end
-    if guiAttachedToHumanoid(obj) then return false end
-    if DESTROY_CLASSES[obj.ClassName] == true then
-        return true
-    end
-    return false
+	if not obj then return false end
+	return DESTROY_CLASSES[obj.ClassName] == true
 end
 
 local function hideHumanoidNameIfNeeded(model)
-    if not model or not model.Parent then return end
-    local humanoid = model:FindFirstChildOfClass("Humanoid")
-    if humanoid and Players:GetPlayerFromCharacter(model) ~= player then
-        pcall(function()
-            humanoid.DisplayDistanceType = Enum.NameDisplayDistanceType.None
-        end)
-        pcall(function()
-            humanoid.NameDisplayDistance = 0
-        end)
-    end
+	if not model or not model.Parent then return end
+	local humanoid = model:FindFirstChildOfClass("Humanoid")
+	if humanoid and Players:GetPlayerFromCharacter(model) ~= player then
+		pcall(function()
+			if pcall(function() return humanoid.DisplayDistanceType end) then
+				humanoid.DisplayDistanceType = Enum.NameDisplayDistanceType.None
+			end
+			if pcall(function() return humanoid.NameDisplayDistance end) then
+				humanoid.NameDisplayDistance = 0
+			end
+		end)
+	end
 end
 
 local function clean(obj)
-    if not obj or not obj.Parent then return end
-    if shouldDestroy(obj) then
-        pcall(function()
-            obj:Destroy()
-        end)
-    end
+	if not obj or not obj.Parent then return end
+	-- never touch local player's Character or PlayerGui
+	if isLocalCharacterDescendant(obj) then return end
+	if isLocalPlayerGuiDescendant(obj) then return end
+
+	-- If top-level Model, hide humanoid names (for non-local models)
+	if obj:IsA("Model") then
+		hideHumanoidNameIfNeeded(obj)
+	end
+
+	-- destroy matching instances
+	if shouldDestroy(obj) then
+		pcall(function() obj:Destroy() end)
+	end
 end
 
+-- initial sweep (batched to avoid freeze)
 task.spawn(function()
-    local desc = Workspace:GetDescendants()
-    for i = 1, #desc do
-        clean(desc[i])
-        if i % 200 == 0 then
-            task.wait()
-        end
-    end
-
-    for _, c in ipairs(Workspace:GetChildren()) do
-        if c:IsA("Model") then
-            hideHumanoidNameIfNeeded(c)
-        end
-    end
+	local desc = workspace:GetDescendants()
+	for i = 1, #desc do
+		clean(desc[i])
+		if i % 100 == 0 then task.wait() end
+	end
+	-- also do top-level models humanoid tweak
+	for _, c in ipairs(workspace:GetChildren()) do
+		if c:IsA("Model") then
+			hideHumanoidNameIfNeeded(c)
+		end
+	end
 end)
 
-Workspace.DescendantAdded:Connect(function(obj)
-    task.defer(clean, obj)
+-- destroy new spawns immediately (defer 0 frame)
+workspace.DescendantAdded:Connect(function(obj)
+	task.defer(clean, obj)
 end)
 
+-- Lighting: client-side disable shadows/effects
 pcall(function()
-    Lighting.GlobalShadows = false
-    Lighting.EnvironmentDiffuseScale = 0
-    Lighting.EnvironmentSpecularScale = 0
-    pcall(function()
-        Lighting.ShadowSoftness = 0
-    end)
-    Lighting.Brightness = 1
-
-    for _, v in ipairs(Lighting:GetChildren()) do
-        if v:IsA("BloomEffect")
-        or v:IsA("BlurEffect")
-        or v:IsA("ColorCorrectionEffect")
-        or v:IsA("DepthOfFieldEffect")
-        or v:IsA("SunRaysEffect") then
-            pcall(function()
-                v:Destroy()
-            end)
-        end
-    end
+	Lighting.GlobalShadows = false
+	Lighting.EnvironmentDiffuseScale = 0
+	Lighting.EnvironmentSpecularScale = 0
+	pcall(function() Lighting.ShadowSoftness = 0 end)
+	Lighting.Brightness = 1
+	Lighting.Ambient = Color3.new(1,1,1)
+	Lighting.OutdoorAmbient = Color3.new(1,1,1)
+	for _, v in ipairs(Lighting:GetChildren()) do
+		if v:IsA("BloomEffect") or v:IsA("BlurEffect") or v:IsA("ColorCorrectionEffect")
+		or v:IsA("DepthOfFieldEffect") or v:IsA("SunRaysEffect") or v:IsA("Atmosphere") or v:IsA("Sky") then
+			pcall(function() v:Destroy() end)
+		end
+	end
 end)
 
 RunService.Heartbeat:Connect(function()
-    collectgarbage("step", 200)
+	collectgarbage("step", 200)
 end)
