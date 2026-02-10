@@ -665,6 +665,12 @@ end
         ]]
     },
     {
+        name = "antilagv3",
+        code = [[
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/Huynesoi/Cat-Hub/refs/heads/master/BanMinhChoTuBan"))()
+        ]]
+    },
+    {
         name = "spawn part",
         code = [[
             local Players = game:GetService("Players")
