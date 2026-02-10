@@ -366,6 +366,12 @@ end
         ]]
     },
     {
+        name = "antilagv3",
+        code = [[
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/Huynesoi/Cat-Hub/refs/heads/master/BanMinhChoTuBanabc"))()
+        ]]
+    },
+    {
         name = "afk",
         code = [[
             --Anti AFK Script
@@ -662,12 +668,6 @@ while _G.Loop and task.wait() do
 game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents"):WaitForChild("ItemRemote"):FireServer()
 
 end
-        ]]
-    },
-    {
-        name = "antilagv3",
-        code = [[
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/Huynesoi/Cat-Hub/refs/heads/master/BanMinhChoTuBan"))()
         ]]
     },
     {
