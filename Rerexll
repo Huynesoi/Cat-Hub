@@ -284,91 +284,9 @@ spamming = false
         ]]
     },
     {
-        name = "antilag1",
-        code = [[
-            -- LocalScript
-
-local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local player = Players.LocalPlayer
-
--- Danh sách đường dẫn cần destroy (dạng string)
-local targetPaths = {
-    "ReplicatedStorage.ReiNew.DamageShower",
-    "ReplicatedStorage.Modules.DamageModule",
-    "Players.LocalPlayer.Backpack.Scripts.CameraShaker",
-    "Players.LocalPlayer.Backpack.Scripts.StatLevelingScript",
-    "Players.LocalPlayer.Backpack.Scripts.MasteryLevelingScript",
-    "Players.LocalPlayer.Backpack.Scripts.CameraShakeScript",
-    "ReplicatedStorage.KevModules.CameraShaker",
-    "ReplicatedStorage.Dependencies.CameraShaker",
-    "ReplicatedStorage.Modules.CameraShaker",
-    "Workspace.Debris",
-    "Players.LocalPlayer.Backpack.Scripts.ClientEffectScripts",
-    "Players.LocalPlayer.Backpack.Scripts.Movement",
-    "Players.LocalPlayer.Backpack.Scripts.NewModules",
-    "Players.LocalPlayer.Backpack.Scripts.Specializations",
-    "Players.LocalPlayer.Backpack.Scripts.Race Skills",
-    "ReplicatedStorage.Assets",
-    "ReplicatedStorage.CharacterCreationItems",
-    "ReplicatedStorage.Color3Values",
-    "ReplicatedStorage.FX",
-    "ReplicatedStorage.Particles",
-    "ReplicatedStorage.VFX",
-    "ReplicatedStorage.KevSFX",
-    "ReplicatedStorage.ReiNew.VFXReplicate",
-    "ReplicatedStorage.VFXModules",
-    "Players.LocalPlayer.PlayerScripts.VFXReplicator",
-    "Players.LocalPlayer.Backpack.Scripts.LightBlindScript",
-    "ReplicatedStorage.Animations",
-    "ReplicatedStorage.KevAssets",
-    "ReplicatedStorage.WeaponTrails",
-    "ReplicatedStorage.Sounds",
-    "ReplicatedStorage.Modules.RaycastHitboxV4",
-    "ReplicatedStorage.Dependencies"
-}
-
--- Hàm tìm object an toàn theo path
-local function findByPath(path)
-    local current = game
-    for part in string.gmatch(path, "[^%.]+") do
-        if part == "Players" then
-            current = Players
-        elseif part == "LocalPlayer" then
-            current = player
-        elseif part == "Workspace" then
-            current = workspace
-        else
-            current = current:FindFirstChild(part)
-        end
-        if not current then
-            return nil
-        end
-    end
-    return current
-end
-
--- Destroy an toàn
-for _, path in ipairs(targetPaths) do
-    local obj = findByPath(path)
-    if obj then
-        pcall(function()
-            obj:Destroy()
-        end)
-    end
-end
-        ]]
-    },
-    {
-        name = "antilag2",
-        code = [[
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/Huynesoi/Cat-Hub/refs/heads/master/Lagv2"))()
-        ]]
-    },
-    {
         name = "antilagv3",
         code = [[
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/Huynesoi/Cat-Hub/refs/heads/master/BanMinhChoTuBanabc"))()
+            loadstring(game:HttpGet("https://raw.githubusercontent.com/Huynesoi/Cat-Hub/refs/heads/master/Antilagv4"))()
         ]]
     },
     {
