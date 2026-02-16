@@ -1,0 +1,69 @@
+task.spawn(function()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/Huynesoi/Cat-Hub/refs/heads/master/Lagv2"))()
+end)
+task.spawn(function()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/Huynesoi/Cat-Hub/refs/heads/master/BanMinhChoTuBanabc"))()
+end)
+task.spawn(function()
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local player = Players.LocalPlayer
+
+local targetPaths = {
+    "ReplicatedStorage.ReiNew.DamageShower",
+    "ReplicatedStorage.Modules.DamageModule",
+    "Players.LocalPlayer.Backpack.Scripts.CameraShaker",
+    "Players.LocalPlayer.Backpack.Scripts.StatLevelingScript",
+    "Players.LocalPlayer.Backpack.Scripts.MasteryLevelingScript",
+    "Players.LocalPlayer.Backpack.Scripts.CameraShakeScript",
+    "ReplicatedStorage.Remotes.DamageDetector",
+    "ReplicatedStorage.KevModules.CameraShaker",
+    "ReplicatedStorage.Dependencies.CameraShaker",
+    "Workspace.Debris",
+    "Players.LocalPlayer.Backpack.Scripts.ClientEffectScripts",
+    "ReplicatedStorage.Color3Values",
+    "ReplicatedStorage.FX",
+    "ReplicatedStorage.VFX",
+    "ReplicatedStorage.KevSFX",
+    "ReplicatedStorage.RemoteEvents.VFXLowRemote",
+    "ReplicatedStorage.RemoteEvents.VFXCutscenesRemote",
+    "ReplicatedStorage.ReiNew.VFXReplicate",
+    "ReplicatedStorage.VFXModules",
+    "Players.LocalPlayer.PlayerScripts.VFXReplicator",
+    "ReplicatedStorage.WeaponTrails",
+    "ReplicatedStorage.Sounds"
+}
+
+local function findByPath(path)
+    local current = game
+    for part in string.gmatch(path, "[^%.]+") do
+        if part == "Players" then
+            current = Players
+        elseif part == "LocalPlayer" then
+            current = player
+        elseif part == "Workspace" then
+            current = workspace
+        else
+            current = current:FindFirstChild(part)
+        end
+
+        if not current then
+            return nil
+        end
+    end
+    return current
+end
+
+while true do
+    for _, path in ipairs(targetPaths) do
+        local obj = findByPath(path)
+        if obj then
+            pcall(function()
+                obj:Destroy()
+            end)
+        end
+    end
+
+    task.wait(0.1)
+end
+end)
