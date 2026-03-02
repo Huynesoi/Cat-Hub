@@ -1,0 +1,347 @@
+-- LocalScript: AdaptivePerformanceGuard.lua
+-- Mục tiêu: giảm tối đa khả năng văng/đứng máy, an toàn, adaptive, incremental
+-- Đặt vào: StarterPlayer > StarterPlayerScripts
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local camera = Workspace.CurrentCamera
+
+-- ====== CONFIG (TÙY CHỈNH NHẸ ĐƯỢC) ======
+local ENABLE_ON_START = true
+local INITIAL_SCRAPE_LIMIT = 1200        -- số object push lần đầu (bảo vệ)
+local BATCH_SIZE_DEFAULT = 40            -- xử lý mỗi frame bình thường (giữ thấp)
+local BATCH_SIZE_MIN = 6
+local BATCH_SIZE_MAX = 300
+
+local FPS_WINDOW = 1.0                   -- window cho moving average
+local PANIC_FPS_THRESHOLD = 18           -- nếu avg FPS < -> panic
+local RECOVER_FPS_THRESHOLD = 28         -- nếu FPS > -> thoát panic
+local PANIC_CULL_DISTANCE = 40           -- cull distance khi panic (chặt)
+local NORMAL_CULL_DISTANCE = 140        -- cull distance bình thường (ưa thích)
+local PERIODIC_GC = 12                   -- giây
+
+local TARGET_CLASSES = {
+    ParticleEmitter = true,
+    Trail = true,
+    Beam = true,
+    BillboardGui = true,
+    SurfaceGui = true,
+    Decal = true,
+    Texture = true,
+    BasePart = true,
+}
+
+-- ===== internal state =====
+local queue = {}
+local queueCount = 0
+local processed = setmetatable({}, {__mode = "k"}) -- weak keys
+local currentBatch = BATCH_SIZE_DEFAULT
+local panicMode = false
+local lastGC = tick()
+local fpsSamples = {}
+local acc = 0
+local frames = 0
+local cullDistance = NORMAL_CULL_DISTANCE
+local enabled = true
+
+-- Safe pcall wrapper
+local function safe(fn) local ok, _ = pcall(fn) return ok end
+
+-- Disable lighting effects instances (Bloom, Blur, etc.) safely
+local function disableLightingEffects()
+    for _, inst in ipairs(Lighting:GetDescendants()) do
+        -- many effect instances have "Enabled" property
+        safe(function()
+            if inst:IsA("BloomEffect") or inst:IsA("BlurEffect")
+            or inst:IsA("SunRaysEffect") or inst:IsA("ColorCorrectionEffect")
+            or inst:IsA("DepthOfFieldEffect") or inst:IsA("SunRaysEffect")
+            or inst:IsA("BlurEffect") or inst:IsA("SunRays") then
+                if inst.Enabled ~= nil then inst.Enabled = false end
+            end
+            -- general fallback: if instance has Enabled prop, try disable (safe)
+            if inst.Enabled ~= nil then
+                inst.Enabled = false
+            end
+        end)
+    end
+    -- also safe lighting changes
+    safe(function()
+        Lighting.GlobalShadows = false
+        if Lighting.Brightness then Lighting.Brightness = 0.45 end
+        Lighting.Ambient = Color3.fromRGB(100,100,100)
+        if Lighting.OutdoorAmbient then Lighting.OutdoorAmbient = Color3.fromRGB(80,80,80) end
+        if typeof(Lighting.FogEnd) == "number" then Lighting.FogEnd = math.max(200, (Lighting.FogEnd or 1000) * 0.5) end
+    end)
+end
+
+-- enqueue only target classes
+local function enqueueIfTarget(obj)
+    if not obj or processed[obj] then return end
+    local cls = obj.ClassName
+    if TARGET_CLASSES[cls] then
+        table.insert(queue, obj)
+        queueCount = queueCount + 1
+    end
+end
+
+-- incremental initial populate (spread out)
+local function initialPopulate()
+    local pushed = 0
+    for _, v in ipairs(Workspace:GetDescendants()) do
+        if pushed >= INITIAL_SCRAPE_LIMIT then break end
+        if TARGET_CLASSES[v.ClassName] then
+            table.insert(queue, v); queueCount = queueCount + 1; pushed = pushed + 1
+        end
+    end
+
+    if player then
+        local pg = player:FindFirstChild("PlayerGui")
+        if pg then
+            for _, v in ipairs(pg:GetDescendants()) do
+                if pushed >= INITIAL_SCRAPE_LIMIT then break end
+                if TARGET_CLASSES[v.ClassName] then
+                    table.insert(queue, v); queueCount = queueCount + 1; pushed = pushed + 1
+                end
+            end
+        end
+
+        if player.Character then
+            for _, v in ipairs(player.Character:GetDescendants()) do
+                if pushed >= INITIAL_SCRAPE_LIMIT then break end
+                if TARGET_CLASSES[v.ClassName] then
+                    table.insert(queue, v); queueCount = queueCount + 1; pushed = pushed + 1
+                end
+            end
+        end
+    end
+
+    for _, v in ipairs(Workspace:GetChildren()) do
+        -- prefer scanning top-level children too (limited)
+        if pushed >= INITIAL_SCRAPE_LIMIT then break end
+        if TARGET_CLASSES[v.ClassName] then
+            table.insert(queue, v); queueCount = queueCount + 1; pushed = pushed + 1
+        end
+    end
+end
+
+-- core optimize logic per object (keeps minimal pcall/ops)
+local function optimizeObject(obj, aggressive)
+    if not obj or processed[obj] then return end
+    processed[obj] = true
+
+    local cls = obj.ClassName
+
+    if cls == "ParticleEmitter" then
+        safe(function() obj.Enabled = false end)
+        return
+    elseif cls == "Trail" then
+        safe(function() obj.Enabled = false end)
+        return
+    elseif cls == "Beam" then
+        safe(function() obj.Enabled = false end)
+        return
+    elseif cls == "BillboardGui" or cls == "SurfaceGui" then
+        safe(function() obj.Enabled = false end)
+        return
+    elseif cls == "Decal" or cls == "Texture" then
+        safe(function()
+            if obj.Transparency ~= nil then obj.Transparency = 1 end
+        end)
+        return
+    elseif cls == "BasePart" then
+        -- never heavily modify player's own character visuals except shadows
+        if player and player.Character and obj:IsDescendantOf(player.Character) then
+            safe(function() obj.CastShadow = false end)
+            return
+        end
+
+        -- compute distance if camera available
+        if camera and camera.CFrame and obj.Position then
+            local ok, pos = pcall(function() return obj.Position end)
+            if ok and pos then
+                local dist = (camera.CFrame.Position - pos).Magnitude
+                if dist >= cullDistance then
+                    -- cull strongly in panic, else moderate
+                    safe(function()
+                        if aggressive then
+                            obj.LocalTransparencyModifier = 1
+                        else
+                            if (obj.LocalTransparencyModifier or 0) < 0.95 then
+                                obj.LocalTransparencyModifier = 0.95
+                            end
+                        end
+                        obj.CastShadow = false
+                    end)
+                    return
+                else
+                    safe(function() obj.CastShadow = false end)
+                    return
+                end
+            else
+                safe(function() obj.CastShadow = false end)
+                return
+            end
+        else
+            safe(function() obj.CastShadow = false end)
+            return
+        end
+    end
+end
+
+-- process small batch
+local function processBatch()
+    local count = 0
+    while count < currentBatch and queueCount > 0 do
+        local obj = table.remove(queue, 1)
+        queueCount = queueCount - 1
+        if obj and obj.Parent then
+            optimizeObject(obj, panicMode)
+        end
+        count = count + 1
+    end
+end
+
+-- adaptive controller: adjust cullDistance & batch based on fps and queue size
+local function adaptiveControl(avgFPS)
+    if avgFPS < PANIC_FPS_THRESHOLD and not panicMode then
+        panicMode = true
+        cullDistance = PANIC_CULL_DISTANCE
+        -- shrink batch to avoid further chokepoints
+        currentBatch = math.max(BATCH_SIZE_MIN, math.floor(currentBatch * 0.5))
+        -- aggressively disable lighting effects
+        disableLightingEffects()
+    elseif panicMode and avgFPS >= RECOVER_FPS_THRESHOLD then
+        panicMode = false
+        cullDistance = NORMAL_CULL_DISTANCE
+        -- gradually restore batch
+        currentBatch = math.min(BATCH_SIZE_DEFAULT, currentBatch + 4)
+    end
+
+    -- if queue huge, reduce batch to avoid spike
+    if queueCount > 12000 then
+        currentBatch = math.max(BATCH_SIZE_MIN, math.floor(currentBatch * 0.5))
+    elseif queueCount < 400 then
+        -- allow some recovery
+        currentBatch = math.min(BATCH_SIZE_MAX, currentBatch + 2)
+    end
+end
+
+-- FPS sampler (moving average)
+RunService.RenderStepped:Connect(function(dt)
+    frames = frames + 1
+    acc = acc + dt
+    if acc >= FPS_WINDOW then
+        local fps = frames / acc
+        table.insert(fpsSamples, 1, fps)
+        if #fpsSamples > 8 then table.remove(fpsSamples) end
+        acc = 0
+        frames = 0
+    end
+end)
+
+local function getAvgFPS()
+    if #fpsSamples == 0 then return 60 end
+    local s = 0
+    for _,v in ipairs(fpsSamples) do s = s + v end
+    return s / #fpsSamples
+end
+
+-- DescendantAdded handlers (light enqueue only)
+Workspace.DescendantAdded:Connect(function(obj)
+    if not enabled then return end
+    enqueueIfTarget(obj)
+    -- small immediate enqueue for child's children to catch typical spawns
+    local children = obj:GetChildren()
+    for i = 1, math.min(6, #children) do enqueueIfTarget(children[i]) end
+end)
+
+if player then
+    player.CharacterAdded:Connect(function(char)
+        for _,v in ipairs(char:GetDescendants()) do enqueueIfTarget(v) end
+        char.DescendantAdded:Connect(function(o) enqueueIfTarget(o) end)
+    end)
+    player.ChildAdded:Connect(function(c)
+        if c.Name == "PlayerGui" and c:IsA("PlayerGui") then
+            for _,v in ipairs(c:GetDescendants()) do enqueueIfTarget(v) end
+            c.DescendantAdded:Connect(function(o) enqueueIfTarget(o) end)
+        end
+    end)
+end
+
+-- periodic GC
+spawn(function()
+    while true do
+        local now = tick()
+        if now - lastGC >= PERIODIC_GC then
+            safe(function() collectgarbage("collect") end)
+            lastGC = now
+        end
+        wait(1)
+    end
+end)
+
+-- main heartbeat: process small batches and adapt
+RunService.Heartbeat:Connect(function()
+    if not enabled then return end
+    processBatch()
+    local avg = getAvgFPS()
+    adaptiveControl(avg)
+end)
+
+-- incremental initial population without blocking: use coroutine to push small groups
+if ENABLE_ON_START then
+    spawn(function()
+        disableLightingEffects()
+        -- incremental push to queue
+        local pushed = 0
+        for _, v in ipairs(Workspace:GetDescendants()) do
+            if pushed >= INITIAL_SCRAPE_LIMIT then break end
+            if TARGET_CLASSES[v.ClassName] then
+                enqueueIfTarget(v)
+                pushed = pushed + 1
+                if pushed % 100 == 0 then wait(0.03) end -- yield to avoid spike
+            end
+        end
+
+        -- player gui/character prioritized
+        if player then
+            local pg = player:FindFirstChild("PlayerGui")
+            if pg then
+                for _, v in ipairs(pg:GetDescendants()) do
+                    if pushed >= INITIAL_SCRAPE_LIMIT then break end
+                    if TARGET_CLASSES[v.ClassName] then enqueueIfTarget(v); pushed = pushed + 1 end
+                    if pushed % 60 == 0 then wait(0.02) end
+                end
+            end
+            if player.Character then
+                for _, v in ipairs(player.Character:GetDescendants()) do
+                    if pushed >= INITIAL_SCRAPE_LIMIT then break end
+                    if TARGET_CLASSES[v.ClassName] then enqueueIfTarget(v); pushed = pushed + 1 end
+                    if pushed % 60 == 0 then wait(0.02) end
+                end
+            end
+        end
+    end)
+end
+
+-- quick hotkey toggle K to enable/disable (useful to test)
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if gpe then return end
+    if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == Enum.KeyCode.K then
+        enabled = not enabled
+        if not enabled then
+            warn("[AdaptivePerformanceGuard] disabled by hotkey K")
+        else
+            warn("[AdaptivePerformanceGuard] enabled by hotkey K")
+        end
+    end
+end)
+
+-- final status
+warn("[AdaptivePerformanceGuard] loaded. InitialQueue=", queueCount, " Batch/frame=", currentBatch,
+     " PanicFPS=", PANIC_FPS_THRESHOLD, " CullNormal=", NORMAL_CULL_DISTANCE)
