@@ -1,0 +1,622 @@
+task.spawn(function()
+--Anti AFK Script
+wait(0.5)local ba=Instance.new("ScreenGui")
+local ca=Instance.new("TextLabel")local da=Instance.new("Frame")
+local _b=Instance.new("TextLabel")local ab=Instance.new("TextLabel")ba.Parent=game.CoreGui
+ba.ZIndexBehavior=Enum.ZIndexBehavior.Sibling;ca.Parent=ba;ca.Active=true
+ca.BackgroundColor3=Color3.new(0.176471,0.176471,0.176471)ca.Draggable=true
+ca.Position=UDim2.new(0.698610067,0,0.098096624,0)ca.Size=UDim2.new(0,370,0,52)
+ca.Font=Enum.Font.SourceSansSemibold;ca.Text="Anti AFK Script"ca.TextColor3=Color3.new(0,1,1)
+ca.TextSize=22;da.Parent=ca
+da.BackgroundColor3=Color3.new(0.196078,0.196078,0.196078)da.Position=UDim2.new(0,0,1.0192306,0)
+da.Size=UDim2.new(0,370,0,107)_b.Parent=da
+_b.BackgroundColor3=Color3.new(0.176471,0.176471,0.176471)_b.Position=UDim2.new(0,0,0.800455689,0)
+_b.Size=UDim2.new(0,370,0,21)_b.Font=Enum.Font.Arial;_b.Text="Đó Phải Gọi Là 1 Cái Gì Đấy!"
+_b.TextColor3=Color3.new(0,1,1)_b.TextSize=20;ab.Parent=da
+ab.BackgroundColor3=Color3.new(0.176471,0.176471,0.176471)ab.Position=UDim2.new(0,0,0.158377,0)
+ab.Size=UDim2.new(0,370,0,44)ab.Font=Enum.Font.ArialBold;ab.Text="Status: Active"
+ab.TextColor3=Color3.new(0,1,1)ab.TextSize=20;local bb=game:service'VirtualUser'
+game:service'Players'.LocalPlayer.Idled:connect(function()
+bb:CaptureController()bb:ClickButton2(Vector2.new())
+ab.Text="Roblox tried to kick u but i kicked him instead"wait(2)ab.Text="Status : Active"end)
+end)
+
+task.spawn(function()
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer or Players:GetPlayers()[1] -- Lấy bạn là người chạy script
+local myName = player.Name
+
+local pensFolder = workspace:FindFirstChild("PlayerPens")
+
+if pensFolder then
+    for _, model in ipairs(pensFolder:GetChildren()) do
+        -- Lấy giá trị từ Attribute "Owner" như trong ảnh bạn gửi
+        local ownerAttr = model:GetAttribute("Owner")
+
+        if ownerAttr == myName then
+            -- Nếu là của bạn: Đổi tên thành 1
+            model.Name = "1"
+            print("Đã giữ lại và đổi tên Pen của bạn thành '1'")
+        else
+            -- Nếu không phải của bạn: Xóa bỏ
+            model:Destroy()
+        end
+    end
+else
+    warn("Không tìm thấy folder PlayerPens trong workspace!")
+end
+
+end)
+task.wait(0.5)
+task.spawn(function()
+-- LocalScript: CycleSaveInfo
+-- Place in StarterPlayer > StarterPlayerScripts
+
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local INTERVAL = 20                -- 20 seconds per value
+local CYCLE = {1, 2}            -- sequence to cycle through
+
+local remotes = ReplicatedStorage:WaitForChild("Remotes")
+local getSaveInfo = remotes:WaitForChild("getSaveInfo") -- RemoteFunction expected
+
+local idx = 1
+while RunService:IsRunning() do
+    local val = CYCLE[idx]
+   
+    local args = { val, true }
+
+    local ok, res = pcall(function()
+        return getSaveInfo:InvokeServer(unpack(args))
+    end)
+    if not ok then
+        warn("[CycleSaveInfo] InvokeServer failed for value", val, "->", res)
+    end
+
+    idx = idx + 1
+    if idx > #CYCLE then idx = 1 end
+
+    -- wait INTERVAL seconds, but exit early if studio/game stops
+    local waited = 0
+    while waited < INTERVAL and RunService:IsRunning() do
+        local dt = 0.5
+        wait(dt)
+        waited = waited + dt
+    end
+end
+end)
+
+task.spawn(function()
+-- LocalScript: AutoFeedPet
+-- Place in StarterPlayer > StarterPlayerScripts
+
+local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- ====== CẤU HÌNH ======
+local PEN_INDEX = "1"             -- workspace.PlayerPens["1"]
+local LOOP_INTERVAL = 0.05           -- loop mỗi 1s
+local TARGET_PET_ID = ""       
+   -- gắn ID pet nếu chỉ feed 1 pet (vd "a1720a82-..."), để "" để feed tất cả
+local ITEM_NAME = "Steak"         -- item để feed
+local AMOUNT = 100                -- giá trị feed (theo yêu cầu)
+-- =======================
+
+-- helper: an toàn tìm deep path
+local function findPath(root, ...)
+    local cur = root
+    for i = 1, select("#", ...) do
+        if not cur then return nil end
+        local name = select(i, ...)
+        cur = cur:FindFirstChild(name)
+    end
+    return cur
+end
+
+-- lấy remote FeedPet theo path bạn cung cấp
+local feedRemote = findPath(ReplicatedStorage,
+    "Packages", "_Index", "sleitnick_knit@1.7.0", "knit", "Services", "FoodService", "RF", "FeedPet")
+
+if not feedRemote then
+    warn("[AutoFeedPet] Không tìm thấy FeedPet remote. Kiểm tra đường dẫn trong ReplicatedStorage.")
+    return
+end
+
+local function getPetsFolder()
+    local pens = workspace:FindFirstChild("PlayerPens")
+    if not pens then return nil end
+    local pen = pens:FindFirstChild(PEN_INDEX)
+    if not pen then return nil end
+    return pen:FindFirstChild("Pets")
+end
+
+local lastTried = {}
+
+while RunService:IsRunning() do
+    local petsFolder = getPetsFolder()
+    if petsFolder then
+        for _, petInst in ipairs(petsFolder:GetChildren()) do
+            if petInst and petInst.Name then
+   
+                local petId = petInst.Name -- ví dụ "a1720a82-..."
+                if TARGET_PET_ID == "" or TARGET_PET_ID == petId then
+                    local now = tick()
+                    local prev = lastTried[petId]
+          
+                    if not prev or (now - prev) >= 0.8 then
+                        lastTried[petId] = now
+                        local args = {
+                            ITEM_NAME,
+                            petId,
+                            AMOUNT
+                        }
+                    
+                        local ok, res = pcall(function()
+                            return feedRemote:InvokeServer(unpack(args))
+                        end)
+                        if not ok then
+            
+                            warn("[AutoFeedPet] Invoke failed for pet:", petId, res)
+                        end
+                        -- tránh spam liên tiếp
+                        wait(0.12)
+  
+                    end
+                end
+            end
+        end
+    end
+    wait(LOOP_INTERVAL)
+end
+end)
+
+task.spawn(function()
+-- LocalScript: AutoCollectEgg
+-- Place in StarterPlayer > StarterPlayerScripts
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+-- ====== CẤU HÌNH ======
+local PEN_INDEX = "1"                -- đường dẫn workspace.PlayerPens["1"]
+local LOOP_INTERVAL = 0.5              -- loop mỗi 1s theo yêu cầu
+local TARGET_ID = ""                 -- dán ID vào đây nếu chỉ muốn nhặt 1 egg cụ thể (ví dụ "1ff6bb1e-..."), để "" để nhặt tất cả
+-- Nếu bạn muốn "dán id vào 2 chỗ" theo ý bạn: dán vào TARGET_ID và script sẽ dùng TARGET_ID như arg thứ hai khi match.
+-- =======================
+
+local remoteFolder = ReplicatedStorage:WaitForChild("Remotes")
+local pickupRemote = remoteFolder:WaitForChild("pickupRequest") -- RemoteFunction expected
+
+local function getEggsFolder()
+    local pens = workspace:FindFirstChild("PlayerPens")
+    if not pens then return nil end
+    local pen = pens:FindFirstChild(PEN_INDEX)
+    if not pen then return nil end
+    return pen:FindFirstChild("Eggs")
+end
+
+-- tránh spam liên tục: track thời điểm đã thử nhặt egg
+local lastTried = {}
+
+while RunService:IsRunning() do
+    local eggsFolder = getEggsFolder()
+    if eggsFolder then
+        for _, eggInstance in ipairs(eggsFolder:GetChildren()) do
+       
+            if eggInstance and eggInstance.Name then
+                local eggId = eggInstance.Name -- ví dụ "1ff6bb1e-..."
+                if TARGET_ID == "" or TARGET_ID == eggId then
+                    -- tránh gọi lại quá nhanh cùng 1 egg
+                
+                    local now = tick()
+                    local prev = lastTried[eggId]
+                    if not prev or (now - prev) >= 0.8 then
+                        lastTried[eggId] = now
+               
+                        -- theo đúng format bạn đưa:
+                        local args = {
+                            "Egg",
+                            eggId,   
+                            -- chỗ dán id thứ 1 (egg id string)
+                            eggInstance            -- chỗ dán id thứ 2 (instance path)
+                        }
+       
+                        -- gọi remote (InvokeServer theo đúng ví dụ)
+                        local ok, res = pcall(function()
+                            return pickupRemote:InvokeServer(unpack(args))
+                        end)
+                        -- nếu cần debug, bật dòng sau:
+                        -- if not ok then warn("Pickup failed:", res) end
+                        -- nhỏ delay giữa các invoke để tránh spam
+ 
+                        wait(0.12)
+                    end
+                end
+            end
+        end
+    end
+    wait(LOOP_INTERVAL)
+end
+end)
+
+task.spawn(function()
+-- Danh sách các đường dẫn cần xóa
+local pathsToDelete = {
+    workspace:FindFirstChild("SkyIslandPets"),
+    workspace:FindFirstChild("Map"),
+    workspace:FindFirstChild("RoamingPets")
+}
+
+-- Lưu ý: workspace.Map.Trees nằm trong workspace.Map 
+-- nên khi xóa Map, Trees cũng sẽ tự động biến mất.
+for _, item in pairs(pathsToDelete) do
+    if item then
+        item:Destroy()
+        print("Đã xóa: " .. item.Name)
+    else
+        print("Không tìm thấy đối tượng hoặc đối tượng đã bị xóa trước đó.")
+    end
+end
+
+end)
+
+task.spawn(function()
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- 1. TẠO GUI (Hỗ trợ di chuyển trên điện thoại)
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "EggCounterGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
+
+local frame = Instance.new("Frame")
+frame.Size = UDim2.new(0, 100, 0, 50)
+frame.Position = UDim2.new(0.5, -50, 0.2, 0)
+frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+frame.BackgroundTransparency = 0.5
+frame.Active = true -- Quan trọng để kéo thả
+frame.Parent = screenGui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 10)
+corner.Parent = frame
+
+local label = Instance.new("TextLabel")
+label.Size = UDim2.new(1, 0, 1, 0)
+label.BackgroundTransparency = 1
+label.TextColor3 = Color3.fromRGB(255, 255, 255)
+label.TextScaled = true
+label.Font = Enum.Font.GothamBold
+label.Text = "0"
+label.Parent = frame
+
+-- Hàm xử lý di chuyển GUI cho điện thoại
+local dragging, dragInput, dragStart, startPos
+frame.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+		dragStart = input.Position
+		startPos = frame.Position
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+			end
+		end)
+	end
+end)
+frame.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+		dragInput = input
+	end
+end)
+UserInputService.InputChanged:Connect(function(input)
+	if input == dragInput and dragging then
+		local delta = input.Position - dragStart
+		frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+	end
+end)
+
+-- 2. LOGIC ĐẾM EGG
+local processedTools = setmetatable({}, { __mode = "k" }) 
+local eggCount = 0
+
+-- Danh sách 4 màu "Tử thần" (Sẽ bị bỏ qua không đếm vì script cũ đã xóa)
+local excludeTargets = {
+    {r = 255, g = 255, b = 0},   -- Vàng
+    {r = 255, g = 0, b = 191},   -- Hồng
+    {r = 248, g = 248, b = 248}, -- Trắng
+    {r = 255, g = 0, b = 0}      -- Đỏ
+}
+
+local function isExcludeColor(c3)
+    local r, g, b = c3.R * 255, c3.G * 255, c3.B * 255
+    for _, t in ipairs(excludeTargets) do
+        if math.abs(r - t.r) <= 5 and math.abs(g - t.g) <= 5 and math.abs(b - t.b) <= 5 then
+            return true
+        end
+    end
+    return false
+end
+
+task.spawn(function()
+    while true do
+        local backpack = player:FindFirstChild("Backpack")
+        if backpack then
+            for _, tool in ipairs(backpack:GetChildren()) do
+                if tool:IsA("Tool") and not processedTools[tool] then
+                    
+                    local eggID = tool:FindFirstChild("eggID")
+                    local handle = tool:FindFirstChild("Handle")
+                    local egg = handle and handle:FindFirstChild("Egg")
+
+                    if eggID and egg then
+                        -- Nếu màu của Egg KHÔNG nằm trong danh sách 4 màu bị xóa
+                        if not isExcludeColor(egg.Color) then
+                            eggCount = eggCount + 1
+                           
+                            label.Text = tostring(eggCount)
+                            print("Đã đếm 1 egg mới: " .. tool.Name)
+                        end
+                        -- Đánh dấu đã xử lý (kể cả màu đúng hay sai để không đếm lại)
+                        processedTools[tool] = true
+                    end
+                    task.wait(0.1) -- Delay tránh lag
+                end
+            end
+        end
+        task.wait(0.5)
+    end
+end)
+
+end)
+
+task.spawn(function()
+_G.Loop = true
+while _G.Loop and task.wait(1) do
+game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("getEggInventory"):InvokeServer()
+local args = {
+	"51e4dc70-839d-4c8f-ac1c-f6cd40455b95",
+	true
+}
+game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("sellEgg"):InvokeServer(unpack(args))
+game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("getEggInventory"):InvokeServer()
+
+end
+end)
+
+task.spawn(function()
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local player = Players.LocalPlayer
+local remotes = ReplicatedStorage:WaitForChild("Remotes")
+local removeToolRemote = remotes:FindFirstChild("removeTool")
+
+-- Bảng lưu những Tool đã được nhận diện để không quét lại (Memory leak safe)
+local processedTools = setmetatable({}, { __mode = "k" }) 
+
+-- Danh sách màu mục tiêu
+local targets = {
+    {r = 255, g = 255, b = 0},   -- Vàng
+    {r = 255, g = 0, b = 191},   -- Hồng
+    {r = 248, g = 248, b = 248}, -- Trắng
+    {r = 255, g = 0, b = 0}      -- Đỏ (Mới thêm)
+}
+
+-- Hàm kiểm tra màu (sai số 5 đơn vị cho chắc ăn)
+local function isColorMatch(c3)
+    local r, g, b = c3.R * 255, c3.G * 255, c3.B * 255
+    for _, t in ipairs(targets) do
+        if math.abs(r - t.r) <= 5 and math.abs(g - t.g) <= 5 and math.abs(b - t.b) <= 5 then
+            return true
+        end
+    end
+    return false
+end
+
+_G.AutoRemoveEgg = true
+print("--- Script Auto Remove (Vàng, Hồng, Trắng, Đỏ) - Delay 1s ---")
+
+task.spawn(function()
+    while _G.AutoRemoveEgg do
+        local backpack = player:FindFirstChild("Backpack")
+        if not backpack then task.wait(1) continue end
+
+        for _, tool in ipairs(backpack:GetChildren()) do
+     
+            if not _G.AutoRemoveEgg then break end
+
+            -- Chỉ xử lý nếu là Tool và chưa nằm trong danh sách đã check
+            if tool:IsA("Tool") and not processedTools[tool] then
+                
+                local eggID = tool:FindFirstChild("eggID")
+          
+                local handle = tool:FindFirstChild("Handle")
+                local egg = handle and handle:FindFirstChild("Egg")
+
+                if eggID and egg then
+                    if isColorMatch(egg.Color) then
+                        local toolName = tool.Name
+ 
+                        processedTools[tool] = true -- Đánh dấu đã xử lý
+                        
+                        -- Chạy luồng riêng để đợi 1s rồi xóa
+             
+                        task.spawn(function()
+                            task.wait(1) 
+                            
+                            local success, err = pcall(function()
+                                return removeToolRemote:InvokeServer(toolName)
+                            end)
+                            
+                            if success then
+                                print("Đã xóa trứng mục tiêu: " .. toolName)
+                            else
+              
+                                warn("Lỗi khi gọi lệnh xóa: " .. tostring(err))
+                            end
+                        end)
+                    else
+   
+                        -- Không đúng màu mục tiêu thì cũng đánh dấu để skip vòng sau
+                        processedTools[tool] = true 
+                    end
+                end
+   
+                
+                -- Check từng cái cách nhau 0.1s để chống lag
+                task.wait(0.1) 
+            end
+        end
+        task.wait(0.5) -- Nghỉ ngắn trước khi quét lại toàn bộ Backpack
+    end
+end)
+
+end)
+
+task.spawn(function()
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local breedRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("breedRequest")
+local petFolder = workspace:WaitForChild("PlayerPens"):WaitForChild("1"):WaitForChild("Pets")
+
+-- Danh sách công thức
+local validRecipes = {
+    {"Skeleton Giant Scorpion", "Lava Bear"},
+    {"Phoenix", "Skeleton Crocodile"},
+    {"Lightning Dragon", "Cerberus"},
+    {"Red Panda", "Kitsune"},
+    {"Red Panda", "Axolotl"}
+}
+
+local pairedPets = {} -- Lưu trữ ID các cặp đã chốt: { {guid1, guid2}, ... }
+local usedGuids = {} -- Set kiểm tra GUID nào đã bị "khóa" (đã có chủ)
+
+-- Hàm lấy giá trị Tên của Pet (Species Name)
+-- Dựa vào ảnh của bạn, "Name" có thể là StringValue bên trong Pet hoặc là Attribute
+local function getPetSpeciesName(petInstance)
+    -- Thử cách 1: Nếu Name là 1 StringValue bên trong Pet
+    local nameVal = petInstance:FindFirstChild("Name")
+    if nameVal and nameVal:IsA("StringValue") then
+        return nameVal.Value
+    end
+
+    -- Thử cách 2: Nếu Name là Attribute
+    local attrName = petInstance:GetAttribute("Name")
+    if attrName then return attrName end
+
+    return nil
+end
+
+-- Hàm kiểm tra xem 2 tên pet có hợp lệ theo danh sách không
+local function isMatch(name1, name2)
+    
+    for _, recipe in ipairs(validRecipes) do
+        if (recipe[1] == name1 and recipe[2] == name2) or (recipe[1] == name2 and recipe[2] == name1) then
+            return true
+        end
+    end
+    return false
+end
+
+-- 2. Hàm quét và đóng gói cặp cho các pet chưa có chủ
+local function updatePairs()
+    local availablePets = {}
+
+    -- Lọc ra các pet CHƯA BỊ KHÓA CẶP
+    for _, pet in ipairs(petFolder:GetChildren()) do
+        local guid = pet.Name -- Tên file chính là id/GUID
+        if not usedGuids[guid] then
+            local speciesName = getPetSpeciesName(pet)
+            if speciesName then
+                table.insert(availablePets, {instance = pet, guid = guid, species = speciesName})
+            end
+    
+        end
+    end
+
+    -- Tiến hành ghép cặp cho các pet rảnh rỗi (Pet lẻ sẽ tự động bị bỏ qua do không tìm được match)
+    for i = 1, #availablePets do
+        local p1 = availablePets[i]
+        if not usedGuids[p1.guid] then
+            for j = i + 1, #availablePets do
+                
+                local p2 = availablePets[j]
+                if not usedGuids[p2.guid] then
+                    if isMatch(p1.species, p2.species) then
+                        -- Chốt đơn cặp này! -- Ghi nhớ ID mãi mãi
+                        table.insert(pairedPets, {p1.guid, p2.guid})
+                        usedGuids[p1.guid] = true
+                        usedGuids[p2.guid] = true
+                  
+                        break -- Tìm được rồi thì ngưng, chuyển sang p1 tiếp theo
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- 3. Vòng lặp chính hoạt động liên tục
+task.spawn(function()
+    while task.wait() do
+        updatePairs() -- Liên tục check xem có pet mới nào rơi vào để ghép cặp không
+
+        -- Nếu danh sách rỗng, chờ 1 giây rồi check lại để tránh lag game
+        if #pairedPets == 0 then
+            task.wait(0.5)
+            continue
+        end
+
+        -- Copy danh sách cặp ra để xáo trộn (Random lại các cặp từ đầu như yêu cầu)
+        local shuffledPairs = {}
+        for _, pair in ipairs(pairedPets) do
+            table.insert(shuffledPairs, pair)
+        end
+
+        -- Thuật toán xáo trộn ngẫu nhiên (Fisher-Yates)
+        for i = #shuffledPairs, 2, -1 do
+            local j = math.random(i)
+      
+            shuffledPairs[i], shuffledPairs[j] = shuffledPairs[j], shuffledPairs[i]
+        end
+
+        -- Bắt đầu lặp qua danh sách đã xáo trộn để invoke remote
+        for _, pair in ipairs(shuffledPairs) do
+            local guid1, guid2 = pair[1], pair[2]
+
+            -- Check xem 2 file pet này CÒN TỒN TẠI trong workspace không
+        
+            local pet1 = petFolder:FindFirstChild(guid1)
+            local pet2 = petFolder:FindFirstChild(guid2)
+
+            if pet1 and pet2 then
+                -- Cả 2 đều có mặt -> Tiến hành phối giống
+                local args = {
+                 
+                    pet1,
+                    pet2,
+                    vector.create(-1.4219087362289429, 12, -3068.895751953125),
+                    vector.create(-20.865795135498047, 12, -3037.915283203125)
+                }
+
+                -- Dùng pcall bọc lại để nếu game có lag hay lỗi remote thì script không bị đứng
+                pcall(function()
+                    breedRemote:InvokeServer(unpack(args))
+                end)
+
+                task.wait(0.05) -- Đợi 0.5s trước khi phối cặp tiếp theo
+       
+            else
+                -- Một trong hai (hoặc cả hai) bị mất khỏi workspace -> Bỏ qua (Skip)
+                -- Script sẽ không làm gì, tự động sang cặp tiếp theo.
+                -- Cặp này sẽ được check lại ở vòng lặp lớn sau.
+            end
+        end
+    end
+end)
+
+end)
