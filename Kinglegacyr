@@ -26,7 +26,30 @@ local currentAntiStuckTarget = nil
 local noNpcTimer = 0
 
 -- ==========================================
--- [ PHẦN 1: GHIM VỊ TRÍ (FARM & SẢNH CHỜ) ]
+-- [ PHẦN 1: TELE SẢNH CHỜ (FIXED 0.05S) ]
+-- ==========================================
+task.spawn(function()
+    while true do
+        if autoRunning and humanoidRootPart then
+            local playerGui = player:FindFirstChild("PlayerGui")
+            local dungeonUI = playerGui and playerGui:FindFirstChild("DungeonUI")
+            
+            if not dungeonUI then
+                -- KHI KHÔNG CÓ DungeonUI: Tele mỗi 0.05s
+                humanoidRootPart.CFrame = dungeonEntranceCF
+                humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+                task.wait(0.05) -- Chỉnh theo ý bạn
+            else
+                task.wait(0.5) -- Có UI rồi thì check chậm lại để đỡ tốn tài nguyên
+            end
+        else
+            task.wait(1)
+        end
+    end
+end)
+
+-- ==========================================
+-- [ PHẦN 2: GHIM VỊ TRÍ KHI ĐANG FARM ]
 -- ==========================================
 RunService.Heartbeat:Connect(function()
     if not autoRunning or not humanoidRootPart then return end
@@ -34,19 +57,15 @@ RunService.Heartbeat:Connect(function()
     local playerGui = player:FindFirstChild("PlayerGui")
     local dungeonUI = playerGui and playerGui:FindFirstChild("DungeonUI")
     
-    if not dungeonUI then
-        -- KHI KHÔNG CÓ DungeonUI: Ghim tại sảnh chờ
-        humanoidRootPart.CFrame = dungeonEntranceCF
-        humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
-    elseif currentTargetCFrame then
-        -- KHI CÓ DungeonUI & ĐANG FARM: Ghim tại vị trí NPC
+    -- Chỉ ghim vị trí farm nếu đang có DungeonUI
+    if dungeonUI and currentTargetCFrame then
         humanoidRootPart.CFrame = currentTargetCFrame
         humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
     end
 end)
 
 -- ==========================================
--- [ PHẦN 2: SCEPTERS OF FLAME ]
+-- [ PHẦN 3: SCEPTERS OF FLAME & KILL AURA ]
 -- ==========================================
 local function startScepterLoop()
     _G.Loop = true 
@@ -59,9 +78,6 @@ local function startScepterLoop()
     end
 end
 
--- ==========================================
--- [ PHẦN 3: KILL AURA ]
--- ==========================================
 local function killAuraLoop()
     getgenv().G = true
     getgenv().Creator = 'https://discord.gg/B3HqPPzFYr - HalloweenGaster'
@@ -80,7 +96,7 @@ local function killAuraLoop()
 end
 
 -- ==========================================
--- [ PHẦN 4: LOGIC NPC & ANTI-STUCK (FIX THEO Ý BẠN) ]
+-- [ PHẦN 4: LOGIC NPC & ANTI-STUCK ]
 -- ==========================================
 local function getValidNPCs()
     local npcs = {}
@@ -110,60 +126,42 @@ local function autoSkillLoop()
             local npcs = getValidNPCs()
             
             if #npcs > 0 then
-                -- Nếu có NPC thì reset bộ đếm 2s tắt mode
                 noNpcTimer = 0 
-                
                 if isAntiStuckMode then
-                    -- [ CHẾ ĐỘ CHỐNG KẸT ]
-                    -- Nếu chưa có mục tiêu, hoặc mục tiêu cũ đã bốc hơi khỏi workspace, hoặc mất HRP
                     if not currentAntiStuckTarget or not currentAntiStuckTarget.Parent or not currentAntiStuckTarget:FindFirstChild("HumanoidRootPart") then
-                        currentAntiStuckTarget = npcs[1] -- Lấy con NPC đầu tiên làm con dê tế thần
+                        currentAntiStuckTarget = npcs[1]
                     end
-                    
                     if currentAntiStuckTarget and currentAntiStuckTarget:FindFirstChild("HumanoidRootPart") then
                         local targetCF = currentAntiStuckTarget.HumanoidRootPart.CFrame
                         currentTargetCFrame = targetCF * CFrame.new(0, -15, 0)
-                        
-                        -- Dùng skill liên tục vào con này
                         pcall(function()
                             skillRemote:InvokeServer("DF_GoldGold_V", {MouseHit = targetCF, Mobile = true})
                         end)
-                        task.wait(0.5) -- Delay ngắn để xả skill liên tục
+                        task.wait(0.5)
                     end
                 else
-                    -- [ CHẾ ĐỘ GÔM QUÁI BÌNH THƯỜNG ]
-                    local sumPos = Vector3.new(0, 0, 0)
-                    local count = 0
-                    local boss = nil
-                    
+                    local sumPos, count, boss = Vector3.new(0, 0, 0), 0, nil
                     for _, n in ipairs(npcs) do
                         if n.Name == "Heartbreaker Queen [Lv. 5000]" then boss = n end
                         sumPos = sumPos + n.HumanoidRootPart.Position
                         count = count + 1
                     end
-                    
                     local averagePos = sumPos / count
-                    
                     local isGrouped = true
                     for _, n in ipairs(npcs) do
-                        if (n.HumanoidRootPart.Position - averagePos).Magnitude > 5 then
-                            isGrouped = false
-                            break
-                        end
+                        if (n.HumanoidRootPart.Position - averagePos).Magnitude > 5 then isGrouped = false break end
                     end
 
-                    -- Bộ đếm kẹt
                     if not isGrouped and not boss then
                         stuckTimer = stuckTimer + 0.1
                         if stuckTimer >= 30 then 
                             isAntiStuckMode = true 
-                            currentAntiStuckTarget = nil -- Chuẩn bị lấy target mới khi vào mode
+                            currentAntiStuckTarget = nil
                         end
                     else
                         stuckTimer = 0
                     end
 
-                    -- Tung skill gom
                     if not isAntiStuckMode then
                         local finalTargetCF = boss and boss.HumanoidRootPart.CFrame or CFrame.new(averagePos)
                         currentTargetCFrame = finalTargetCF * CFrame.new(0, -15, 0)
@@ -176,11 +174,8 @@ local function autoSkillLoop()
                     end
                 end
             else
-                -- KHÔNG CÒN BẤT KỲ NPC NÀO TRONG VÙNG FARM
                 currentTargetCFrame = nil
                 stuckTimer = 0
-                
-                -- Nếu đang bật Anti-Stuck, bắt đầu đếm ngược 2s để tắt
                 if isAntiStuckMode then
                     noNpcTimer = noNpcTimer + 0.1
                     if noNpcTimer >= 2 then
@@ -191,7 +186,6 @@ local function autoSkillLoop()
                 end
             end
         else
-            -- Mất UI (Đang ở sảnh chờ)
             currentTargetCFrame = nil
             stuckTimer = 0
             isAntiStuckMode = false
