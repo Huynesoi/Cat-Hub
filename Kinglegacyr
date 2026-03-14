@@ -38,7 +38,7 @@ local function checkDungeonUI()
                     humanoidRootPart.CFrame = dungeonEntranceCF
                     humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
                 end
-                task.wait(0.5)
+                task.wait(0.05)
             else
                 -- Nếu có GUI thì không làm gì cả, đợi 1s check lại
                 task.wait(1)
