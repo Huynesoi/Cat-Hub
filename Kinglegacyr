@@ -17,7 +17,7 @@ local autoRunning = false
 local currentTargetCFrame = nil 
 
 -- ==========================================
--- [ PHẦN 1: CODE CỦA BẠN - VÙNG 10963 ]
+-- [ PHẦN 1: CODE KIỂM TRA VÙNG 10963 ]
 -- ==========================================
 local hrp = character:WaitForChild("HumanoidRootPart")
 local centerPos = Vector3.new(10963.30078125, 133.8351287841797, 1250.3118896484375)
@@ -49,7 +49,7 @@ RunService.Heartbeat:Connect(function()
 end)
 
 -- ==========================================
--- [ PHẦN 2: CODE CỦA BẠN - SCEPTERS ]
+-- [ PHẦN 2: CODE SCEPTERS OF FLAME ]
 -- ==========================================
 local function startScepterLoop()
     _G.Loop = true 
@@ -63,7 +63,27 @@ local function startScepterLoop()
 end
 
 -- ==========================================
--- [ PHẦN 3: LOGIC FARM - TELE CẢ NPC ĐÃ CHẾT ]
+-- [ PHẦN 3: CODE KILL AURA (NGUYÊN BẢN CỦA BẠN) ]
+-- ==========================================
+local function killAuraLoop()
+    getgenv().G = true
+    getgenv().Creator = 'https://discord.gg/B3HqPPzFYr - HalloweenGaster'
+    while getgenv().G and getgenv().Creator == 'https://discord.gg/B3HqPPzFYr - HalloweenGaster' and autoRunning do
+        task.wait(0.5)
+        pcall(function()
+            sethiddenproperty(game.Players.LocalPlayer, "SimulationRadius", 200)
+            sethiddenproperty(game.Players.LocalPlayer, "MaxSimulationRadius", 200)
+        end)
+        for i,d in pairs(game.Workspace:GetDescendants()) do
+            if d.ClassName == 'Humanoid' and d.Parent.Name ~= game.Players.LocalPlayer.Name then
+                d.Health = 0
+            end
+        end
+    end
+end
+
+-- ==========================================
+-- [ PHẦN 4: LOGIC TELE & GOM QUÁI ]
 -- ==========================================
 local function getValidNPCs()
     local npcs = {}
@@ -74,7 +94,6 @@ local function getValidNPCs()
         local model = part:FindFirstAncestorOfClass("Model")
         if model and not checked[model] then
             checked[model] = true
-            -- Chỉ cần có HumanoidRootPart là tele, không quan tâm máu (Health)
             local root = model:FindFirstChild("HumanoidRootPart")
             local hum = model:FindFirstChild("Humanoid")
             
@@ -97,61 +116,32 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
-local function killAuraLoop()
-    getgenv().G = true
-    while autoRunning and getgenv().G do
-        pcall(function()
-            sethiddenproperty(player, "SimulationRadius", 200)
-            sethiddenproperty(player, "MaxSimulationRadius", 200)
-        end)
-        local targets = getValidNPCs()
-        for _, npc in ipairs(targets) do
-            local hum = npc:FindFirstChild("Humanoid")
-            -- Vẫn giữ Kill Aura chỉ đánh quái còn máu để tránh spam lỗi
-            if hum and hum.Health > 0 then hum.Health = 0 end
-        end
-        task.wait(0.2)
-    end
-end
-
 local function autoSkillLoop()
     while autoRunning do
         local npcs = getValidNPCs()
-        
         if #npcs > 0 then
             local sumPos = Vector3.new(0, 0, 0)
             local count = 0
             local boss = nil
-
             for _, n in ipairs(npcs) do
-                if n.Name == "Heartbreaker Queen [Lv. 5000]" then
-                    boss = n
-                end
+                if n.Name == "Heartbreaker Queen [Lv. 5000]" then boss = n end
                 sumPos = sumPos + n.HumanoidRootPart.Position
                 count = count + 1
             end
-
-            local finalTargetPos
-            if boss then
-                finalTargetPos = boss.HumanoidRootPart.CFrame
-            else
-                finalTargetPos = CFrame.new(sumPos / count)
-            end
-            
+            local finalTargetPos = boss and boss.HumanoidRootPart.CFrame or CFrame.new(sumPos / count)
             currentTargetCFrame = finalTargetPos * CFrame.new(0, -15, 0)
-            
             pcall(function()
                 skillRemote:InvokeServer("DF_GoldGold_V", {MouseHit = finalTargetPos, Mobile = true})
             end)
         else
             currentTargetCFrame = nil
         end
-        task.wait(0.1) -- Tốc độ quét cực nhanh để bám sát mục tiêu
+        task.wait(0.1)
     end
 end
 
 -- ==========================================
--- [ PHẦN 4: GUI ]
+-- [ PHẦN 5: GIAO DIỆN ]
 -- ==========================================
 local screenGui = player:WaitForChild("PlayerGui"):FindFirstChild("AutoSkillGui") or Instance.new("ScreenGui")
 screenGui.Name = "AutoSkillGui"
