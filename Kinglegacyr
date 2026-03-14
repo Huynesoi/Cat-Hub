@@ -7,13 +7,15 @@ local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 
+-- --- [ CẤU HÌNH VÙNG QUÉT ] ---
 local mainCFrame = CFrame.new(20072.912109375, 15584.1640625, 20049.546875)
+local scanSize = Vector3.new(1500, 10000, 1500) -- Chỉ quét trong phạm vi này
 local closeSize = Vector3.new(10, 10, 10)
 
 local skillRemote = ReplicatedStorage:WaitForChild("Chest"):WaitForChild("Remotes"):WaitForChild("Functions"):WaitForChild("SkillAction")
 
 local autoRunning = false
-local currentTargetCFrame = nil -- Biến lưu vị trí để lơ lửng liên tục
+local currentTargetCFrame = nil -- Vị trí để ghim nhân vật lơ lửng
 
 -- --- [ GIAO DIỆN ] ---
 local screenGui = player:WaitForChild("PlayerGui"):FindFirstChild("AutoSkillGui") or Instance.new("ScreenGui")
@@ -31,15 +33,21 @@ toggleButton.TextColor3 = Color3.new(1, 1, 1)
 toggleButton.TextScaled = true
 toggleButton.Parent = screenGui
 
--- --- [ CÁC HÀM HỖ TRỢ ] ---
+-- --- [ HÀM HỖ TRỢ ] ---
 
--- Hàm kiểm tra và lấy NPCs (Đã fix lỗi nhận diện nhầm Player)
+-- Quét NPC giới hạn trong Box và loại bỏ Player
 local function getNPCs()
 	local npcs = {}
-	for _, model in ipairs(Workspace:GetDescendants()) do
-		if model:IsA("Model") and model:FindFirstChild("Humanoid") and model:FindFirstChild("HumanoidRootPart") then
-			-- Nếu model KHÔNG phải là mình và KHÔNG phải là Player nào khác
+	local foundModels = {}
+	-- Sử dụng hàm đời mới để quét vùng chính xác và nhẹ máy
+	local partsInRegion = Workspace:GetPartBoundsInBox(mainCFrame, scanSize)
+	
+	for _, part in ipairs(partsInRegion) do
+		local model = part:FindFirstAncestorOfClass("Model")
+		if model and not foundModels[model] and model:FindFirstChild("Humanoid") and model:FindFirstChild("HumanoidRootPart") then
+			-- Fix lỗi: Kiểm tra không phải bản thân và không phải người chơi khác
 			if model ~= character and not Players:GetPlayerFromCharacter(model) then
+				foundModels[model] = true
 				table.insert(npcs, model)
 			end
 		end
@@ -47,7 +55,6 @@ local function getNPCs()
 	return npcs
 end
 
--- Tính vị trí trung bình
 local function getAveragePosition(npcs)
 	local sum = Vector3.new(0, 0, 0)
 	local count = 0
@@ -58,13 +65,9 @@ local function getAveragePosition(npcs)
 			count += 1
 		end
 	end
-	if count > 0 then
-		return sum / count
-	end
-	return mainCFrame.Position
+	return count > 0 and (sum / count) or mainCFrame.Position
 end
 
--- Kiểm tra NPCs có đứng gần nhau không
 local function areNPCsClose(npcs)
 	for i = 1, #npcs do
 		for j = i + 1, #npcs do
@@ -81,12 +84,11 @@ local function areNPCsClose(npcs)
 	return true
 end
 
--- Gửi yêu cầu dùng Skill
-local function useSkillAt(cframe)
+local function useSkillAt(targetCFrame)
 	local args = {
 		"DF_GoldGold_V",
 		{
-			MouseHit = cframe,
+			MouseHit = targetCFrame,
 			Mobile = true
 		}
 	}
@@ -95,83 +97,77 @@ end
 
 -- --- [ VÒNG LẶP CHÍNH ] ---
 
--- Vòng lặp giữ nhân vật lơ lửng (Tele liên tục mỗi frame)
+-- Cơ chế lơ lửng: Teleport liên tục mỗi frame (Thay thế Gravity)
 RunService.Heartbeat:Connect(function()
 	if autoRunning and currentTargetCFrame and humanoidRootPart then
 		humanoidRootPart.CFrame = currentTargetCFrame
-		humanoidRootPart.Velocity = Vector3.new(0, 0, 0) -- Giữ vận tốc bằng 0 để không bị văng
+		humanoidRootPart.Velocity = Vector3.new(0, 0, 0) -- Triệt tiêu lực rơi
 	end
 end)
 
--- Vòng lặp Auto Skill & Gom quái
-local function autoSkillLoop()
-	while autoRunning do
-		character = player.Character or player.CharacterAdded:Wait()
-		humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-		
-		if not humanoidRootPart then
-			task.wait(1)
-			continue
-		end
-		
-		local npcs = getNPCs()
-		local bossFound = false
-		
-		-- 1. Ưu tiên Boss
-		for _, npc in ipairs(npcs) do
-			if npc.Name == "Heartbreaker Queen [Lv. 5000]" and npc:FindFirstChild("HumanoidRootPart") then
-				local bossPos = npc.HumanoidRootPart.CFrame
-				currentTargetCFrame = bossPos * CFrame.new(0, -15, 0) -- Tele dưới 15 stud
-				useSkillAt(bossPos) -- Skill đánh thẳng vào Boss
-				bossFound = true
-				task.wait(1)
-				break
-			end
-		end
-		
-		-- 2. Xử lý quái thường nếu không có Boss
-		if not bossFound and #npcs > 0 then
-			if #npcs == 1 then
-				local npc = npcs[1]
-				local targetPos = npc.HumanoidRootPart.CFrame
-				currentTargetCFrame = targetPos * CFrame.new(0, -15, 0)
-				useSkillAt(targetPos)
-			else
-				local midPos = getAveragePosition(npcs)
-				local targetCFrame = CFrame.new(midPos)
-				currentTargetCFrame = targetCFrame * CFrame.new(0, -15, 0)
-				useSkillAt(targetCFrame)
-			end
-		end
-		task.wait(0.5) -- Tránh spam quá tải
-	end
-end
-
--- Vòng lặp Kill Aura an toàn bằng SimulationRadius
+-- Kill Aura an toàn (Chỉ tác động NPC trong vùng quét)
 local function killAuraLoop()
 	getgenv().G = true
 	getgenv().Creator = 'https://discord.gg/B3HqPPzFYr - HalloweenGaster'
 	
-	while getgenv().G and getgenv().Creator == 'https://discord.gg/B3HqPPzFYr - HalloweenGaster' do
+	while getgenv().G and autoRunning do
 		task.wait(0.5)
-		
 		pcall(function()
 			sethiddenproperty(player, "SimulationRadius", 200)
 			sethiddenproperty(player, "MaxSimulationRadius", 200)
 		end)
 		
-		for _, d in pairs(Workspace:GetDescendants()) do
-			if d:IsA("Humanoid") and d.Parent and d.Parent.Name ~= player.Name then
-				-- Đảm bảo không rút máu của người chơi khác
-				if not Players:GetPlayerFromCharacter(d.Parent) then
-					d.Health = 0
-				end
-			end
+		local targetNPCs = getNPCs()
+		for _, npc in ipairs(targetNPCs) do
+			local hum = npc:FindFirstChild("Humanoid")
+			if hum then hum.Health = 0 end
 		end
 	end
 end
 
--- --- [ NÚT BẬT / TẮT ] ---
+-- Logic điều khiển Teleport và Skill
+local function autoSkillLoop()
+	while autoRunning do
+		character = player.Character or player.CharacterAdded:Wait()
+		humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+		
+		local npcs = getNPCs()
+		if #npcs > 0 then
+			local targetNPC = nil
+			
+			-- Ưu tiên Boss
+			for _, npc in ipairs(npcs) do
+				if npc.Name == "Heartbreaker Queen [Lv. 5000]" then
+					targetNPC = npc
+					break
+				end
+			end
+			
+			if targetNPC then
+				local pos = targetNPC.HumanoidRootPart.CFrame
+				currentTargetCFrame = pos * CFrame.new(0, -15, 0) -- Đứng dưới 15 stud
+				useSkillAt(pos)
+				task.wait(1)
+			elseif #npcs == 1 then
+				local pos = npcs[1].HumanoidRootPart.CFrame
+				currentTargetCFrame = pos * CFrame.new(0, -15, 0)
+				useSkillAt(pos)
+			else
+				-- Gom quái hoặc đánh vào trung tâm
+				local avgPos = getAveragePosition(npcs)
+				local targetCF = CFrame.new(avgPos)
+				currentTargetCFrame = targetCF * CFrame.new(0, -15, 0)
+				useSkillAt(targetCF)
+			end
+		else
+			-- Nếu không có quái, quay về tâm vùng quét lơ lửng chờ
+			currentTargetCFrame = mainCFrame * CFrame.new(0, 50, 0)
+		end
+		task.wait(0.5)
+	end
+end
+
+-- --- [ ĐIỀU KHIỂN ] ---
 toggleButton.MouseButton1Click:Connect(function()
 	autoRunning = not autoRunning
 	toggleButton.Text = autoRunning and "Tắt Auto Skill" or "Bật Auto Skill"
@@ -181,7 +177,7 @@ toggleButton.MouseButton1Click:Connect(function()
 		task.spawn(autoSkillLoop)
 		task.spawn(killAuraLoop)
 	else
-		getgenv().G = false -- Tắt Kill Aura
-		currentTargetCFrame = nil -- Bỏ lơ lửng, nhân vật sẽ rớt xuống đất bình thường
+		getgenv().G = false
+		currentTargetCFrame = nil
 	end
 end)
