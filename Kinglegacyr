@@ -16,6 +16,10 @@ local skillRemote = ReplicatedStorage:WaitForChild("Chest"):WaitForChild("Remote
 local autoRunning = false
 local currentTargetCFrame = nil 
 
+-- Biến hỗ trợ tính năng Chống Kẹt
+local stuckTimer = 0
+local isAntiStuckMode = false
+
 -- ==========================================
 -- [ PHẦN 1: KIỂM TRA VÙNG 10963 ]
 -- ==========================================
@@ -83,7 +87,7 @@ local function killAuraLoop()
 end
 
 -- ==========================================
--- [ PHẦN 4: LOGIC CHỈ LẤY NPC LÀM TRUNG TÂM ]
+-- [ PHẦN 4: LOGIC FARM & ANTI-STUCK ]
 -- ==========================================
 local function getValidNPCs()
     local npcs = {}
@@ -95,8 +99,6 @@ local function getValidNPCs()
             checked[model] = true
             local root = model:FindFirstChild("HumanoidRootPart")
             local hum = model:FindFirstChild("Humanoid")
-            
-            -- CHỈ LẤY NPC: Không phải Player, không phải Character của mình
             if root and hum and not Players:GetPlayerFromCharacter(model) and model ~= character then
                 local diff = root.Position - farmCenter.Position
                 if math.abs(diff.X) <= halfFarmSize.X and math.abs(diff.Y) <= halfFarmSize.Y and math.abs(diff.Z) <= halfFarmSize.Z then
@@ -118,12 +120,11 @@ end)
 local function autoSkillLoop()
     while autoRunning do
         local npcs = getValidNPCs()
+        
         if #npcs > 0 then
             local sumPos = Vector3.new(0, 0, 0)
             local count = 0
             local boss = nil
-            
-            -- Chỉ lặp qua danh sách NPC đã được lọc sạch người chơi
             for _, n in ipairs(npcs) do
                 if n.Name == "Heartbreaker Queen [Lv. 5000]" then boss = n end
                 sumPos = sumPos + n.HumanoidRootPart.Position
@@ -131,32 +132,55 @@ local function autoSkillLoop()
             end
             
             local averagePos = sumPos / count
-            local finalTargetCF = boss and boss.HumanoidRootPart.CFrame or CFrame.new(averagePos)
             
-            -- Teleport theo vị trí trung bình của NPC
-            currentTargetCFrame = finalTargetCF * CFrame.new(0, -15, 0)
-
             -- Kiểm tra độ tụ (phạm vi 5x5x5)
             local isGrouped = true
-            if not boss then
-                for _, n in ipairs(npcs) do
-                    local dist = (n.HumanoidRootPart.Position - averagePos).Magnitude
-                    if dist > 5 then
-                        isGrouped = false
-                        break
-                    end
+            for _, n in ipairs(npcs) do
+                if (n.HumanoidRootPart.Position - averagePos).Magnitude > 5 then
+                    isGrouped = false
+                    break
                 end
             end
 
-            -- Chỉ dùng skill dựa trên vị trí trung bình của NPC
-            if (isGrouped and count >= 1) or boss then
-                pcall(function()
-                    skillRemote:InvokeServer("DF_GoldGold_V", {MouseHit = finalTargetCF, Mobile = true})
-                end)
-                task.wait(0.8)
+            -- LOGIC CHỐNG KẸT
+            if not isGrouped and not boss then
+                stuckTimer = stuckTimer + 0.1
+                if stuckTimer >= 30 then
+                    isAntiStuckMode = true
+                end
+            else
+                stuckTimer = 0 -- Reset timer nếu đã tụ lại được hoặc có boss
+            end
+
+            -- CHẾ ĐỘ XỬ LÝ
+            if isAntiStuckMode then
+                -- Chế độ diệt từng con (Anti-Stuck)
+                for _, n in ipairs(npcs) do
+                    if not autoRunning then break end
+                    local targetCF = n.HumanoidRootPart.CFrame
+                    currentTargetCFrame = targetCF * CFrame.new(0, -15, 0)
+                    pcall(function()
+                        skillRemote:InvokeServer("DF_GoldGold_V", {MouseHit = targetCF, Mobile = true})
+                    end)
+                    task.wait(0.5)
+                end
+            else
+                -- Chế độ gôm quái bình thường
+                local finalTargetCF = boss and boss.HumanoidRootPart.CFrame or CFrame.new(averagePos)
+                currentTargetCFrame = finalTargetCF * CFrame.new(0, -15, 0)
+
+                if isGrouped or boss then
+                    pcall(function()
+                        skillRemote:InvokeServer("DF_GoldGold_V", {MouseHit = finalTargetCF, Mobile = true})
+                    end)
+                    task.wait(0.8)
+                end
             end
         else
+            -- Khi sạch bóng quái: Reset mọi chế độ về ban đầu
             currentTargetCFrame = nil
+            stuckTimer = 0
+            isAntiStuckMode = false
         end
         task.wait(0.1)
     end
@@ -191,5 +215,7 @@ btn.MouseButton1Click:Connect(function()
         getgenv().G = false
         _G.Loop = false
         currentTargetCFrame = nil
+        isAntiStuckMode = false
+        stuckTimer = 0
     end
 end)
