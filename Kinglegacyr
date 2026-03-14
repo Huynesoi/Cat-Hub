@@ -17,7 +17,7 @@ local autoRunning = false
 local currentTargetCFrame = nil 
 
 -- ==========================================
--- [ PHẦN 1: CODE KIỂM TRA VÙNG 10963 ]
+-- [ PHẦN 1: KIỂM TRA VÙNG 10963 ]
 -- ==========================================
 local hrp = character:WaitForChild("HumanoidRootPart")
 local centerPos = Vector3.new(10963.30078125, 133.8351287841797, 1250.3118896484375)
@@ -49,7 +49,7 @@ RunService.Heartbeat:Connect(function()
 end)
 
 -- ==========================================
--- [ PHẦN 2: CODE SCEPTERS OF FLAME ]
+-- [ PHẦN 2: SCEPTERS OF FLAME ]
 -- ==========================================
 local function startScepterLoop()
     _G.Loop = true 
@@ -63,7 +63,7 @@ local function startScepterLoop()
 end
 
 -- ==========================================
--- [ PHẦN 3: CODE KILL AURA (NGUYÊN BẢN CỦA BẠN) ]
+-- [ PHẦN 3: KILL AURA (NGUYÊN BẢN) ]
 -- ==========================================
 local function killAuraLoop()
     getgenv().G = true
@@ -83,23 +83,20 @@ local function killAuraLoop()
 end
 
 -- ==========================================
--- [ PHẦN 4: LOGIC TELE & GOM QUÁI ]
+-- [ PHẦN 4: LOGIC CHỈ TUNG SKILL KHI GÔM SÁT ]
 -- ==========================================
 local function getValidNPCs()
     local npcs = {}
     local parts = Workspace:GetPartBoundsInBox(farmCenter, farmSize)
     local checked = {}
-    
     for _, part in ipairs(parts) do
         local model = part:FindFirstAncestorOfClass("Model")
         if model and not checked[model] then
             checked[model] = true
             local root = model:FindFirstChild("HumanoidRootPart")
             local hum = model:FindFirstChild("Humanoid")
-            
             if root and hum and not Players:GetPlayerFromCharacter(model) and model ~= character then
-                local pos = root.Position
-                local diff = pos - farmCenter.Position
+                local diff = root.Position - farmCenter.Position
                 if math.abs(diff.X) <= halfFarmSize.X and math.abs(diff.Y) <= halfFarmSize.Y and math.abs(diff.Z) <= halfFarmSize.Z then
                     table.insert(npcs, model)
                 end
@@ -128,11 +125,32 @@ local function autoSkillLoop()
                 sumPos = sumPos + n.HumanoidRootPart.Position
                 count = count + 1
             end
-            local finalTargetPos = boss and boss.HumanoidRootPart.CFrame or CFrame.new(sumPos / count)
-            currentTargetCFrame = finalTargetPos * CFrame.new(0, -15, 0)
-            pcall(function()
-                skillRemote:InvokeServer("DF_GoldGold_V", {MouseHit = finalTargetPos, Mobile = true})
-            end)
+            
+            local averagePos = sumPos / count
+            local finalTargetCF = boss and boss.HumanoidRootPart.CFrame or CFrame.new(averagePos)
+            
+            -- Luôn tele để gôm quái
+            currentTargetCFrame = finalTargetCF * CFrame.new(0, -15, 0)
+
+            -- KIỂM TRA ĐỘ TỤ: Xem tất cả NPC có nằm trong khoảng cách 5 stud so với tâm không
+            local isGrouped = true
+            if not boss then -- Nếu có boss thì ưu tiên đánh ngay, không cần gôm
+                for _, n in ipairs(npcs) do
+                    local dist = (n.HumanoidRootPart.Position - averagePos).Magnitude
+                    if dist > 5 then -- Nếu có con nào xa hơn 5 stud thì coi như chưa gôm xong
+                        isGrouped = false
+                        break
+                    end
+                end
+            end
+
+            -- Chỉ tung chiêu khi đã tụ lại (isGrouped) hoặc đánh Boss
+            if (isGrouped and count >= 1) or boss then
+                pcall(function()
+                    skillRemote:InvokeServer("DF_GoldGold_V", {MouseHit = finalTargetCF, Mobile = true})
+                end)
+                task.wait(0.8)
+            end
         else
             currentTargetCFrame = nil
         end
