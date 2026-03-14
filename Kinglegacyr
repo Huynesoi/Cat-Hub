@@ -12,48 +12,58 @@ local farmCenter = CFrame.new(20072.9121, 15684.1641, 20049.5469)
 local farmSize = Vector3.new(1500, 10000, 1500)
 local halfFarmSize = farmSize / 2
 
+-- Tọa độ Teleport khi mất GUI (Ảnh 10963)
+local dungeonEntranceCF = CFrame.new(10963.3008, 133.835129, 1250.31189, 1, 0, 0, 0, 1, 0, 0, 0, 1)
+
 local skillRemote = ReplicatedStorage:WaitForChild("Chest"):WaitForChild("Remotes"):WaitForChild("Functions"):WaitForChild("SkillAction")
 local autoRunning = false
 local currentTargetCFrame = nil 
 
--- Biến hỗ trợ tính năng Chống Kẹt
+-- Biến hỗ trợ Anti-Stuck
 local stuckTimer = 0
 local isAntiStuckMode = false
 
 -- ==========================================
--- [ PHẦN 1: KIỂM TRA VÙNG 10963 ]
+-- [ PHẦN 1: TÍNH NĂNG MỚI - CHECK DungeonUI ]
 -- ==========================================
-local hrp = character:WaitForChild("HumanoidRootPart")
-local centerPos = Vector3.new(10963.30078125, 133.8351287841797, 1250.3118896484375)
-local regionSize = Vector3.new(2048, 2048, 2048)
-local teleportInterval = 0.1
-local lastTeleport = 0
-
-player.CharacterAdded:Connect(function(newChar)
-    character = newChar
-    hrp = newChar:WaitForChild("HumanoidRootPart")
-    humanoidRootPart = newChar:WaitForChild("HumanoidRootPart")
-end)
-
-local function isInRegion(pos)
-    local h = regionSize / 2
-    return (pos.X >= centerPos.X - h.X and pos.X <= centerPos.X + h.X and 
-            pos.Y >= centerPos.Y - h.Y and pos.Y <= centerPos.Y + h.Y and 
-            pos.Z >= centerPos.Z - h.Z and pos.Z <= centerPos.Z + h.Z)
-end
-
-RunService.Heartbeat:Connect(function()
-    if not character or not hrp or not hrp:IsDescendantOf(workspace) then return end
-    if isInRegion(hrp.Position) then
-        if tick() - lastTeleport >= teleportInterval then
-            hrp.CFrame = CFrame.new(centerPos)
-            lastTeleport = tick()
+local function checkDungeonUI()
+    while true do
+        if autoRunning then
+            local playerGui = player:FindFirstChild("PlayerGui")
+            local dungeonUI = playerGui and playerGui:FindFirstChild("DungeonUI")
+            
+            if not dungeonUI then
+                -- Nếu không có GUI, thực hiện tele ghim tại chỗ mỗi 0.5s
+                if humanoidRootPart then
+                    humanoidRootPart.CFrame = dungeonEntranceCF
+                    humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+                end
+                task.wait(0.5)
+            else
+                -- Nếu có GUI thì không làm gì cả, đợi 1s check lại
+                task.wait(1)
+            end
+        else
+            task.wait(1)
         end
     end
-end)
+end
+task.spawn(checkDungeonUI)
 
 -- ==========================================
--- [ PHẦN 2: SCEPTERS OF FLAME ]
+-- [ PHẦN 2: KIỂM TRA VÙNG 10963 (LOGIC CŨ) ]
+-- ==========================================
+-- (Phần này chạy song song để đảm bảo bạn luôn ở đúng tâm khi đứng chờ)
+local function isInRegion(pos)
+    local center = dungeonEntranceCF.Position
+    local h = Vector3.new(2048, 2048, 2048) / 2
+    return (pos.X >= center.X - h.X and pos.X <= center.X + h.X and 
+            pos.Y >= center.Y - h.Y and pos.Y <= center.Y + h.Y and 
+            pos.Z >= center.Z - h.Z and pos.Z <= center.Z + h.Z)
+end
+
+-- ==========================================
+-- [ PHẦN 3: SCEPTERS OF FLAME ]
 -- ==========================================
 local function startScepterLoop()
     _G.Loop = true 
@@ -67,7 +77,7 @@ local function startScepterLoop()
 end
 
 -- ==========================================
--- [ PHẦN 3: KILL AURA (NGUYÊN BẢN) ]
+-- [ PHẦN 4: KILL AURA (NGUYÊN BẢN) ]
 -- ==========================================
 local function killAuraLoop()
     getgenv().G = true
@@ -87,7 +97,7 @@ local function killAuraLoop()
 end
 
 -- ==========================================
--- [ PHẦN 4: LOGIC FARM & ANTI-STUCK ]
+-- [ PHẦN 5: LOGIC FARM & ANTI-STUCK ]
 -- ==========================================
 local function getValidNPCs()
     local npcs = {}
@@ -111,16 +121,19 @@ local function getValidNPCs()
 end
 
 RunService.Heartbeat:Connect(function()
+    -- Chỉ ghim vị trí farm khi có mục tiêu và KHÔNG đang bị kẹt ngoài sảnh (DungeonUI check)
     if autoRunning and currentTargetCFrame and humanoidRootPart then
-        humanoidRootPart.CFrame = currentTargetCFrame
-        humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+        local playerGui = player:FindFirstChild("PlayerGui")
+        if playerGui and playerGui:FindFirstChild("DungeonUI") then
+            humanoidRootPart.CFrame = currentTargetCFrame
+            humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+        end
     end
 end)
 
 local function autoSkillLoop()
     while autoRunning do
         local npcs = getValidNPCs()
-        
         if #npcs > 0 then
             local sumPos = Vector3.new(0, 0, 0)
             local count = 0
@@ -130,10 +143,8 @@ local function autoSkillLoop()
                 sumPos = sumPos + n.HumanoidRootPart.Position
                 count = count + 1
             end
-            
             local averagePos = sumPos / count
             
-            -- Kiểm tra độ tụ (phạm vi 5x5x5)
             local isGrouped = true
             for _, n in ipairs(npcs) do
                 if (n.HumanoidRootPart.Position - averagePos).Magnitude > 5 then
@@ -142,19 +153,14 @@ local function autoSkillLoop()
                 end
             end
 
-            -- LOGIC CHỐNG KẸT
             if not isGrouped and not boss then
                 stuckTimer = stuckTimer + 0.1
-                if stuckTimer >= 30 then
-                    isAntiStuckMode = true
-                end
+                if stuckTimer >= 30 then isAntiStuckMode = true end
             else
-                stuckTimer = 0 -- Reset timer nếu đã tụ lại được hoặc có boss
+                stuckTimer = 0
             end
 
-            -- CHẾ ĐỘ XỬ LÝ
             if isAntiStuckMode then
-                -- Chế độ diệt từng con (Anti-Stuck)
                 for _, n in ipairs(npcs) do
                     if not autoRunning then break end
                     local targetCF = n.HumanoidRootPart.CFrame
@@ -165,10 +171,8 @@ local function autoSkillLoop()
                     task.wait(0.5)
                 end
             else
-                -- Chế độ gôm quái bình thường
                 local finalTargetCF = boss and boss.HumanoidRootPart.CFrame or CFrame.new(averagePos)
                 currentTargetCFrame = finalTargetCF * CFrame.new(0, -15, 0)
-
                 if isGrouped or boss then
                     pcall(function()
                         skillRemote:InvokeServer("DF_GoldGold_V", {MouseHit = finalTargetCF, Mobile = true})
@@ -177,7 +181,6 @@ local function autoSkillLoop()
                 end
             end
         else
-            -- Khi sạch bóng quái: Reset mọi chế độ về ban đầu
             currentTargetCFrame = nil
             stuckTimer = 0
             isAntiStuckMode = false
@@ -187,7 +190,7 @@ local function autoSkillLoop()
 end
 
 -- ==========================================
--- [ PHẦN 5: GIAO DIỆN ]
+-- [ PHẦN 6: GIAO DIỆN ]
 -- ==========================================
 local screenGui = player:WaitForChild("PlayerGui"):FindFirstChild("AutoSkillGui") or Instance.new("ScreenGui")
 screenGui.Name = "AutoSkillGui"
@@ -218,4 +221,10 @@ btn.MouseButton1Click:Connect(function()
         isAntiStuckMode = false
         stuckTimer = 0
     end
+end)
+
+player.CharacterAdded:Connect(function(newChar)
+    character = newChar
+    humanoidRootPart = newChar:WaitForChild("HumanoidRootPart")
+    hrp = newChar:WaitForChild("HumanoidRootPart")
 end)
