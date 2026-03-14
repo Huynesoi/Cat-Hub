@@ -8,7 +8,7 @@ local character = player.Character or player.CharacterAdded:Wait()
 local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 
 -- Cấu hình vùng Farm
-local farmCenter = CFrame.new(20072.9121, 15684.1641, 20049.5469) -- Tọa độ từ ảnh bạn gửi
+local farmCenter = CFrame.new(20072.9121, 15684.1641, 20049.5469)
 local farmSize = Vector3.new(1500, 10000, 1500)
 local halfFarmSize = farmSize / 2
 
@@ -55,13 +55,15 @@ local function startScepterLoop()
     _G.Loop = true 
     while _G.Loop and autoRunning and task.wait() do 
         local scepCF = CFrame.new(19792.27734375, 14972.65625, 20029.33203125, 1, 0, 0, 0, 1, 0, 0, 0, 1)
-        skillRemote:InvokeServer("SW_Scepters of Flame_Z", { MouseHit = scepCF, Type = "Down" }) 
-        skillRemote:InvokeServer("SW_Scepters of Flame_Z", { MouseHit = scepCF, Type = "Up" }) 
+        pcall(function()
+            skillRemote:InvokeServer("SW_Scepters of Flame_Z", { MouseHit = scepCF, Type = "Down" }) 
+            skillRemote:InvokeServer("SW_Scepters of Flame_Z", { MouseHit = scepCF, Type = "Up" }) 
+        end)
     end
 end
 
 -- ==========================================
--- [ PHẦN 3: LOGIC FARM - FIX LỖI AUTO TELE ]
+-- [ PHẦN 3: LOGIC FARM - GOM QUÁI & FIX DELAY ]
 -- ==========================================
 local function getValidNPCs()
     local npcs = {}
@@ -75,9 +77,9 @@ local function getValidNPCs()
             local hum = model:FindFirstChild("Humanoid")
             local root = model:FindFirstChild("HumanoidRootPart")
             
-            -- CHỈ LẤY nếu là NPC sống, có máu và không phải người chơi
             if hum and root and hum.Health > 0 and not Players:GetPlayerFromCharacter(model) and model ~= character then
-                local diff = root.Position - farmCenter.Position
+                local pos = root.Position
+                local diff = pos - farmCenter.Position
                 if math.abs(diff.X) <= halfFarmSize.X and math.abs(diff.Y) <= halfFarmSize.Y and math.abs(diff.Z) <= halfFarmSize.Z then
                     table.insert(npcs, model)
                 end
@@ -87,7 +89,7 @@ local function getValidNPCs()
     return npcs
 end
 
--- Chỉ ghim vị trí khi THỰC SỰ có mục tiêu trong danh sách lọc
+-- Ghim vị trí mượt mà
 RunService.Heartbeat:Connect(function()
     if autoRunning and currentTargetCFrame and humanoidRootPart then
         humanoidRootPart.CFrame = currentTargetCFrame
@@ -107,7 +109,7 @@ local function killAuraLoop()
             local hum = npc:FindFirstChild("Humanoid")
             if hum then hum.Health = 0 end
         end
-        task.wait(0.5)
+        task.wait(0.3) -- Giảm thời gian chờ để Kill Aura quét nhanh hơn
     end
 end
 
@@ -116,22 +118,37 @@ local function autoSkillLoop()
         local npcs = getValidNPCs()
         
         if #npcs > 0 then
-            local target = nil
-            for _, n in ipairs(npcs) do 
-                if n.Name == "Heartbreaker Queen [Lv. 5000]" then target = n break end 
+            local sumPos = Vector3.new(0, 0, 0)
+            local count = 0
+            local boss = nil
+
+            for _, n in ipairs(npcs) do
+                if n.Name == "Heartbreaker Queen [Lv. 5000]" then
+                    boss = n
+                end
+                sumPos = sumPos + n.HumanoidRootPart.Position
+                count = count + 1
             end
-            target = target or npcs[1]
+
+            -- LOGIC GOM QUÁI: 
+            -- Nếu có Boss, tele theo Boss. Nếu không, tele vào TRUNG TÂM của cả đám NPC.
+            local finalTargetPos
+            if boss then
+                finalTargetPos = boss.HumanoidRootPart.CFrame
+            else
+                finalTargetPos = CFrame.new(sumPos / count)
+            end
             
-            local targetPos = target.HumanoidRootPart.CFrame
-            currentTargetCFrame = targetPos * CFrame.new(0, -15, 0)
+            currentTargetCFrame = finalTargetPos * CFrame.new(0, -15, 0)
             
-            skillRemote:InvokeServer("DF_GoldGold_V", {MouseHit = targetPos, Mobile = true})
-            task.wait(0.8)
+            pcall(function()
+                skillRemote:InvokeServer("DF_GoldGold_V", {MouseHit = finalTargetPos, Mobile = true})
+            end)
         else
-            -- NẾU KHÔNG CÓ NPC NÀO CÒN SỐNG: Xóa sạch ghim, đứng yên
+            -- Khi sạch quái thì giải phóng teleport ngay lập tức
             currentTargetCFrame = nil
         end
-        task.wait(0.5)
+        task.wait(0.2) -- Tăng tốc độ quét vòng lặp (giảm từ 0.5 xuống 0.2) để không bị đứng 15-20s
     end
 end
 
