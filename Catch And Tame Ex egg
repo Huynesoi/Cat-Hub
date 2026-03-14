@@ -487,6 +487,7 @@ local petFolder = workspace:WaitForChild("PlayerPens"):WaitForChild("1"):WaitFor
 local validRecipes = {
     {"Skeleton Giant Scorpion", "Lava Bear"},
     {"Phoenix", "Skeleton Crocodile"},
+    {"Lava Bear", "Phoenix"},
     {"Lightning Dragon", "Cerberus"},
     {"Red Panda", "Kitsune"},
     {"Red Panda", "Axolotl"}
