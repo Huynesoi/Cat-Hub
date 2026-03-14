@@ -83,7 +83,7 @@ local function killAuraLoop()
 end
 
 -- ==========================================
--- [ PHẦN 4: LOGIC CHỈ TUNG SKILL KHI GÔM SÁT ]
+-- [ PHẦN 4: LOGIC CHỈ LẤY NPC LÀM TRUNG TÂM ]
 -- ==========================================
 local function getValidNPCs()
     local npcs = {}
@@ -95,6 +95,8 @@ local function getValidNPCs()
             checked[model] = true
             local root = model:FindFirstChild("HumanoidRootPart")
             local hum = model:FindFirstChild("Humanoid")
+            
+            -- CHỈ LẤY NPC: Không phải Player, không phải Character của mình
             if root and hum and not Players:GetPlayerFromCharacter(model) and model ~= character then
                 local diff = root.Position - farmCenter.Position
                 if math.abs(diff.X) <= halfFarmSize.X and math.abs(diff.Y) <= halfFarmSize.Y and math.abs(diff.Z) <= halfFarmSize.Z then
@@ -120,6 +122,8 @@ local function autoSkillLoop()
             local sumPos = Vector3.new(0, 0, 0)
             local count = 0
             local boss = nil
+            
+            -- Chỉ lặp qua danh sách NPC đã được lọc sạch người chơi
             for _, n in ipairs(npcs) do
                 if n.Name == "Heartbreaker Queen [Lv. 5000]" then boss = n end
                 sumPos = sumPos + n.HumanoidRootPart.Position
@@ -129,22 +133,22 @@ local function autoSkillLoop()
             local averagePos = sumPos / count
             local finalTargetCF = boss and boss.HumanoidRootPart.CFrame or CFrame.new(averagePos)
             
-            -- Luôn tele để gôm quái
+            -- Teleport theo vị trí trung bình của NPC
             currentTargetCFrame = finalTargetCF * CFrame.new(0, -15, 0)
 
-            -- KIỂM TRA ĐỘ TỤ: Xem tất cả NPC có nằm trong khoảng cách 5 stud so với tâm không
+            -- Kiểm tra độ tụ (phạm vi 5x5x5)
             local isGrouped = true
-            if not boss then -- Nếu có boss thì ưu tiên đánh ngay, không cần gôm
+            if not boss then
                 for _, n in ipairs(npcs) do
                     local dist = (n.HumanoidRootPart.Position - averagePos).Magnitude
-                    if dist > 5 then -- Nếu có con nào xa hơn 5 stud thì coi như chưa gôm xong
+                    if dist > 5 then
                         isGrouped = false
                         break
                     end
                 end
             end
 
-            -- Chỉ tung chiêu khi đã tụ lại (isGrouped) hoặc đánh Boss
+            -- Chỉ dùng skill dựa trên vị trí trung bình của NPC
             if (isGrouped and count >= 1) or boss then
                 pcall(function()
                     skillRemote:InvokeServer("DF_GoldGold_V", {MouseHit = finalTargetCF, Mobile = true})
