@@ -38,7 +38,7 @@ task.spawn(function()
                 -- KHI KHÔNG CÓ DungeonUI: Tele mỗi 0.05s
                 humanoidRootPart.CFrame = dungeonEntranceCF
                 humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
-                task.wait(0.03) -- Chỉnh theo ý bạn
+                task.wait(0.1) -- Chỉnh theo ý bạn
             else
                 task.wait(0.5) -- Có UI rồi thì check chậm lại để đỡ tốn tài nguyên
             end
