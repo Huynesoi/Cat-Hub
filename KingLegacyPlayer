@@ -1,0 +1,225 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+
+-- Cấu hình vùng Farm
+local farmCenter = CFrame.new(20072.9121, 15684.1641, 20049.5469)
+local farmSize = Vector3.new(1500, 10000, 1500)
+local halfFarmSize = farmSize / 2
+
+-- Tọa độ Teleport khi mất GUI (Ảnh 10963)
+local dungeonEntranceCF = CFrame.new(10963.3008, 133.835129, 1250.31189, 1, 0, 0, 0, 1, 0, 0, 0, 1)
+
+local autoRunning = false
+local currentTargetCFrame = nil 
+
+-- Biến hỗ trợ Anti-Stuck
+local stuckTimer = 0
+local isAntiStuckMode = false
+local currentAntiStuckTarget = nil
+local noNpcTimer = 0
+
+-- ==========================================
+-- [ PHẦN 1: TELE SẢNH CHỜ (0.05S) ]
+-- ==========================================
+task.spawn(function()
+    while true do
+        if autoRunning and humanoidRootPart then
+            local playerGui = player:FindFirstChild("PlayerGui")
+            local dungeonUI = playerGui and playerGui:FindFirstChild("DungeonUI")
+            
+            if not dungeonUI then
+                humanoidRootPart.CFrame = dungeonEntranceCF
+                humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+                task.wait(0.05)
+            else
+                task.wait(0.5)
+            end
+        else
+            task.wait(1)
+        end
+    end
+end)
+
+-- ==========================================
+-- [ PHẦN 2: GHIM VỊ TRÍ KHI ĐANG FARM ]
+-- ==========================================
+RunService.Heartbeat:Connect(function()
+    if not autoRunning or not humanoidRootPart then return end
+    
+    local playerGui = player:FindFirstChild("PlayerGui")
+    local dungeonUI = playerGui and playerGui:FindFirstChild("DungeonUI")
+    
+    -- Chỉ ghim vị trí farm nếu đang có DungeonUI
+    if dungeonUI and currentTargetCFrame then
+        humanoidRootPart.CFrame = currentTargetCFrame
+        humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+    end
+end)
+
+-- ==========================================
+-- [ PHẦN 3: KILL AURA ]
+-- ==========================================
+local function killAuraLoop()
+    getgenv().G = true
+    getgenv().Creator = 'https://discord.gg/B3HqPPzFYr - HalloweenGaster'
+    while getgenv().G and getgenv().Creator == 'https://discord.gg/B3HqPPzFYr - HalloweenGaster' and autoRunning do
+        task.wait(0.5)
+        pcall(function()
+            sethiddenproperty(game.Players.LocalPlayer, "SimulationRadius", 200)
+            sethiddenproperty(game.Players.LocalPlayer, "MaxSimulationRadius", 200)
+        end)
+        for i,d in pairs(game.Workspace:GetDescendants()) do
+            if d.ClassName == 'Humanoid' and d.Parent.Name ~= game.Players.LocalPlayer.Name then
+                d.Health = 0
+            end
+        end
+    end
+end
+
+-- ==========================================
+-- [ PHẦN 4: LOGIC DI CHUYỂN & GOM QUÁI ]
+-- ==========================================
+local function getValidNPCs()
+    local npcs = {}
+    local parts = Workspace:GetPartBoundsInBox(farmCenter, farmSize)
+    local checked = {}
+    for _, part in ipairs(parts) do
+        local model = part:FindFirstAncestorOfClass("Model")
+        if model and not checked[model] then
+            checked[model] = true
+            local root = model:FindFirstChild("HumanoidRootPart")
+            local hum = model:FindFirstChild("Humanoid")
+            if root and hum and hum.Health > 0 and not Players:GetPlayerFromCharacter(model) and model ~= character then
+                local diff = root.Position - farmCenter.Position
+                if math.abs(diff.X) <= halfFarmSize.X and math.abs(diff.Y) <= halfFarmSize.Y and math.abs(diff.Z) <= halfFarmSize.Z then
+                    table.insert(npcs, model)
+                end
+            end
+        end
+    end
+    return npcs
+end
+
+local function autoMoveLoop()
+    while autoRunning do
+        local playerGui = player:FindFirstChild("PlayerGui")
+        if playerGui and playerGui:FindFirstChild("DungeonUI") then
+            local npcs = getValidNPCs()
+            
+            if #npcs > 0 then
+                noNpcTimer = 0 
+                if isAntiStuckMode then
+                    -- Kiểm tra mục tiêu hiện tại
+                    if currentAntiStuckTarget then
+                        local hum = currentAntiStuckTarget:FindFirstChild("Humanoid")
+                        if not hum or hum.Health <= 0 then currentAntiStuckTarget = nil end
+                    end
+
+                    if not currentAntiStuckTarget or not currentAntiStuckTarget.Parent or not currentAntiStuckTarget:FindFirstChild("HumanoidRootPart") then
+                        currentAntiStuckTarget = npcs[1]
+                    end
+                    
+                    if currentAntiStuckTarget and currentAntiStuckTarget:FindFirstChild("HumanoidRootPart") then
+                        -- Tele dưới chân NPC mục tiêu
+                        currentTargetCFrame = currentAntiStuckTarget.HumanoidRootPart.CFrame * CFrame.new(0, -15, 0)
+                        task.wait(0.1)
+                    end
+                else
+                    -- Chế độ gom quái bình thường
+                    local sumPos, count, boss = Vector3.new(0, 0, 0), 0, nil
+                    for _, n in ipairs(npcs) do
+                        if n.Name == "Heartbreaker Queen [Lv. 5000]" then boss = n end
+                        sumPos = sumPos + n.HumanoidRootPart.Position
+                        count = count + 1
+                    end
+                    local averagePos = sumPos / count
+                    
+                    -- Kiểm tra độ tụ của quái
+                    local isGrouped = true
+                    for _, n in ipairs(npcs) do
+                        if (n.HumanoidRootPart.Position - averagePos).Magnitude > 5 then
+                            isGrouped = false
+                            break
+                        end
+                    end
+
+                    if not isGrouped and not boss then
+                        stuckTimer = stuckTimer + 0.1
+                        if stuckTimer >= 30 then 
+                            isAntiStuckMode = true 
+                            currentAntiStuckTarget = nil
+                        end
+                    else
+                        stuckTimer = 0
+                    end
+
+                    -- Ghim vị trí tại trung tâm hoặc Boss
+                    local finalTargetCF = boss and boss.HumanoidRootPart.CFrame or CFrame.new(averagePos)
+                    currentTargetCFrame = finalTargetCF * CFrame.new(0, -15, 0)
+                    task.wait(0.1)
+                end
+            else
+                -- Không có quái
+                currentTargetCFrame = nil
+                stuckTimer = 0
+                if isAntiStuckMode then
+                    noNpcTimer = noNpcTimer + 0.1
+                    if noNpcTimer >= 2 then
+                        isAntiStuckMode = false
+                        noNpcTimer = 0
+                    end
+                end
+            end
+        else
+            -- Sảnh chờ
+            currentTargetCFrame = nil
+            stuckTimer = 0
+            isAntiStuckMode = false
+            noNpcTimer = 0
+        end
+        task.wait(0.1)
+    end
+end
+
+-- ==========================================
+-- [ PHẦN 5: GUI ]
+-- ==========================================
+local screenGui = player:WaitForChild("PlayerGui"):FindFirstChild("AutoSkillGui") or Instance.new("ScreenGui")
+screenGui.Name = "AutoSkillGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+local btn = screenGui:FindFirstChild("ToggleButton") or Instance.new("TextButton")
+btn.Name = "ToggleButton"
+btn.Size = UDim2.new(0, 150, 0, 50)
+btn.Position = UDim2.new(0, 20, 0, 100)
+btn.Text = "Bật Auto Farm"
+btn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+btn.TextColor3 = Color3.new(1, 1, 1)
+btn.TextScaled = true
+btn.Parent = screenGui
+
+btn.MouseButton1Click:Connect(function()
+    autoRunning = not autoRunning
+    btn.Text = autoRunning and "Tắt Auto Farm" or "Bật Auto Farm"
+    btn.BackgroundColor3 = autoRunning and Color3.fromRGB(170, 0, 0) or Color3.fromRGB(0, 170, 0)
+    if autoRunning then
+        task.spawn(autoMoveLoop)
+        task.spawn(killAuraLoop)
+    else
+        getgenv().G = false
+        currentTargetCFrame = nil
+        isAntiStuckMode = false
+        stuckTimer = 0
+        noNpcTimer = 0
+    end
+end)
+
+player.CharacterAdded:Connect(function(newChar)
+    character = newChar
+    humanoidRootPart = newChar:WaitForChild("HumanoidRootPart")
+end)
