@@ -39,7 +39,9 @@ if chest then
 end
 
 local island = workspace:FindFirstChild("Island")
+
 if island then
-    island:Destroy()
+    -- Xóa tất cả các object bên trong Island nhưng giữ lại Island
+    island:ClearAllChildren()
 end
 end)
