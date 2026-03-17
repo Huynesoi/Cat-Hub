@@ -35,11 +35,12 @@ task.spawn(function()
             local dungeonUI = playerGui and playerGui:FindFirstChild("DungeonUI")
             
             if not dungeonUI then
+                -- KHI KHÔNG CÓ DungeonUI: Tele mỗi 0.05s
                 humanoidRootPart.CFrame = dungeonEntranceCF
                 humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
-                task.wait(0.05)
+                task.wait(0.1) -- Chỉnh theo ý bạn
             else
-                task.wait(0.5)
+                task.wait(0.5) -- Có UI rồi thì check chậm lại để đỡ tốn tài nguyên
             end
         else
             task.wait(1)
@@ -56,6 +57,7 @@ RunService.Heartbeat:Connect(function()
     local playerGui = player:FindFirstChild("PlayerGui")
     local dungeonUI = playerGui and playerGui:FindFirstChild("DungeonUI")
     
+    -- Chỉ ghim vị trí farm nếu đang có DungeonUI
     if dungeonUI and currentTargetCFrame then
         humanoidRootPart.CFrame = currentTargetCFrame
         humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
@@ -67,14 +69,11 @@ end)
 -- ==========================================
 local function startScepterLoop()
     _G.Loop = true 
-    while _G.Loop and autoRunning and task.wait() do 
+    while _G.Loop and autoRunning and task.wait(0.2) do 
         local scepCF = CFrame.new(19792.27734375, 14972.65625, 20029.33203125, 1, 0, 0, 0, 1, 0, 0, 0, 1)
-        -- DÙNG TASK.SPAWN ĐỂ CHỐNG KẸT LỆNH
-        task.spawn(function()
-            pcall(function()
-                skillRemote:InvokeServer("SW_Scepters of Flame_Z", { MouseHit = scepCF, Type = "Down" }) 
-                skillRemote:InvokeServer("SW_Scepters of Flame_Z", { MouseHit = scepCF, Type = "Up" }) 
-            end)
+        pcall(function()
+            skillRemote:InvokeServer("SW_Scepters of Flame_Z", { MouseHit = scepCF, Type = "Down" }) 
+            skillRemote:InvokeServer("SW_Scepters of Flame_Z", { MouseHit = scepCF, Type = "Up" }) 
         end)
     end
 end
@@ -97,7 +96,7 @@ local function killAuraLoop()
 end
 
 -- ==========================================
--- [ PHẦN 4: LOGIC NPC & ANTI-STUCK FIXED KẸT LỆNH ]
+-- [ PHẦN 4: LOGIC NPC & ANTI-STUCK ]
 -- ==========================================
 local function getValidNPCs()
     local npcs = {}
@@ -109,8 +108,7 @@ local function getValidNPCs()
             checked[model] = true
             local root = model:FindFirstChild("HumanoidRootPart")
             local hum = model:FindFirstChild("Humanoid")
-            -- Chỉ lấy NPC còn máu > 0
-            if root and hum and hum.Health > 0 and not Players:GetPlayerFromCharacter(model) and model ~= character then
+            if root and hum and not Players:GetPlayerFromCharacter(model) and model ~= character then
                 local diff = root.Position - farmCenter.Position
                 if math.abs(diff.X) <= halfFarmSize.X and math.abs(diff.Y) <= halfFarmSize.Y and math.abs(diff.Z) <= halfFarmSize.Z then
                     table.insert(npcs, model)
@@ -130,28 +128,14 @@ local function autoSkillLoop()
             if #npcs > 0 then
                 noNpcTimer = 0 
                 if isAntiStuckMode then
-                    -- Kiểm tra xem mục tiêu hiện tại còn sống không
-                    if currentAntiStuckTarget then
-                        local hum = currentAntiStuckTarget:FindFirstChild("Humanoid")
-                        if not hum or hum.Health <= 0 then
-                            currentAntiStuckTarget = nil -- Chết rồi thì bỏ ngay
-                        end
-                    end
-
-                    -- Nếu mất mục tiêu thì gán lại con mới
                     if not currentAntiStuckTarget or not currentAntiStuckTarget.Parent or not currentAntiStuckTarget:FindFirstChild("HumanoidRootPart") then
                         currentAntiStuckTarget = npcs[1]
                     end
-                    
                     if currentAntiStuckTarget and currentAntiStuckTarget:FindFirstChild("HumanoidRootPart") then
                         local targetCF = currentAntiStuckTarget.HumanoidRootPart.CFrame
                         currentTargetCFrame = targetCF * CFrame.new(0, -15, 0)
-                        
-                        -- DÙNG TASK.SPAWN CHỐNG KẸT
-                        task.spawn(function()
-                            pcall(function()
-                                skillRemote:InvokeServer("DF_GoldGold_V", {MouseHit = targetCF, Mobile = true})
-                            end)
+                        pcall(function()
+                            skillRemote:InvokeServer("DF_GoldGold_V", {MouseHit = targetCF, Mobile = true})
                         end)
                         task.wait(0.5)
                     end
@@ -170,7 +154,7 @@ local function autoSkillLoop()
 
                     if not isGrouped and not boss then
                         stuckTimer = stuckTimer + 0.1
-                        if stuckTimer >= 30 then 
+                        if stuckTimer >= 50 then 
                             isAntiStuckMode = true 
                             currentAntiStuckTarget = nil
                         end
@@ -182,11 +166,8 @@ local function autoSkillLoop()
                         local finalTargetCF = boss and boss.HumanoidRootPart.CFrame or CFrame.new(averagePos)
                         currentTargetCFrame = finalTargetCF * CFrame.new(0, -15, 0)
                         if isGrouped or boss then
-                            -- DÙNG TASK.SPAWN CHỐNG KẸT
-                            task.spawn(function()
-                                pcall(function()
-                                    skillRemote:InvokeServer("DF_GoldGold_V", {MouseHit = finalTargetCF, Mobile = true})
-                                end)
+                            pcall(function()
+                                skillRemote:InvokeServer("DF_GoldGold_V", {MouseHit = finalTargetCF, Mobile = true})
                             end)
                             task.wait(0.8)
                         end
