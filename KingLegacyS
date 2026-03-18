@@ -14,7 +14,7 @@ local AutoConfig = {
     AutoOn = true, -- true = Tự động bật khi chạy script, false = Tắt (phải nhập tay)
     PlayerList = {
         ["huynesoi9999"] = 1,  -- Tên acc chính của bạn
-        ["TenAccPhuSo1"] = 2,
+        ["slimbtw1"] = 2,
         ["TenAccPhuSo2"] = 3,
         ["TenAccPhuSo3"] = 4
         -- Bạn có thể thêm bao nhiêu dòng tùy thích
