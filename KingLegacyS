@@ -35,9 +35,15 @@ local skillRemote = ReplicatedStorage:WaitForChild("Chest"):WaitForChild("Remote
 
 local autoRunning = false
 local currentTargetCFrame = nil
+local currentTargetNPC = nil -- Biến dùng để LOCK mục tiêu
 local playerIndex = 1
 
--- Vòng lặp kiểm tra Dungeon UI và di chuyển đến lối vào
+-- Kiểm tra NPC còn sống
+local function isAlive(model)
+    return model and model.Parent and model:FindFirstChild("Humanoid") and model.Humanoid.Health > 0 and model:FindFirstChild("HumanoidRootPart")
+end
+
+-- Vòng lặp kiểm tra Dungeon UI
 task.spawn(function()
     while true do
         if autoRunning and humanoidRootPart then
@@ -57,7 +63,7 @@ task.spawn(function()
     end
 end)
 
--- Giữ nhân vật tại vị trí mục tiêu
+-- Giữ vị trí nhân vật
 RunService.Heartbeat:Connect(function()
     if not autoRunning or not humanoidRootPart then return end
     
@@ -70,7 +76,6 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- Các vòng lặp hỗ trợ (Scepter & KillAura)
 local function startScepterLoop()
     _G.Loop = true 
     while _G.Loop and autoRunning and task.wait(0.2) do 
@@ -98,7 +103,6 @@ local function killAuraLoop()
     end
 end
 
--- Lấy danh sách NPC trong vùng farm
 local function getValidNPCs()
     local npcs = {}
     local parts = Workspace:GetPartBoundsInBox(farmCenter, farmSize)
@@ -111,62 +115,60 @@ local function getValidNPCs()
             local root = model:FindFirstChild("HumanoidRootPart")
             local hum = model:FindFirstChild("Humanoid")
             if root and hum and not Players:GetPlayerFromCharacter(model) and model ~= character then
-                local diff = root.Position - farmCenter.Position
-                if math.abs(diff.X) <= halfFarmSize.X and math.abs(diff.Y) <= halfFarmSize.Y and math.abs(diff.Z) <= halfFarmSize.Z then
-                    table.insert(npcs, model)
-                end
+                table.insert(npcs, model)
             end
         end
     end
     
     table.sort(npcs, function(a, b)
-        local posA = a.HumanoidRootPart.Position
-        local posB = b.HumanoidRootPart.Position
-        return posA.X < posB.X
+        return a.HumanoidRootPart.Position.X < b.HumanoidRootPart.Position.X
     end)
     
     return npcs
 end
 
--- Vòng lặp Skill chính (Đã thêm Delay 0.5s và fix chính xác)
+-- Vòng lặp Skill chính (Đã Fix Lock & Phân luồng)
 local function autoSkillLoop()
     while autoRunning do
         local playerGui = player:FindFirstChild("PlayerGui")
         if playerGui and playerGui:FindFirstChild("DungeonUI") then
-            local npcs = getValidNPCs()
             
-            if #npcs > 0 then
-                local targetIndex = ((playerIndex - 1) % #npcs) + 1
-                local targetNPC = npcs[targetIndex]
+            -- Nếu NPC cũ chết hoặc chưa có, tìm NPC mới
+            if not isAlive(currentTargetNPC) then
+                local npcs = getValidNPCs()
+                if #npcs > 0 then
+                    -- Phân luồng theo playerIndex để mỗi tài khoản đánh một con khác nhau
+                    local selectIdx = ((playerIndex - 1) % #npcs) + 1
+                    currentTargetNPC = npcs[selectIdx]
+                else
+                    currentTargetNPC = nil
+                end
+            end
+            
+            if isAlive(currentTargetNPC) then
+                local targetRoot = currentTargetNPC.HumanoidRootPart
+                currentTargetCFrame = CFrame.lookAt(targetRoot.Position + Vector3.new(20, 20, 20), targetRoot.Position)
                 
-                if targetNPC and targetNPC:FindFirstChild("HumanoidRootPart") then
-                    local targetPos = targetNPC.HumanoidRootPart.Position
+                -- Đợi nhân vật đến gần
+                if humanoidRootPart and (humanoidRootPart.Position - currentTargetCFrame.Position).Magnitude <= 10 then
+                    task.wait(0.5) -- Đợi Server đồng bộ vị trí theo yêu cầu
                     
-                    -- Cập nhật tọa độ ghim (nhìn về phía quái)
-                    currentTargetCFrame = CFrame.lookAt(targetPos + Vector3.new(20, 20, 20), targetPos)
-                    
-                    -- Kiểm tra khoảng cách để bắt đầu xả skill
-                    if humanoidRootPart and (humanoidRootPart.Position - currentTargetCFrame.Position).Magnitude <= 10 then
-                        -- [ FIX ]: Đợi 0.5s để server đồng bộ vị trí nhân vật
-                        task.wait(0.5) 
-                        
-                        -- Kiểm tra lại NPC lần nữa trước khi đánh để tránh lỗi lệch
-                        if targetNPC:FindFirstChild("HumanoidRootPart") then
-                            pcall(function()
-                                -- Sử dụng trực tiếp CFrame hiện tại của NPC để chính xác 100%
-                                skillRemote:InvokeServer("DF_GoldGold_V", {
-                                    MouseHit = targetNPC.HumanoidRootPart.CFrame, 
-                                    Mobile = true
-                                })
-                            end)
-                        end
-                        task.wait(0.3) -- Delay nhỏ sau khi xả chiêu để tránh spam quá tải
+                    if isAlive(currentTargetNPC) then
+                        pcall(function()
+                            -- Skill nhắm thẳng vào CFrame hiện tại của NPC để chính xác 100%
+                            skillRemote:InvokeServer("DF_GoldGold_V", {
+                                MouseHit = targetRoot.CFrame, 
+                                Mobile = true
+                            })
+                        end)
+                        task.wait(0.3)
                     end
                 end
             else
                 currentTargetCFrame = nil
             end
         else
+            currentTargetNPC = nil
             currentTargetCFrame = nil
         end
         task.wait(0.1)
@@ -236,6 +238,7 @@ local function toggleAuto()
     else
         getgenv().G = false
         _G.Loop = false
+        currentTargetNPC = nil
         currentTargetCFrame = nil
     end
 end
@@ -256,7 +259,7 @@ player.CharacterAdded:Connect(function(newChar)
     humanoidRootPart = newChar:WaitForChild("HumanoidRootPart")
 end)
 
--- Tự động kích hoạt
+-- Tự động chạy dựa trên tên
 if AutoConfig.AutoOn then
     local assignedIndex = AutoConfig.PlayerList[player.Name]
     if assignedIndex then
