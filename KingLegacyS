@@ -7,6 +7,21 @@ local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 
+-- ==========================================
+-- [ CẤU HÌNH TỰ ĐỘNG (SỬA Ở ĐÂY) ]
+-- ==========================================
+local AutoConfig = {
+    AutoOn = true, -- true = Tự động bật khi chạy script, false = Tắt (phải nhập tay)
+    PlayerList = {
+        ["huynesoi"] = 1,  -- Thay tên người chơi thật vào trong ngoặc kép
+        ["hahahaha190384"] = 2,
+        ["soicon19911_999"] = 3,
+        ["soicon19911_888"] = 4
+        -- Bạn có thể thêm bao nhiêu dòng tùy thích
+    }
+}
+-- ==========================================
+
 local farmCenter = CFrame.new(20072.9121, 15684.1641, 20049.5469)
 local farmSize = Vector3.new(1500, 10000, 1500)
 local halfFarmSize = farmSize / 2
@@ -117,13 +132,18 @@ local function autoSkillLoop()
                 local targetNPC = npcs[targetIndex]
                 
                 if targetNPC and targetNPC:FindFirstChild("HumanoidRootPart") then
-                    local finalTargetCF = targetNPC.HumanoidRootPart.CFrame
-                    currentTargetCFrame = finalTargetCF * CFrame.new(0, -15, 0)
+                    local targetPos = targetNPC.HumanoidRootPart.Position
                     
-                    pcall(function()
-                        skillRemote:InvokeServer("DF_GoldGold_V", {MouseHit = finalTargetCF, Mobile = true})
-                    end)
-                    task.wait(0.8)
+                    -- Cập nhật tọa độ ghim (cách 20, 20, 20 và nhìn về phía quái)
+                    currentTargetCFrame = CFrame.lookAt(targetPos + Vector3.new(20, 20, 20), targetPos)
+                    
+                    -- Kiểm tra khoảng cách: Nếu nhân vật đã thực sự đến gần tọa độ mong muốn thì mới xả skill
+                    if humanoidRootPart and (humanoidRootPart.Position - currentTargetCFrame.Position).Magnitude <= 10 then
+                        pcall(function()
+                            skillRemote:InvokeServer("DF_GoldGold_V", {MouseHit = targetNPC.HumanoidRootPart.CFrame, Mobile = true})
+                        end)
+                        task.wait(0.8) -- Delay xả chiêu
+                    end
                 end
             else
                 currentTargetCFrame = nil
@@ -135,6 +155,9 @@ local function autoSkillLoop()
     end
 end
 
+-- ==========================================
+-- [ GIAO DIỆN & KHỞI TẠO TỰ ĐỘNG ]
+-- ==========================================
 local screenGui = player:WaitForChild("PlayerGui"):FindFirstChild("AutoSkillGui") or Instance.new("ScreenGui")
 screenGui.Name = "AutoSkillGui"
 screenGui.ResetOnSpawn = false
@@ -192,16 +215,7 @@ btn.Draggable = true
 btn.Visible = false
 btn.Parent = screenGui
 
-confirmBtn.MouseButton1Click:Connect(function()
-    local num = tonumber(inputTextBox.Text)
-    if num and num >= 1 and num <= 100 then
-        playerIndex = num
-        setupFrame.Visible = false
-        btn.Visible = true
-    end
-end)
-
-btn.MouseButton1Click:Connect(function()
+local function toggleAuto()
     autoRunning = not autoRunning
     btn.Text = autoRunning and "Tắt Auto Skill" or "Bật Auto Skill"
     btn.BackgroundColor3 = autoRunning and Color3.fromRGB(170, 0, 0) or Color3.fromRGB(0, 170, 0)
@@ -215,9 +229,31 @@ btn.MouseButton1Click:Connect(function()
         _G.Loop = false
         currentTargetCFrame = nil
     end
+end
+
+confirmBtn.MouseButton1Click:Connect(function()
+    local num = tonumber(inputTextBox.Text)
+    if num and num >= 1 and num <= 100 then
+        playerIndex = num
+        setupFrame.Visible = false
+        btn.Visible = true
+    end
 end)
+
+btn.MouseButton1Click:Connect(toggleAuto)
 
 player.CharacterAdded:Connect(function(newChar)
     character = newChar
     humanoidRootPart = newChar:WaitForChild("HumanoidRootPart")
 end)
+
+-- KÍCH HOẠT AUTO-START DỰA TRÊN CẤU HÌNH
+if AutoConfig.AutoOn then
+    local assignedIndex = AutoConfig.PlayerList[player.Name]
+    if assignedIndex then
+        playerIndex = assignedIndex
+        setupFrame.Visible = false
+        btn.Visible = true
+        toggleAuto() -- Tự động bật luôn vòng lặp
+    end
+end
