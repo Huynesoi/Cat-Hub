@@ -11,7 +11,7 @@ local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 -- [ CẤU HÌNH TỰ ĐỘNG ]
 -- ==========================================
 local AutoConfig = {
-    AutoOn = true,
+    AutoOn = false,
     PlayerList = {
         ["huynesoi9999"] = 1,
         ["TenAccPhuSo1"] = 2,
