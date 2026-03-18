@@ -1,0 +1,223 @@
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+
+local farmCenter = CFrame.new(20072.9121, 15684.1641, 20049.5469)
+local farmSize = Vector3.new(1500, 10000, 1500)
+local halfFarmSize = farmSize / 2
+local dungeonEntranceCF = CFrame.new(10963.3008, 133.835129, 1250.31189, 1, 0, 0, 0, 1, 0, 0, 0, 1)
+
+local skillRemote = ReplicatedStorage:WaitForChild("Chest"):WaitForChild("Remotes"):WaitForChild("Functions"):WaitForChild("SkillAction")
+
+local autoRunning = false
+local currentTargetCFrame = nil
+local playerIndex = 1
+
+task.spawn(function()
+    while true do
+        if autoRunning and humanoidRootPart then
+            local playerGui = player:FindFirstChild("PlayerGui")
+            local dungeonUI = playerGui and playerGui:FindFirstChild("DungeonUI")
+            
+            if not dungeonUI then
+                humanoidRootPart.CFrame = dungeonEntranceCF
+                humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+                task.wait(0.1)
+            else
+                task.wait(0.5)
+            end
+        else
+            task.wait(1)
+        end
+    end
+end)
+
+RunService.Heartbeat:Connect(function()
+    if not autoRunning or not humanoidRootPart then return end
+    
+    local playerGui = player:FindFirstChild("PlayerGui")
+    local dungeonUI = playerGui and playerGui:FindFirstChild("DungeonUI")
+    
+    if dungeonUI and currentTargetCFrame then
+        humanoidRootPart.CFrame = currentTargetCFrame
+        humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+    end
+end)
+
+local function startScepterLoop()
+    _G.Loop = true 
+    while _G.Loop and autoRunning and task.wait(0.2) do 
+        local scepCF = CFrame.new(19792.27734375, 14972.65625, 20029.33203125, 1, 0, 0, 0, 1, 0, 0, 0, 1)
+        pcall(function()
+            skillRemote:InvokeServer("SW_Scepters of Flame_Z", { MouseHit = scepCF, Type = "Down" }) 
+            skillRemote:InvokeServer("SW_Scepters of Flame_Z", { MouseHit = scepCF, Type = "Up" }) 
+        end)
+    end
+end
+
+local function killAuraLoop()
+    getgenv().G = true
+    getgenv().Creator = 'https://discord.gg/B3HqPPzFYr - HalloweenGaster'
+    while getgenv().G and getgenv().Creator == 'https://discord.gg/B3HqPPzFYr - HalloweenGaster' and autoRunning do
+        task.wait(0.5)
+        pcall(function()
+            sethiddenproperty(game.Players.LocalPlayer, "SimulationRadius", 200)
+            sethiddenproperty(game.Players.LocalPlayer, "MaxSimulationRadius", 200)
+        end)
+        for i,d in pairs(game.Workspace:GetDescendants()) do
+            if d.ClassName == 'Humanoid' and d.Parent.Name ~= game.Players.LocalPlayer.Name then
+                d.Health = 0
+            end
+        end
+    end
+end
+
+local function getValidNPCs()
+    local npcs = {}
+    local parts = Workspace:GetPartBoundsInBox(farmCenter, farmSize)
+    local checked = {}
+    
+    for _, part in ipairs(parts) do
+        local model = part:FindFirstAncestorOfClass("Model")
+        if model and not checked[model] then
+            checked[model] = true
+            local root = model:FindFirstChild("HumanoidRootPart")
+            local hum = model:FindFirstChild("Humanoid")
+            if root and hum and not Players:GetPlayerFromCharacter(model) and model ~= character then
+                local diff = root.Position - farmCenter.Position
+                if math.abs(diff.X) <= halfFarmSize.X and math.abs(diff.Y) <= halfFarmSize.Y and math.abs(diff.Z) <= halfFarmSize.Z then
+                    table.insert(npcs, model)
+                end
+            end
+        end
+    end
+    
+    table.sort(npcs, function(a, b)
+        local posA = a:FindFirstChild("HumanoidRootPart") and a.HumanoidRootPart.Position or Vector3.new()
+        local posB = b:FindFirstChild("HumanoidRootPart") and b.HumanoidRootPart.Position or Vector3.new()
+        return posA.X < posB.X
+    end)
+    
+    return npcs
+end
+
+local function autoSkillLoop()
+    while autoRunning do
+        local playerGui = player:FindFirstChild("PlayerGui")
+        if playerGui and playerGui:FindFirstChild("DungeonUI") then
+            local npcs = getValidNPCs()
+            
+            if #npcs > 0 then
+                local targetIndex = ((playerIndex - 1) % #npcs) + 1
+                local targetNPC = npcs[targetIndex]
+                
+                if targetNPC and targetNPC:FindFirstChild("HumanoidRootPart") then
+                    local finalTargetCF = targetNPC.HumanoidRootPart.CFrame
+                    currentTargetCFrame = finalTargetCF * CFrame.new(0, -15, 0)
+                    
+                    pcall(function()
+                        skillRemote:InvokeServer("DF_GoldGold_V", {MouseHit = finalTargetCF, Mobile = true})
+                    end)
+                    task.wait(0.8)
+                end
+            else
+                currentTargetCFrame = nil
+            end
+        else
+            currentTargetCFrame = nil
+        end
+        task.wait(0.1)
+    end
+end
+
+local screenGui = player:WaitForChild("PlayerGui"):FindFirstChild("AutoSkillGui") or Instance.new("ScreenGui")
+screenGui.Name = "AutoSkillGui"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+local setupFrame = Instance.new("Frame")
+setupFrame.Name = "SetupFrame"
+setupFrame.Size = UDim2.new(0, 200, 0, 130)
+setupFrame.Position = UDim2.new(0.5, -100, 0.5, -65)
+setupFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+setupFrame.Active = true
+setupFrame.Draggable = true
+setupFrame.Parent = screenGui
+
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, 0, 0, 30)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "Nhập mã Player (1-100)"
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.Font = Enum.Font.SourceSansBold
+titleLabel.TextSize = 16
+titleLabel.Parent = setupFrame
+
+local inputTextBox = Instance.new("TextBox")
+inputTextBox.Size = UDim2.new(0, 160, 0, 40)
+inputTextBox.Position = UDim2.new(0, 20, 0, 35)
+inputTextBox.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+inputTextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+inputTextBox.PlaceholderText = "Ví dụ: 1"
+inputTextBox.Text = ""
+inputTextBox.Font = Enum.Font.SourceSans
+inputTextBox.TextSize = 20
+inputTextBox.Parent = setupFrame
+
+local confirmBtn = Instance.new("TextButton")
+confirmBtn.Size = UDim2.new(0, 160, 0, 35)
+confirmBtn.Position = UDim2.new(0, 20, 0, 85)
+confirmBtn.BackgroundColor3 = Color3.fromRGB(0, 130, 200)
+confirmBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+confirmBtn.Text = "Xác nhận & Ẩn"
+confirmBtn.Font = Enum.Font.SourceSansBold
+confirmBtn.TextSize = 16
+confirmBtn.Parent = setupFrame
+
+local btn = screenGui:FindFirstChild("ToggleButton") or Instance.new("TextButton")
+btn.Name = "ToggleButton"
+btn.Size = UDim2.new(0, 150, 0, 50)
+btn.Position = UDim2.new(0, 20, 0, 100)
+btn.Text = "Bật Auto Skill"
+btn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+btn.TextColor3 = Color3.new(1, 1, 1)
+btn.TextScaled = true
+btn.Active = true
+btn.Draggable = true
+btn.Visible = false
+btn.Parent = screenGui
+
+confirmBtn.MouseButton1Click:Connect(function()
+    local num = tonumber(inputTextBox.Text)
+    if num and num >= 1 and num <= 100 then
+        playerIndex = num
+        setupFrame.Visible = false
+        btn.Visible = true
+    end
+end)
+
+btn.MouseButton1Click:Connect(function()
+    autoRunning = not autoRunning
+    btn.Text = autoRunning and "Tắt Auto Skill" or "Bật Auto Skill"
+    btn.BackgroundColor3 = autoRunning and Color3.fromRGB(170, 0, 0) or Color3.fromRGB(0, 170, 0)
+    
+    if autoRunning then
+        task.spawn(autoSkillLoop)
+        task.spawn(killAuraLoop)
+        task.spawn(startScepterLoop)
+    else
+        getgenv().G = false
+        _G.Loop = false
+        currentTargetCFrame = nil
+    end
+end)
+
+player.CharacterAdded:Connect(function(newChar)
+    character = newChar
+    humanoidRootPart = newChar:WaitForChild("HumanoidRootPart")
+end)
