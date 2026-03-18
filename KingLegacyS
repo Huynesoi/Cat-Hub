@@ -11,9 +11,9 @@ local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 -- [ CẤU HÌNH TỰ ĐỘNG ]
 -- ==========================================
 local AutoConfig = {
-    AutoOn = false,
+    AutoOn = true, 
     PlayerList = {
-        ["huynesoi9999"] = 1,
+        ["huynesoi9999"] = 1, 
         ["TenAccPhuSo1"] = 2,
         ["TenAccPhuSo2"] = 3,
         ["TenAccPhuSo3"] = 4
@@ -31,13 +31,9 @@ local skillRemote = ReplicatedStorage:WaitForChild("Chest"):WaitForChild("Remote
 local autoRunning = false
 local currentTargetCFrame = nil
 local playerIndex = 1
-local lockedTarget = nil -- Biến dùng để khóa mục tiêu
+local myCurrentTargetNPC = nil -- Biến lưu mục tiêu cố định
 
--- [ HÀM KIỂM TRA NPC CÒN SỐNG ]
-local function isAlive(npc)
-    return npc and npc.Parent and npc:FindFirstChild("Humanoid") and npc.Humanoid.Health > 0 and npc:FindFirstChild("HumanoidRootPart")
-end
-
+-- Logic Teleport sảnh chờ
 task.spawn(function()
     while true do
         if autoRunning and humanoidRootPart then
@@ -55,6 +51,7 @@ task.spawn(function()
     end
 end)
 
+-- Ghim vị trí nhân vật
 RunService.Heartbeat:Connect(function()
     if not autoRunning or not humanoidRootPart then return end
     if currentTargetCFrame then
@@ -66,7 +63,7 @@ end)
 local function startScepterLoop()
     _G.Loop = true 
     while _G.Loop and autoRunning and task.wait(0.2) do 
-        local scepCF = CFrame.new(19792.27734375, 14972.65625, 20029.33203125)
+        local scepCF = CFrame.new(19792.27734375, 14972.65625, 20029.33203125, 1, 0, 0, 0, 1, 0, 0, 0, 1)
         pcall(function()
             skillRemote:InvokeServer("SW_Scepters of Flame_Z", { MouseHit = scepCF, Type = "Down" }) 
             skillRemote:InvokeServer("SW_Scepters of Flame_Z", { MouseHit = scepCF, Type = "Up" }) 
@@ -90,73 +87,95 @@ local function getValidNPCs()
     local npcs = {}
     local parts = Workspace:GetPartBoundsInBox(farmCenter, farmSize)
     local checked = {}
+    
     for _, part in ipairs(parts) do
         local model = part:FindFirstAncestorOfClass("Model")
         if model and not checked[model] then
             checked[model] = true
-            if isAlive(model) and not Players:GetPlayerFromCharacter(model) then
+            local root = model:FindFirstChild("HumanoidRootPart")
+            local hum = model:FindFirstChild("Humanoid")
+            if root and hum and not Players:GetPlayerFromCharacter(model) and model ~= character then
                 table.insert(npcs, model)
             end
         end
     end
+    
     table.sort(npcs, function(a, b)
-        return a.HumanoidRootPart.Position.X < b.HumanoidRootPart.Position.X
+        local posA = a:FindFirstChild("HumanoidRootPart") and a.HumanoidRootPart.Position or Vector3.new()
+        local posB = b:FindFirstChild("HumanoidRootPart") and b.HumanoidRootPart.Position or Vector3.new()
+        return posA.X < posB.X
     end)
+    
     return npcs
 end
 
+-- VÒNG LẶP CHÍNH: CHIA NPC VÀ DÙNG SKILL
 local function autoSkillLoop()
     while autoRunning do
         local playerGui = player:FindFirstChild("PlayerGui")
         if playerGui and playerGui:FindFirstChild("DungeonUI") then
             
-            -- Kiểm tra nếu mục tiêu cũ đã chết thì mới tìm mục tiêu mới
-            if not isAlive(lockedTarget) then
-                lockedTarget = nil
+            -- KIỂM TRA MỤC TIÊU CŨ: Nếu chết hoặc biến mất thì mới tìm cái mới
+            local isTargetValid = myCurrentTargetNPC and myCurrentTargetNPC.Parent and 
+                                 myCurrentTargetNPC:FindFirstChild("Humanoid") and 
+                                 myCurrentTargetNPC.Humanoid.Health > 0 and
+                                 myCurrentTargetNPC:FindFirstChild("HumanoidRootPart")
+
+            if not isTargetValid then
+                myCurrentTargetNPC = nil
+                currentTargetCFrame = nil
+                
                 local npcs = getValidNPCs()
                 if #npcs > 0 then
                     local targetIndex = ((playerIndex - 1) % #npcs) + 1
-                    lockedTarget = npcs[targetIndex]
+                    myCurrentTargetNPC = npcs[targetIndex]
                 end
             end
 
-            if isAlive(lockedTarget) then
-                local targetRoot = lockedTarget.HumanoidRootPart
-                local targetCF = targetRoot.CFrame
+            -- NẾU CÓ MỤC TIÊU THÌ BẮT ĐẦU TẤN CÔNG
+            if myCurrentTargetNPC and myCurrentTargetNPC:FindFirstChild("HumanoidRootPart") then
+                local root = myCurrentTargetNPC.HumanoidRootPart
                 
-                -- Luôn giữ vị trí -15 stud bên dưới
-                currentTargetCFrame = targetCF * CFrame.new(0, -15, 0)
+                -- Luôn cập nhật vị trí ghim nhân vật bên dưới NPC (-15 stud)
+                currentTargetCFrame = root.CFrame * CFrame.new(0, -15, 0)
                 
-                -- Đợi nhân vật đến vị trí ghim
-                if (humanoidRootPart.Position - currentTargetCFrame.Position).Magnitude <= 15 then
-                    task.wait(0.5) -- Đợi 0.5s ổn định
+                -- Đợi nhân vật đến đúng vị trí (sai số 10 stud)
+                if (humanoidRootPart.Position - currentTargetCFrame.Position).Magnitude <= 10 then
+                    task.wait(0.5) -- Đợi thêm 0.5s cho ổn định theo yêu cầu
                     
-                    -- Kiểm tra lại lần cuối trước khi tung chiêu
-                    if isAlive(lockedTarget) then
+                    -- Kiểm tra lại lần cuối xem quái còn sống không trước khi dùng skill
+                    if myCurrentTargetNPC and myCurrentTargetNPC:FindFirstChild("HumanoidRootPart") then
                         pcall(function()
-                            skillRemote:InvokeServer("DF_GoldGold_V", {MouseHit = lockedTarget.HumanoidRootPart.CFrame, Mobile = true})
+                            skillRemote:InvokeServer("DF_GoldGold_V", {
+                                MouseHit = myCurrentTargetNPC.HumanoidRootPart.CFrame, 
+                                Mobile = true
+                            })
                         end)
                     end
                     task.wait(0.8)
                 end
             else
-                currentTargetCFrame = nil
+                task.wait(0.2)
             end
         else
-            lockedTarget = nil
+            myCurrentTargetNPC = nil
             currentTargetCFrame = nil
+            task.wait(1)
         end
-        task.wait(0.1)
+        task.wait(0.05)
     end
 end
 
--- [ PHẦN GUI ]
+-- ==========================================
+-- [ GIAO DIỆN & KHỞI TẠO ]
+-- ==========================================
 local screenGui = player:WaitForChild("PlayerGui"):FindFirstChild("AutoSkillGui") or Instance.new("ScreenGui")
 screenGui.Name = "AutoSkillGui"
 screenGui.ResetOnSpawn = false
 screenGui.Parent = player:WaitForChild("PlayerGui")
 
 local setupFrame = Instance.new("Frame")
+setupFrame.Name = "SetupFrame"
 setupFrame.Size = UDim2.new(0, 200, 0, 130)
 setupFrame.Position = UDim2.new(0.5, -100, 0.5, -65)
 setupFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
@@ -164,16 +183,34 @@ setupFrame.Active = true
 setupFrame.Draggable = true
 setupFrame.Parent = screenGui
 
+local titleLabel = Instance.new("TextLabel")
+titleLabel.Size = UDim2.new(1, 0, 0, 30)
+titleLabel.BackgroundTransparency = 1
+titleLabel.Text = "Nhập mã Player (1-100)"
+titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLabel.Font = Enum.Font.SourceSansBold
+titleLabel.TextSize = 16
+titleLabel.Parent = setupFrame
+
 local inputTextBox = Instance.new("TextBox")
 inputTextBox.Size = UDim2.new(0, 160, 0, 40)
 inputTextBox.Position = UDim2.new(0, 20, 0, 35)
-inputTextBox.PlaceholderText = "Mã 1-100"
+inputTextBox.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+inputTextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+inputTextBox.PlaceholderText = "Ví dụ: 1"
+inputTextBox.Text = ""
+inputTextBox.Font = Enum.Font.SourceSans
+inputTextBox.TextSize = 20
 inputTextBox.Parent = setupFrame
 
 local confirmBtn = Instance.new("TextButton")
 confirmBtn.Size = UDim2.new(0, 160, 0, 35)
 confirmBtn.Position = UDim2.new(0, 20, 0, 85)
+confirmBtn.BackgroundColor3 = Color3.fromRGB(0, 130, 200)
+confirmBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 confirmBtn.Text = "Xác nhận & Ẩn"
+confirmBtn.Font = Enum.Font.SourceSansBold
+confirmBtn.TextSize = 16
 confirmBtn.Parent = setupFrame
 
 local btn = screenGui:FindFirstChild("ToggleButton") or Instance.new("TextButton")
@@ -182,6 +219,8 @@ btn.Size = UDim2.new(0, 150, 0, 50)
 btn.Position = UDim2.new(0, 20, 0, 100)
 btn.Text = "Bật Auto Skill"
 btn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+btn.TextColor3 = Color3.new(1, 1, 1)
+btn.TextScaled = true
 btn.Active = true
 btn.Draggable = true
 btn.Visible = false
@@ -191,6 +230,7 @@ local function toggleAuto()
     autoRunning = not autoRunning
     btn.Text = autoRunning and "Tắt Auto Skill" or "Bật Auto Skill"
     btn.BackgroundColor3 = autoRunning and Color3.fromRGB(170, 0, 0) or Color3.fromRGB(0, 170, 0)
+    
     if autoRunning then
         task.spawn(autoSkillLoop)
         task.spawn(killAuraLoop)
@@ -198,14 +238,14 @@ local function toggleAuto()
     else
         getgenv().G = false
         _G.Loop = false
-        lockedTarget = nil
+        myCurrentTargetNPC = nil
         currentTargetCFrame = nil
     end
 end
 
 confirmBtn.MouseButton1Click:Connect(function()
     local num = tonumber(inputTextBox.Text)
-    if num then
+    if num and num >= 1 and num <= 100 then
         playerIndex = num
         setupFrame.Visible = false
         btn.Visible = true
@@ -214,6 +254,12 @@ end)
 
 btn.MouseButton1Click:Connect(toggleAuto)
 
+player.CharacterAdded:Connect(function(newChar)
+    character = newChar
+    humanoidRootPart = newChar:WaitForChild("HumanoidRootPart")
+end)
+
+-- KÍCH HOẠT TỰ ĐỘNG DỰA TRÊN TÊN PLAYER
 if AutoConfig.AutoOn then
     local assignedIndex = AutoConfig.PlayerList[player.Name]
     if assignedIndex then
