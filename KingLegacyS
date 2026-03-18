@@ -11,17 +11,18 @@ local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 -- [ CẤU HÌNH TỰ ĐỘNG (SỬA Ở ĐÂY) ]
 -- ==========================================
 local AutoConfig = {
-    AutoOn = false, -- true = Tự động bật khi chạy script, false = Tắt (phải nhập tay)
+    AutoOn = true, -- true = Tự động bật khi chạy script, false = Tắt (phải nhập tay)
     PlayerList = {
-        [span_3](start_span)["huynesoi9999"] = 1,  -- Tên acc chính của bạn[span_3](end_span)
-        ["1818282819191"] = 2,
+        ["huynesoi9999"] = 1,  -- Tên acc chính của bạn
+        ["TenAccPhuSo1"] = 2,
         ["TenAccPhuSo2"] = 3,
         ["TenAccPhuSo3"] = 4
+        -- Bạn có thể thêm bao nhiêu dòng tùy thích
     }
 }
 -- ==========================================
 
-[span_4](start_span)local farmCenter = CFrame.new(20072.9121, 15684.1641, 20049.5469)[span_4](end_span)
+local farmCenter = CFrame.new(20072.9121, 15684.1641, 20049.5469)
 local farmSize = Vector3.new(1500, 10000, 1500)
 local halfFarmSize = farmSize / 2
 local dungeonEntranceCF = CFrame.new(10963.3008, 133.835129, 1250.31189, 1, 0, 0, 0, 1, 0, 0, 0, 1)
@@ -31,9 +32,7 @@ local skillRemote = ReplicatedStorage:WaitForChild("Chest"):WaitForChild("Remote
 local autoRunning = false
 local currentTargetCFrame = nil
 local playerIndex = 1
-local myCurrentTargetNPC = nil -- Biến mới để khóa mục tiêu cố định
 
--[span_5](start_span)- Logic Teleport sảnh chờ[span_5](end_span)
 task.spawn(function()
     while true do
         if autoRunning and humanoidRootPart then
@@ -53,7 +52,6 @@ task.spawn(function()
     end
 end)
 
--[span_6](start_span)- Ghim vị trí nhân vật liên tục[span_6](end_span)
 RunService.Heartbeat:Connect(function()
     if not autoRunning or not humanoidRootPart then return end
     
@@ -72,17 +70,18 @@ local function startScepterLoop()
         local scepCF = CFrame.new(19792.27734375, 14972.65625, 20029.33203125, 1, 0, 0, 0, 1, 0, 0, 0, 1)
         pcall(function()
             skillRemote:InvokeServer("SW_Scepters of Flame_Z", { MouseHit = scepCF, Type = "Down" }) 
-            [span_7](start_span)skillRemote:InvokeServer("SW_Scepters of Flame_Z", { MouseHit = scepCF, Type = "Up" })[span_7](end_span)
+            skillRemote:InvokeServer("SW_Scepters of Flame_Z", { MouseHit = scepCF, Type = "Up" }) 
         end)
     end
 end
 
 local function killAuraLoop()
     getgenv().G = true
-    while getgenv().G and autoRunning do
+    getgenv().Creator = 'https://discord.gg/B3HqPPzFYr - HalloweenGaster'
+    while getgenv().G and getgenv().Creator == 'https://discord.gg/B3HqPPzFYr - HalloweenGaster' and autoRunning do
         task.wait(0.5)
         pcall(function()
-            [span_8](start_span)sethiddenproperty(game.Players.LocalPlayer, "SimulationRadius", 200)[span_8](end_span)
+            sethiddenproperty(game.Players.LocalPlayer, "SimulationRadius", 200)
             sethiddenproperty(game.Players.LocalPlayer, "MaxSimulationRadius", 200)
         end)
         for i,d in pairs(game.Workspace:GetDescendants()) do
@@ -105,7 +104,7 @@ local function getValidNPCs()
             local root = model:FindFirstChild("HumanoidRootPart")
             local hum = model:FindFirstChild("Humanoid")
             if root and hum and not Players:GetPlayerFromCharacter(model) and model ~= character then
-                [span_9](start_span)local diff = root.Position - farmCenter.Position[span_9](end_span)
+                local diff = root.Position - farmCenter.Position
                 if math.abs(diff.X) <= halfFarmSize.X and math.abs(diff.Y) <= halfFarmSize.Y and math.abs(diff.Z) <= halfFarmSize.Z then
                     table.insert(npcs, model)
                 end
@@ -116,60 +115,48 @@ local function getValidNPCs()
     table.sort(npcs, function(a, b)
         local posA = a:FindFirstChild("HumanoidRootPart") and a.HumanoidRootPart.Position or Vector3.new()
         local posB = b:FindFirstChild("HumanoidRootPart") and b.HumanoidRootPart.Position or Vector3.new()
-        [span_10](start_span)return posA.X < posB.X[span_10](end_span)
+        return posA.X < posB.X
     end)
     
     return npcs
 end
 
--- VÒNG LẶP CHÍNH: CẢI TIẾN KHÓA MỤC TIÊU CỐ ĐỊNH
 local function autoSkillLoop()
     while autoRunning do
         local playerGui = player:FindFirstChild("PlayerGui")
         if playerGui and playerGui:FindFirstChild("DungeonUI") then
+            local npcs = getValidNPCs()
             
-            -- KIỂM TRA MỤC TIÊU HIỆN TẠI: Nếu nó còn sống và tồn tại thì không đổi mục tiêu
-            local isTargetValid = myCurrentTargetNPC and myCurrentTargetNPC.Parent and 
-                                 myCurrentTargetNPC:FindFirstChild("Humanoid") and 
-                                 myCurrentTargetNPC.Humanoid.Health > 0 and
-                                 myCurrentTargetNPC:FindFirstChild("HumanoidRootPart")
-
-            if not isTargetValid then
-                myCurrentTargetNPC = nil
-                currentTargetCFrame = nil
+            if #npcs > 0 then
+                local targetIndex = ((playerIndex - 1) % #npcs) + 1
+                local targetNPC = npcs[targetIndex]
                 
-                local npcs = getValidNPCs()
-                if #npcs > 0 then
-                    -[span_11](start_span)- Chỉ khi quái cũ chết mới dùng modulo để chọn quái mới[span_11](end_span)
-                    local targetIndex = ((playerIndex - 1) % #npcs) + 1
-                    myCurrentTargetNPC = npcs[targetIndex]
-                end
-            end
-
-            -- NẾU ĐÃ CÓ MỤC TIÊU THÌ TẤN CÔNG
-            if myCurrentTargetNPC and myCurrentTargetNPC:FindFirstChild("HumanoidRootPart") then
-                local targetCF = myCurrentTargetNPC.HumanoidRootPart.CFrame
-                
-                -[span_12](start_span)- Luôn ghim vị trí ở dưới quái 15 stud[span_12](end_span)
-                currentTargetCFrame = targetCF * CFrame.new(0, -15, 0)
-                
-                -- Kiểm tra xem đã tiếp cận điểm ghim chưa (sai số 10 stud)
-                if humanoidRootPart and (humanoidRootPart.Position - currentTargetCFrame.Position).Magnitude <= 10 then
+                if targetNPC and targetNPC:FindFirstChild("HumanoidRootPart") then
+                    local targetCF = targetNPC.HumanoidRootPart.CFrame
                     
-                    [span_13](start_span)task.wait(0.5) -- Đợi 0.5s để ổn định vị trí theo yêu cầu[span_13](end_span)
+                    -- Quay về tele bên dưới NPC -15 stud
+                    currentTargetCFrame = targetCF * CFrame.new(0, -15, 0)
                     
-                    -- Lấy tọa độ quái một lần nữa ngay lúc này để tránh đánh lệch
-                    if myCurrentTargetNPC and myCurrentTargetNPC:FindFirstChild("HumanoidRootPart") then
-                        local exactTargetCF = myCurrentTargetNPC.HumanoidRootPart.CFrame
-                        pcall(function()
-                            [span_14](start_span)skillRemote:InvokeServer("DF_GoldGold_V", {MouseHit = exactTargetCF, Mobile = true})[span_14](end_span)
-                        end)
+                    -- Kiểm tra xem đã đến đúng vị trí dưới quái chưa (cho phép sai số 15 stud để tránh kẹt)
+                    if humanoidRootPart and (humanoidRootPart.Position - currentTargetCFrame.Position).Magnitude <= 15 then
+                        
+                        -- Chờ 0.5s theo yêu cầu để ổn định vị trí
+                        task.wait(0.5) 
+                        
+                        -- LẤY LẠI TỌA ĐỘ MỚI NHẤT của NPC sau 0.5s để tung chiêu không bị lệch
+                        if targetNPC and targetNPC:FindFirstChild("HumanoidRootPart") then
+                            local exactTargetCF = targetNPC.HumanoidRootPart.CFrame
+                            pcall(function()
+                                skillRemote:InvokeServer("DF_GoldGold_V", {MouseHit = exactTargetCF, Mobile = true})
+                            end)
+                        end
+                        task.wait(0.8) -- Delay chống spam rác server
                     end
-                    [span_15](start_span)task.wait(0.8) -- Delay chống spam[span_15](end_span)
                 end
+            else
+                currentTargetCFrame = nil
             end
         else
-            myCurrentTargetNPC = nil
             currentTargetCFrame = nil
         end
         task.wait(0.1)
@@ -202,7 +189,7 @@ titleLabel.Font = Enum.Font.SourceSansBold
 titleLabel.TextSize = 16
 titleLabel.Parent = setupFrame
 
-[span_16](start_span)local inputTextBox = Instance.new("TextBox")[span_16](end_span)
+local inputTextBox = Instance.new("TextBox")
 inputTextBox.Size = UDim2.new(0, 160, 0, 40)
 inputTextBox.Position = UDim2.new(0, 20, 0, 35)
 inputTextBox.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
@@ -233,7 +220,7 @@ btn.TextColor3 = Color3.new(1, 1, 1)
 btn.TextScaled = true
 btn.Active = true
 btn.Draggable = true
-[span_17](start_span)btn.Visible = false[span_17](end_span)
+btn.Visible = false
 btn.Parent = screenGui
 
 local function toggleAuto()
@@ -248,8 +235,7 @@ local function toggleAuto()
     else
         getgenv().G = false
         _G.Loop = false
-        myCurrentTargetNPC = nil
-        [span_18](start_span)currentTargetCFrame = nil[span_18](end_span)
+        currentTargetCFrame = nil
     end
 end
 
@@ -269,7 +255,7 @@ player.CharacterAdded:Connect(function(newChar)
     humanoidRootPart = newChar:WaitForChild("HumanoidRootPart")
 end)
 
--[span_19](start_span)- TỰ ĐỘNG CHẠY NẾU TÊN TRÙNG TRONG DANH SÁCH[span_19](end_span)
+-- KÍCH HOẠT AUTO-START DỰA TRÊN CẤU HÌNH
 if AutoConfig.AutoOn then
     local assignedIndex = AutoConfig.PlayerList[player.Name]
     if assignedIndex then
