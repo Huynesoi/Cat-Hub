@@ -11,12 +11,12 @@ local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 -- [ CẤU HÌNH TỰ ĐỘNG (SỬA Ở ĐÂY) ]
 -- ==========================================
 local AutoConfig = {
-    AutoOn = true, -- true = Tự động bật khi chạy script, false = Tắt (phải nhập tay)
+    AutoOn = false, -- true = Tự động bật khi chạy script, false = Tắt (phải nhập tay)
     PlayerList = {
-        ["huynesoi"] = 1,  -- Thay tên người chơi thật vào trong ngoặc kép
-        ["hahahaha190384"] = 2,
-        ["soicon19911_999"] = 3,
-        ["soicon19911_888"] = 4
+        ["huynesoi9999"] = 1,  -- Tên acc chính của bạn
+        ["TenAccPhuSo1"] = 2,
+        ["TenAccPhuSo2"] = 3,
+        ["TenAccPhuSo3"] = 4
         -- Bạn có thể thêm bao nhiêu dòng tùy thích
     }
 }
@@ -132,17 +132,25 @@ local function autoSkillLoop()
                 local targetNPC = npcs[targetIndex]
                 
                 if targetNPC and targetNPC:FindFirstChild("HumanoidRootPart") then
-                    local targetPos = targetNPC.HumanoidRootPart.Position
+                    local targetCF = targetNPC.HumanoidRootPart.CFrame
                     
-                    -- Cập nhật tọa độ ghim (cách 20, 20, 20 và nhìn về phía quái)
-                    currentTargetCFrame = CFrame.lookAt(targetPos + Vector3.new(20, 20, 20), targetPos)
+                    -- Quay về tele bên dưới NPC -15 stud
+                    currentTargetCFrame = targetCF * CFrame.new(0, -15, 0)
                     
-                    -- Kiểm tra khoảng cách: Nếu nhân vật đã thực sự đến gần tọa độ mong muốn thì mới xả skill
-                    if humanoidRootPart and (humanoidRootPart.Position - currentTargetCFrame.Position).Magnitude <= 10 then
-                        pcall(function()
-                            skillRemote:InvokeServer("DF_GoldGold_V", {MouseHit = targetNPC.HumanoidRootPart.CFrame, Mobile = true})
-                        end)
-                        task.wait(0.8) -- Delay xả chiêu
+                    -- Kiểm tra xem đã đến đúng vị trí dưới quái chưa (cho phép sai số 15 stud để tránh kẹt)
+                    if humanoidRootPart and (humanoidRootPart.Position - currentTargetCFrame.Position).Magnitude <= 15 then
+                        
+                        -- Chờ 0.5s theo yêu cầu để ổn định vị trí
+                        task.wait(0.5) 
+                        
+                        -- LẤY LẠI TỌA ĐỘ MỚI NHẤT của NPC sau 0.5s để tung chiêu không bị lệch
+                        if targetNPC and targetNPC:FindFirstChild("HumanoidRootPart") then
+                            local exactTargetCF = targetNPC.HumanoidRootPart.CFrame
+                            pcall(function()
+                                skillRemote:InvokeServer("DF_GoldGold_V", {MouseHit = exactTargetCF, Mobile = true})
+                            end)
+                        end
+                        task.wait(0.8) -- Delay chống spam rác server
                     end
                 end
             else
@@ -254,6 +262,6 @@ if AutoConfig.AutoOn then
         playerIndex = assignedIndex
         setupFrame.Visible = false
         btn.Visible = true
-        toggleAuto() -- Tự động bật luôn vòng lặp
+        toggleAuto() 
     end
 end
