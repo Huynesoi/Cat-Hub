@@ -11,7 +11,7 @@ local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 -- [ CẤU HÌNH TỰ ĐỘNG (SỬA Ở ĐÂY) ]
 -- ==========================================
 local AutoConfig = {
-    AutoOn = true, -- true = Tự động bật khi chạy script, false = Tắt (phải nhập tay)
+    AutoOn = false, -- true = Tự động bật khi chạy script, false = Tắt (phải nhập tay)
     PlayerList = {
         [span_3](start_span)["huynesoi9999"] = 1,  -- Tên acc chính của bạn[span_3](end_span)
         ["TenAccPhuSo1"] = 2,
