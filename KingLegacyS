@@ -8,12 +8,12 @@ local character = player.Character or player.CharacterAdded:Wait()
 local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 
 -- ==========================================
--- [ CẤU HÌNH TỰ ĐỘNG ]
+-- [ CẤU HÌNH TỰ ĐỘNG (SỬA Ở ĐÂY) ]
 -- ==========================================
 local AutoConfig = {
-    AutoOn = true, 
+    AutoOn = true, -- true = Tự động bật khi chạy script, false = Tắt (phải nhập tay)
     PlayerList = {
-        ["huynesoi9999"] = 1, 
+        [span_3](start_span)["huynesoi9999"] = 1,  -- Tên acc chính của bạn[span_3](end_span)
         ["TenAccPhuSo1"] = 2,
         ["TenAccPhuSo2"] = 3,
         ["TenAccPhuSo3"] = 4
@@ -21,7 +21,7 @@ local AutoConfig = {
 }
 -- ==========================================
 
-local farmCenter = CFrame.new(20072.9121, 15684.1641, 20049.5469)
+[span_4](start_span)local farmCenter = CFrame.new(20072.9121, 15684.1641, 20049.5469)[span_4](end_span)
 local farmSize = Vector3.new(1500, 10000, 1500)
 local halfFarmSize = farmSize / 2
 local dungeonEntranceCF = CFrame.new(10963.3008, 133.835129, 1250.31189, 1, 0, 0, 0, 1, 0, 0, 0, 1)
@@ -31,14 +31,16 @@ local skillRemote = ReplicatedStorage:WaitForChild("Chest"):WaitForChild("Remote
 local autoRunning = false
 local currentTargetCFrame = nil
 local playerIndex = 1
-local myCurrentTargetNPC = nil -- Biến lưu mục tiêu cố định
+local myCurrentTargetNPC = nil -- Biến mới để khóa mục tiêu cố định
 
--- Logic Teleport sảnh chờ
+-[span_5](start_span)- Logic Teleport sảnh chờ[span_5](end_span)
 task.spawn(function()
     while true do
         if autoRunning and humanoidRootPart then
             local playerGui = player:FindFirstChild("PlayerGui")
-            if not (playerGui and playerGui:FindFirstChild("DungeonUI")) then
+            local dungeonUI = playerGui and playerGui:FindFirstChild("DungeonUI")
+            
+            if not dungeonUI then
                 humanoidRootPart.CFrame = dungeonEntranceCF
                 humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
                 task.wait(0.1)
@@ -51,10 +53,14 @@ task.spawn(function()
     end
 end)
 
--- Ghim vị trí nhân vật
+-[span_6](start_span)- Ghim vị trí nhân vật liên tục[span_6](end_span)
 RunService.Heartbeat:Connect(function()
     if not autoRunning or not humanoidRootPart then return end
-    if currentTargetCFrame then
+    
+    local playerGui = player:FindFirstChild("PlayerGui")
+    local dungeonUI = playerGui and playerGui:FindFirstChild("DungeonUI")
+    
+    if dungeonUI and currentTargetCFrame then
         humanoidRootPart.CFrame = currentTargetCFrame
         humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
     end
@@ -66,7 +72,7 @@ local function startScepterLoop()
         local scepCF = CFrame.new(19792.27734375, 14972.65625, 20029.33203125, 1, 0, 0, 0, 1, 0, 0, 0, 1)
         pcall(function()
             skillRemote:InvokeServer("SW_Scepters of Flame_Z", { MouseHit = scepCF, Type = "Down" }) 
-            skillRemote:InvokeServer("SW_Scepters of Flame_Z", { MouseHit = scepCF, Type = "Up" }) 
+            [span_7](start_span)skillRemote:InvokeServer("SW_Scepters of Flame_Z", { MouseHit = scepCF, Type = "Up" })[span_7](end_span)
         end)
     end
 end
@@ -75,8 +81,12 @@ local function killAuraLoop()
     getgenv().G = true
     while getgenv().G and autoRunning do
         task.wait(0.5)
+        pcall(function()
+            [span_8](start_span)sethiddenproperty(game.Players.LocalPlayer, "SimulationRadius", 200)[span_8](end_span)
+            sethiddenproperty(game.Players.LocalPlayer, "MaxSimulationRadius", 200)
+        end)
         for i,d in pairs(game.Workspace:GetDescendants()) do
-            if d.ClassName == 'Humanoid' and d.Parent.Name ~= player.Name then
+            if d.ClassName == 'Humanoid' and d.Parent.Name ~= game.Players.LocalPlayer.Name then
                 d.Health = 0
             end
         end
@@ -95,7 +105,10 @@ local function getValidNPCs()
             local root = model:FindFirstChild("HumanoidRootPart")
             local hum = model:FindFirstChild("Humanoid")
             if root and hum and not Players:GetPlayerFromCharacter(model) and model ~= character then
-                table.insert(npcs, model)
+                [span_9](start_span)local diff = root.Position - farmCenter.Position[span_9](end_span)
+                if math.abs(diff.X) <= halfFarmSize.X and math.abs(diff.Y) <= halfFarmSize.Y and math.abs(diff.Z) <= halfFarmSize.Z then
+                    table.insert(npcs, model)
+                end
             end
         end
     end
@@ -103,19 +116,19 @@ local function getValidNPCs()
     table.sort(npcs, function(a, b)
         local posA = a:FindFirstChild("HumanoidRootPart") and a.HumanoidRootPart.Position or Vector3.new()
         local posB = b:FindFirstChild("HumanoidRootPart") and b.HumanoidRootPart.Position or Vector3.new()
-        return posA.X < posB.X
+        [span_10](start_span)return posA.X < posB.X[span_10](end_span)
     end)
     
     return npcs
 end
 
--- VÒNG LẶP CHÍNH: CHIA NPC VÀ DÙNG SKILL
+-- VÒNG LẶP CHÍNH: CẢI TIẾN KHÓA MỤC TIÊU CỐ ĐỊNH
 local function autoSkillLoop()
     while autoRunning do
         local playerGui = player:FindFirstChild("PlayerGui")
         if playerGui and playerGui:FindFirstChild("DungeonUI") then
             
-            -- KIỂM TRA MỤC TIÊU CŨ: Nếu chết hoặc biến mất thì mới tìm cái mới
+            -- KIỂM TRA MỤC TIÊU HIỆN TẠI: Nếu nó còn sống và tồn tại thì không đổi mục tiêu
             local isTargetValid = myCurrentTargetNPC and myCurrentTargetNPC.Parent and 
                                  myCurrentTargetNPC:FindFirstChild("Humanoid") and 
                                  myCurrentTargetNPC.Humanoid.Health > 0 and
@@ -127,47 +140,44 @@ local function autoSkillLoop()
                 
                 local npcs = getValidNPCs()
                 if #npcs > 0 then
+                    -[span_11](start_span)- Chỉ khi quái cũ chết mới dùng modulo để chọn quái mới[span_11](end_span)
                     local targetIndex = ((playerIndex - 1) % #npcs) + 1
                     myCurrentTargetNPC = npcs[targetIndex]
                 end
             end
 
-            -- NẾU CÓ MỤC TIÊU THÌ BẮT ĐẦU TẤN CÔNG
+            -- NẾU ĐÃ CÓ MỤC TIÊU THÌ TẤN CÔNG
             if myCurrentTargetNPC and myCurrentTargetNPC:FindFirstChild("HumanoidRootPart") then
-                local root = myCurrentTargetNPC.HumanoidRootPart
+                local targetCF = myCurrentTargetNPC.HumanoidRootPart.CFrame
                 
-                -- Luôn cập nhật vị trí ghim nhân vật bên dưới NPC (-15 stud)
-                currentTargetCFrame = root.CFrame * CFrame.new(0, -15, 0)
+                -[span_12](start_span)- Luôn ghim vị trí ở dưới quái 15 stud[span_12](end_span)
+                currentTargetCFrame = targetCF * CFrame.new(0, -15, 0)
                 
-                -- Đợi nhân vật đến đúng vị trí (sai số 10 stud)
-                if (humanoidRootPart.Position - currentTargetCFrame.Position).Magnitude <= 10 then
-                    task.wait(0.5) -- Đợi thêm 0.5s cho ổn định theo yêu cầu
+                -- Kiểm tra xem đã tiếp cận điểm ghim chưa (sai số 10 stud)
+                if humanoidRootPart and (humanoidRootPart.Position - currentTargetCFrame.Position).Magnitude <= 10 then
                     
-                    -- Kiểm tra lại lần cuối xem quái còn sống không trước khi dùng skill
+                    [span_13](start_span)task.wait(0.5) -- Đợi 0.5s để ổn định vị trí theo yêu cầu[span_13](end_span)
+                    
+                    -- Lấy tọa độ quái một lần nữa ngay lúc này để tránh đánh lệch
                     if myCurrentTargetNPC and myCurrentTargetNPC:FindFirstChild("HumanoidRootPart") then
+                        local exactTargetCF = myCurrentTargetNPC.HumanoidRootPart.CFrame
                         pcall(function()
-                            skillRemote:InvokeServer("DF_GoldGold_V", {
-                                MouseHit = myCurrentTargetNPC.HumanoidRootPart.CFrame, 
-                                Mobile = true
-                            })
+                            [span_14](start_span)skillRemote:InvokeServer("DF_GoldGold_V", {MouseHit = exactTargetCF, Mobile = true})[span_14](end_span)
                         end)
                     end
-                    task.wait(0.8)
+                    [span_15](start_span)task.wait(0.8) -- Delay chống spam[span_15](end_span)
                 end
-            else
-                task.wait(0.2)
             end
         else
             myCurrentTargetNPC = nil
             currentTargetCFrame = nil
-            task.wait(1)
         end
-        task.wait(0.05)
+        task.wait(0.1)
     end
 end
 
 -- ==========================================
--- [ GIAO DIỆN & KHỞI TẠO ]
+-- [ GIAO DIỆN & KHỞI TẠO TỰ ĐỘNG ]
 -- ==========================================
 local screenGui = player:WaitForChild("PlayerGui"):FindFirstChild("AutoSkillGui") or Instance.new("ScreenGui")
 screenGui.Name = "AutoSkillGui"
@@ -192,7 +202,7 @@ titleLabel.Font = Enum.Font.SourceSansBold
 titleLabel.TextSize = 16
 titleLabel.Parent = setupFrame
 
-local inputTextBox = Instance.new("TextBox")
+[span_16](start_span)local inputTextBox = Instance.new("TextBox")[span_16](end_span)
 inputTextBox.Size = UDim2.new(0, 160, 0, 40)
 inputTextBox.Position = UDim2.new(0, 20, 0, 35)
 inputTextBox.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
@@ -223,7 +233,7 @@ btn.TextColor3 = Color3.new(1, 1, 1)
 btn.TextScaled = true
 btn.Active = true
 btn.Draggable = true
-btn.Visible = false
+[span_17](start_span)btn.Visible = false[span_17](end_span)
 btn.Parent = screenGui
 
 local function toggleAuto()
@@ -239,7 +249,7 @@ local function toggleAuto()
         getgenv().G = false
         _G.Loop = false
         myCurrentTargetNPC = nil
-        currentTargetCFrame = nil
+        [span_18](start_span)currentTargetCFrame = nil[span_18](end_span)
     end
 end
 
@@ -259,7 +269,7 @@ player.CharacterAdded:Connect(function(newChar)
     humanoidRootPart = newChar:WaitForChild("HumanoidRootPart")
 end)
 
--- KÍCH HOẠT TỰ ĐỘNG DỰA TRÊN TÊN PLAYER
+-[span_19](start_span)- TỰ ĐỘNG CHẠY NẾU TÊN TRÙNG TRONG DANH SÁCH[span_19](end_span)
 if AutoConfig.AutoOn then
     local assignedIndex = AutoConfig.PlayerList[player.Name]
     if assignedIndex then
