@@ -37,9 +37,6 @@ local autoRunning = false
 local currentTargetCFrame = nil
 local playerIndex = 1
 
--- Biến khóa mục tiêu
-local lockedTargetNPC = nil
-
 -- Vòng lặp kiểm tra Dungeon UI và di chuyển đến lối vào
 task.spawn(function()
     while true do
@@ -101,7 +98,7 @@ local function killAuraLoop()
     end
 end
 
--- Lấy danh sách NPC trong vùng farm (Đã bỏ qua NPC chết)
+-- Lấy danh sách NPC trong vùng farm
 local function getValidNPCs()
     local npcs = {}
     local parts = Workspace:GetPartBoundsInBox(farmCenter, farmSize)
@@ -113,9 +110,7 @@ local function getValidNPCs()
             checked[model] = true
             local root = model:FindFirstChild("HumanoidRootPart")
             local hum = model:FindFirstChild("Humanoid")
-            
-            -- Đảm bảo NPC còn máu mới lấy
-            if root and hum and hum.Health > 0 and not Players:GetPlayerFromCharacter(model) and model ~= character then
+            if root and hum and not Players:GetPlayerFromCharacter(model) and model ~= character then
                 local diff = root.Position - farmCenter.Position
                 if math.abs(diff.X) <= halfFarmSize.X and math.abs(diff.Y) <= halfFarmSize.Y and math.abs(diff.Z) <= halfFarmSize.Z then
                     table.insert(npcs, model)
@@ -133,69 +128,40 @@ local function getValidNPCs()
     return npcs
 end
 
--- Vòng lặp Skill chính (Đã thêm Lock NPC và Fix KS)
+-- Vòng lặp Skill chính (Đã thêm Delay 0.5s và fix chính xác)
 local function autoSkillLoop()
     while autoRunning do
         local playerGui = player:FindFirstChild("PlayerGui")
         if playerGui and playerGui:FindFirstChild("DungeonUI") then
+            local npcs = getValidNPCs()
             
-            -- Xóa mục tiêu nếu NPC đã chết hoặc mất tích
-            if lockedTargetNPC and (not lockedTargetNPC.Parent or not lockedTargetNPC:FindFirstChild("Humanoid") or lockedTargetNPC.Humanoid.Health <= 0) then
-                lockedTargetNPC = nil
-            end
-            
-            -- Nếu chưa có mục tiêu khóa, tìm NPC mới
-            if not lockedTargetNPC then
-                local npcs = getValidNPCs()
+            if #npcs > 0 then
+                local targetIndex = ((playerIndex - 1) % #npcs) + 1
+                local targetNPC = npcs[targetIndex]
                 
-                if #npcs > 0 then
-                    -- Lọc NPC không có ai đánh (khoảng cách 30)
-                    local freeNPCs = {}
-                    for _, npc in ipairs(npcs) do
-                        local isKS = false
-                        for _, p in ipairs(Players:GetPlayers()) do
-                            if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                                local dist = (p.Character.HumanoidRootPart.Position - npc.HumanoidRootPart.Position).Magnitude
-                                if dist < 30 then
-                                    isKS = true
-                                    break
-                                end
-                            end
-                        end
-                        if not isKS then
-                            table.insert(freeNPCs, npc)
-                        end
-                    end
+                if targetNPC and targetNPC:FindFirstChild("HumanoidRootPart") then
+                    local targetPos = targetNPC.HumanoidRootPart.Position
                     
-                    -- Nếu hết NPC tự do, đành đánh chung. Nếu còn, ưu tiên NPC tự do
-                    local listToPick = #freeNPCs > 0 and freeNPCs or npcs
-                    local targetIndex = ((playerIndex - 1) % #listToPick) + 1
-                    lockedTargetNPC = listToPick[targetIndex]
-                end
-            end
-            
-            -- Tấn công NPC đang bị khóa
-            if lockedTargetNPC and lockedTargetNPC:FindFirstChild("HumanoidRootPart") then
-                local targetPos = lockedTargetNPC.HumanoidRootPart.Position
-                
-                -- Cập nhật tọa độ ghim (nhìn về phía quái)
-                currentTargetCFrame = CFrame.lookAt(targetPos + Vector3.new(20, 20, 20), targetPos)
-                
-                -- Kiểm tra khoảng cách để bắt đầu xả skill
-                if humanoidRootPart and (humanoidRootPart.Position - currentTargetCFrame.Position).Magnitude <= 10 then
-                    -- Đợi 0.5s để server đồng bộ vị trí nhân vật
-                    task.wait(0.5) 
+                    -- Cập nhật tọa độ ghim (nhìn về phía quái)
+                    currentTargetCFrame = CFrame.lookAt(targetPos + Vector3.new(20, 20, 20), targetPos)
                     
-                    -- Kiểm tra lại NPC lần nữa trước khi đánh
-                    if lockedTargetNPC:FindFirstChild("HumanoidRootPart") and lockedTargetNPC.Humanoid.Health > 0 then
-                        pcall(function()
-                            skillRemote:InvokeServer("DF_GoldGold_V", {
-                                MouseHit = lockedTargetNPC.HumanoidRootPart.CFrame, 
-                                Mobile = true
-                            })
-                        end)
+                    -- Kiểm tra khoảng cách để bắt đầu xả skill
+                    if humanoidRootPart and (humanoidRootPart.Position - currentTargetCFrame.Position).Magnitude <= 10 then
+                        -- [ FIX ]: Đợi 0.5s để server đồng bộ vị trí nhân vật
+                        task.wait(0.5) 
+                        
+                        -- Kiểm tra lại NPC lần nữa trước khi đánh để tránh lỗi lệch
+                        if targetNPC:FindFirstChild("HumanoidRootPart") then
+                            pcall(function()
+                                -- Sử dụng trực tiếp CFrame hiện tại của NPC để chính xác 100%
+                                skillRemote:InvokeServer("DF_GoldGold_V", {
+                                    MouseHit = targetNPC.HumanoidRootPart.CFrame, 
+                                    Mobile = true
+                                })
+                            end)
+                        end
+                        task.wait(0.3) -- Delay nhỏ sau khi xả chiêu để tránh spam quá tải
                     end
-                    task.wait(0.3) -- Delay nhỏ sau khi xả chiêu để tránh spam quá tải
                 end
             else
                 currentTargetCFrame = nil
@@ -271,7 +237,6 @@ local function toggleAuto()
         getgenv().G = false
         _G.Loop = false
         currentTargetCFrame = nil
-        lockedTargetNPC = nil -- Reset mục tiêu khóa khi tắt Auto
     end
 end
 
