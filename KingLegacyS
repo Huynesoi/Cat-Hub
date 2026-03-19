@@ -126,7 +126,6 @@ local function getValidNPCs()
 end
 
 local function autoSkillLoop()
-local function autoSkillLoop()
     while autoRunning do
         local playerGui = player:FindFirstChild("PlayerGui")
         
