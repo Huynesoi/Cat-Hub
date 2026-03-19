@@ -139,14 +139,14 @@ local function autoSkillLoop()
                     local targetPos = targetNPC.HumanoidRootPart.Position
                     
                     -- Cập nhật tọa độ ghim (cách 20, 20, 20 và nhìn về phía quái)
-                    currentTargetCFrame = CFrame.lookAt(targetPos + Vector3.new(20, 20, 20), targetPos)
+                    currentTargetCFrame = CFrame.lookAt(targetPos + Vector3.new(0, -15, 0), targetPos)
                     
                     -- Kiểm tra khoảng cách: Nếu nhân vật đã thực sự đến gần tọa độ mong muốn thì mới xả skill
                     if humanoidRootPart and (humanoidRootPart.Position - currentTargetCFrame.Position).Magnitude <= 10 then
                         pcall(function()
                             skillRemote:InvokeServer("DF_GoldGold_V", {MouseHit = targetNPC.HumanoidRootPart.CFrame, Mobile = true})
                         end)
-                        task.wait(0.8) -- Delay xả chiêu
+                        task.wait(1) -- Delay xả chiêu
                     end
                 end
             else
