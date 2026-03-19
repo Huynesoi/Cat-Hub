@@ -22,7 +22,7 @@ ab.Text="Roblox tried to kick u but i kicked him instead"wait(2)ab.Text="Status 
 end)
 
 task.spawn(function()
-loadstring(game:HttpGet("https://raw.githubusercontent.com/Huynesoi/Cat-Hub/refs/heads/master/Kinglegacyr"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/Huynesoi/Cat-Hub/refs/heads/master/KingLegacyS"))()
 end)
 
 task.spawn(function()
