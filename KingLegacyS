@@ -126,27 +126,45 @@ local function getValidNPCs()
 end
 
 local function autoSkillLoop()
+local function autoSkillLoop()
     while autoRunning do
         local playerGui = player:FindFirstChild("PlayerGui")
+        
+        -- Kiểm tra UI và sự tồn tại của NPCs
         if playerGui and playerGui:FindFirstChild("DungeonUI") then
             local npcs = getValidNPCs()
             
             if #npcs > 0 then
+                -- Logic chọn mục tiêu dựa trên index của người chơi
                 local targetIndex = ((playerIndex - 1) % #npcs) + 1
                 local targetNPC = npcs[targetIndex]
                 
                 if targetNPC and targetNPC:FindFirstChild("HumanoidRootPart") then
-                    local targetPos = targetNPC.HumanoidRootPart.Position
+                    local targetHRP = targetNPC.HumanoidRootPart
+                    local targetPos = targetHRP.Position
                     
-                    -- Cập nhật tọa độ ghim (cách 20, 20, 20 và nhìn về phía quái)
+                    -- Cập nhật tọa độ ghim (nhìn về phía quái)
                     currentTargetCFrame = CFrame.lookAt(targetPos + Vector3.new(0, -15, 0), targetPos)
                     
-                    -- Kiểm tra khoảng cách: Nếu nhân vật đã thực sự đến gần tọa độ mong muốn thì mới xả skill
+                    -- Kiểm tra khoảng cách: Chỉ xả skill khi đã đến gần vị trí mục tiêu
                     if humanoidRootPart and (humanoidRootPart.Position - currentTargetCFrame.Position).Magnitude <= 10 then
-                        pcall(function()
-                            skillRemote:InvokeServer("DF_GoldGold_V", {MouseHit = targetNPC.HumanoidRootPart.CFrame, Mobile = true})
+                        
+                        -- SỬA TẠI ĐÂY: Dùng task.spawn để không làm nghẽn vòng lặp chính
+                        task.spawn(function()
+                            local success, err = pcall(function()
+                                return skillRemote:InvokeServer("DF_GoldGold_V", {
+                                    MouseHit = targetHRP.CFrame, 
+                                    Mobile = true
+                                })
+                            end)
+                            
+                            if not success then
+                                warn("Lỗi khi xả skill: " .. tostring(err))
+                            end
                         end)
-                        task.wait(1) -- Delay xả chiêu
+                        
+                        -- Sửa lỗi cú pháp task.(0.1) thành task.wait(0.1)
+                        task.wait(0.1) 
                     end
                 end
             else
@@ -155,9 +173,12 @@ local function autoSkillLoop()
         else
             currentTargetCFrame = nil
         end
+        
+        -- Delay nhỏ để tránh quá tải CPU cho vòng lặp chính
         task.wait(0.1)
     end
 end
+
 
 -- ==========================================
 -- [ GIAO DIỆN & KHỞI TẠO TỰ ĐỘNG ]
