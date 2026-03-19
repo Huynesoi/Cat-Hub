@@ -126,57 +126,63 @@ local function getValidNPCs()
 end
 
 local function autoSkillLoop()
-    while autoRunning do
-        local playerGui = player:FindFirstChild("PlayerGui")
+    -- Đảm bảo vòng lặp chạy trong một thread riêng để không treo script chính
+    task.spawn(function()
+        print("--- [AutoSkill] Hệ thống đã sẵn sàng ---")
         
-        -- Kiểm tra UI và sự tồn tại của NPCs
-        if playerGui and playerGui:FindFirstChild("DungeonUI") then
-            local npcs = getValidNPCs()
+        while autoRunning do
+            local character = player.Character
+            local hRoot = character and character:FindFirstChild("HumanoidRootPart")
+            local playerGui = player:FindFirstChild("PlayerGui")
             
-            if #npcs > 0 then
-                -- Logic chọn mục tiêu dựa trên index của người chơi
-                local targetIndex = ((playerIndex - 1) % #npcs) + 1
-                local targetNPC = npcs[targetIndex]
+            -- 1. Check điều kiện UI
+            if playerGui and playerGui:FindFirstChild("DungeonUI") then
+                local npcs = (typeof(getValidNPCs) == "function") and getValidNPCs() or {}
                 
-                if targetNPC and targetNPC:FindFirstChild("HumanoidRootPart") then
-                    local targetHRP = targetNPC.HumanoidRootPart
-                    local targetPos = targetHRP.Position
+                if #npcs > 0 then
+                    -- 2. Target Logic
+                    local targetIndex = ((playerIndex or 1) - 1) % #npcs + 1
+                    local targetNPC = npcs[targetIndex]
                     
-                    -- Cập nhật tọa độ ghim (nhìn về phía quái)
-                    currentTargetCFrame = CFrame.lookAt(targetPos + Vector3.new(0, -15, 0), targetPos)
-                    
-                    -- Kiểm tra khoảng cách: Chỉ xả skill khi đã đến gần vị trí mục tiêu
-                    if humanoidRootPart and (humanoidRootPart.Position - currentTargetCFrame.Position).Magnitude <= 10 then
+                    if targetNPC and targetNPC:FindFirstChild("HumanoidRootPart") then
+                        local targetHRP = targetNPC.HumanoidRootPart
+                        local targetPos = targetHRP.Position
                         
-                        -- SỬA TẠI ĐÂY: Dùng task.spawn để không làm nghẽn vòng lặp chính
-                        task.spawn(function()
-                            local success, err = pcall(function()
-                                return skillRemote:InvokeServer("DF_GoldGold_V", {
-                                    MouseHit = targetHRP.CFrame, 
-                                    Mobile = true
-                                })
+                        -- 3. Cập nhật tọa độ CFrame (ghim vị trí)
+                        currentTargetCFrame = CFrame.lookAt(targetPos + Vector3.new(0, -15, 0), targetPos)
+                        
+                        -- 4. Kiểm tra khoảng cách để xả skill
+                        if hRoot and (hRoot.Position - currentTargetCFrame.Position).Magnitude <= 15 then
+                            
+                            -- ĐẨY THẲNG LỆNH GỌI REMOTE VÀO THREAD RIÊNG (TASK.SPAWN)
+                            -- Việc này giúp vòng lặp while không bao giờ phải đợi InvokeServer
+                            task.spawn(function()
+                                pcall(function()
+                                    skillRemote:InvokeServer("DF_GoldGold_V", {
+                                        MouseHit = targetHRP.CFrame, 
+                                        Mobile = true
+                                    })
+                                end)
                             end)
                             
-                            if not success then
-                                warn("Lỗi khi xả skill: " .. tostring(err))
-                            end
-                        end)
-                        
-                        -- Sửa lỗi cú pháp task.(0.1) thành task.wait(0.1)
-                        task.wait(0.1) 
+                            -- Khoảng nghỉ ngắn giữa các lần bắn để tránh bị server kick (Spam bảo vệ)
+                            task.wait(0.05) 
+                        end
                     end
+                else
+                    currentTargetCFrame = nil
                 end
             else
                 currentTargetCFrame = nil
             end
-        else
-            currentTargetCFrame = nil
+            
+            -- Tốc độ quét mục tiêu của vòng lặp (giảm xuống 0.03 để cực nhạy)
+            task.wait(0.03)
         end
-        
-        -- Delay nhỏ để tránh quá tải CPU cho vòng lặp chính
-        task.wait(0.1)
-    end
+        print("--- [AutoSkill] Đã dừng ---")
+    end)
 end
+
 
 -- hi
 -- ==========================================
