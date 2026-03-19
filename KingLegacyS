@@ -13,11 +13,15 @@ local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 local AutoConfig = {
     AutoOn = true, -- true = Tự động bật khi chạy script, false = Tắt (phải nhập tay)
     PlayerList = {
-        ["TenAccChinhCuaBan"] = 1,  -- Thay tên người chơi thật vào trong ngoặc kép
-        ["TenAccPhuSo1"] = 2,
-        ["TenAccPhuSo2"] = 3,
-        ["TenAccPhuSo3"] = 4
-        -- Bạn có thể thêm bao nhiêu dòng tùy thích
+        ["huynesoi"] = 1,
+        ["hahahaha190384"] = 2,
+        ["soicon19911_777"] = 3,
+        ["soicon19911_888"] = 4,
+        ["soicon19911_999"] = 5,
+        ["soicon19911_1111"] = 6,
+        ["soicon19911_1222"] = 7,
+        ["soicon19911_1333"] = 8,
+        ["soicon19911_1444"] = 9
     }
 }
 -- ==========================================
