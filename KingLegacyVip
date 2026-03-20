@@ -45,3 +45,42 @@ if island then
     island:ClearAllChildren()
 end
 end)
+
+task.spawn(function()
+local Players = game:GetService("Players")
+local me = Players.LocalPlayer -- Tự động nhận diện chính bạn
+
+-- Hàm xử lý việc xóa model
+local function removeCharacter(character)
+    if character then
+        local player = Players:GetPlayerFromCharacter(character)
+        
+        -- Chỉ xóa nếu model đó KHÔNG PHẢI của bạn
+        if player and player ~= me then
+            task.defer(function()
+                character:Destroy()
+            end)
+        end
+    end
+end
+
+-- Thiết lập theo dõi cho từng người chơi
+local function monitorPlayer(player)
+    if player ~= me then
+        -- Xóa nếu họ đã có character
+        if player.Character then
+            removeCharacter(player.Character)
+        end
+        -- Xóa mỗi khi họ reset hoặc hồi sinh
+        player.CharacterAdded:Connect(removeCharacter)
+    end
+end
+
+-- Áp dụng cho những người đang có trong server
+for _, player in ipairs(Players:GetPlayers()) do
+    monitorPlayer(player)
+end
+
+-- Áp dụng cho những người mới vào sau đó
+Players.PlayerAdded:Connect(monitorPlayer)
+end)
