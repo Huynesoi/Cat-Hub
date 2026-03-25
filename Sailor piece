@@ -242,7 +242,7 @@ local function UseSkill()
 end
 
 local function CheckAndKillBoss()
-    local boss = workspace:FindFirstChild("NPCs") and workspace.NPCs:FindFirstChild("StrongestShinobiBoss")
+    local boss = workspace:FindFirstChild("NPCs") and workspace.NPCs:FindFirstChild("StrongestShinobiajahxxBoss")
     if boss and boss:FindFirstChild("HumanoidRootPart") and boss:FindFirstChild("Humanoid") and boss.Humanoid.Health > 0 then
         while _G.AutoFarm and boss and boss:FindFirstChild("Humanoid") and boss.Humanoid.Health > 0 do
             EquipTool()
