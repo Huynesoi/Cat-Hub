@@ -1,3 +1,4 @@
+task.spawn(function()
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -98,7 +99,7 @@ SpeedInput.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 SpeedInput.Position = UDim2.new(0.1, 0, 0, 40)
 SpeedInput.Size = UDim2.new(0.8, 0, 0, 30)
 SpeedInput.Font = Enum.Font.Gotham
-SpeedInput.Text = "80"
+SpeedInput.Text = "180"
 SpeedInput.PlaceholderText = "Nhập tốc độ bay..."
 SpeedInput.TextColor3 = Color3.fromRGB(255, 255, 255)
 SpeedInput.TextSize = 14
@@ -281,7 +282,7 @@ local function FarmLogic()
                 EquipTool()
                 TweenTo(cframe)
                 UseSkill()
-                task.wait(0.5)
+                task.wait(0.8)
             end
         end
         task.wait(0.1)
@@ -324,3 +325,39 @@ if #ToolList > 0 then
     SelectedTool = ToolList[1]
     ItemSelectBtn.Text = "Tool: " .. SelectedTool
 end
+end)
+
+task.spawn(function()
+-- XÓA TẤT CẢ OBJECT CÓ CHỨA "Island" TRONG TÊN
+
+for _, v in ipairs(game:GetDescendants()) do
+    if string.find(v.Name, "Island") then
+        pcall(function()
+            v:Destroy()
+        end)
+    end
+end
+end)
+
+task.spawn(function()
+--Anti AFK Script
+wait(0.5)local ba=Instance.new("ScreenGui")
+local ca=Instance.new("TextLabel")local da=Instance.new("Frame")
+local _b=Instance.new("TextLabel")local ab=Instance.new("TextLabel")ba.Parent=game.CoreGui
+ba.ZIndexBehavior=Enum.ZIndexBehavior.Sibling;ca.Parent=ba;ca.Active=true
+ca.BackgroundColor3=Color3.new(0.176471,0.176471,0.176471)ca.Draggable=true
+ca.Position=UDim2.new(0.698610067,0,0.098096624,0)ca.Size=UDim2.new(0,370,0,52)
+ca.Font=Enum.Font.SourceSansSemibold;ca.Text="Anti AFK Script"ca.TextColor3=Color3.new(0,1,1)
+ca.TextSize=22;da.Parent=ca
+da.BackgroundColor3=Color3.new(0.196078,0.196078,0.196078)da.Position=UDim2.new(0,0,1.0192306,0)
+da.Size=UDim2.new(0,370,0,107)_b.Parent=da
+_b.BackgroundColor3=Color3.new(0.176471,0.176471,0.176471)_b.Position=UDim2.new(0,0,0.800455689,0)
+_b.Size=UDim2.new(0,370,0,21)_b.Font=Enum.Font.Arial;_b.Text="Đó Phải Gọi Là 1 Cái Gì Đấy!"
+_b.TextColor3=Color3.new(0,1,1)_b.TextSize=20;ab.Parent=da
+ab.BackgroundColor3=Color3.new(0.176471,0.176471,0.176471)ab.Position=UDim2.new(0,0,0.158377,0)
+ab.Size=UDim2.new(0,370,0,44)ab.Font=Enum.Font.ArialBold;ab.Text="Status: Active"
+ab.TextColor3=Color3.new(0,1,1)ab.TextSize=20;local bb=game:service'VirtualUser'
+game:service'Players'.LocalPlayer.Idled:connect(function()
+bb:CaptureController()bb:ClickButton2(Vector2.new())
+ab.Text="Roblox tried to kick u but i kicked him instead"wait(2)ab.Text="Status : Active"end)
+end)
