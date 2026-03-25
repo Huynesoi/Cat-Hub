@@ -1,0 +1,326 @@
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local LocalPlayer = Players.LocalPlayer
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 5)
+local AbilityRemotes = ReplicatedStorage:WaitForChild("AbilitySystem", 5) and ReplicatedStorage.AbilitySystem:WaitForChild("Remotes", 5)
+
+-- Trạng thái
+_G.AutoFarm = false
+local SelectedTool = ""
+local ToolList = {}
+local CurrentToolIndex = 1
+
+-- Dữ liệu Đảo & CFrame
+local Islands = {
+    {
+        Name = "Shinjuku",
+        CFrames = {
+            CFrame.new(-7.92073059, 1.89808035, -1843.98511, 0.17268227, 9.58801252e-08, 0.984977603, -4.34659952e-08, 1, -8.97221568e-08, -0.984977603, -2.73196044e-08, 0.17268227),
+            CFrame.new(660.684143, 1.88314152, -1696.0741, 0.673980176, 4.37239578e-08, -0.738749444, -4.87747762e-08, 1, 1.4687962e-08, 0.738749444, 2.61329447e-08, 0.673980176)
+        }
+    },
+    {
+        Name = "Slime",
+        CFrames = {
+            CFrame.new(-1122.48389, 14.979847, 372.969879, 0.467457354, -2.05358264e-09, 0.88401562, -9.17435639e-09, 1, 7.17431092e-09, -0.88401562, -1.14639587e-08, 0.467457354)
+        }
+    },
+    {
+        Name = "Academy",
+        CFrames = {
+            CFrame.new(1068.86047, 1.77835536, 1275.37183, -0.0812997594, -6.08973565e-08, -0.996689677, -2.88459812e-10, 1, -6.10760864e-08, 0.996689677, -4.67796601e-09, -0.0812997594)
+        }
+    },
+    {
+        Name = "Ninja",
+        HasBoss = true,
+        CFrames = {
+            CFrame.new(-1873.82666, 8.5140295, -728.166504, 0.94133842, 5.29527995e-08, 0.337464094, -3.48946863e-08, 1, -5.95769798e-08, -0.337464094, 4.43063968e-08, 0.94133842)
+        }
+    },
+    {
+        Name = "Lawless",
+        CFrames = {
+            CFrame.new(55.6441193, 0.578745723, 1819.51978, -0.983654857, 5.8493022e-08, 0.180064261, 6.19681089e-08, 1, 1.36740601e-08, -0.180064261, 2.46087968e-08, -0.983654857)
+        }
+    }
+}
+
+---------------------------------
+-- TẠO GIAO DIỆN (GUI)
+---------------------------------
+local ScreenGui = Instance.new("ScreenGui")
+local MainFrame = Instance.new("Frame")
+local Title = Instance.new("TextLabel")
+local MinimizeBtn = Instance.new("TextButton")
+local SpeedInput = Instance.new("TextBox")
+local RefreshBtn = Instance.new("TextButton")
+local ItemSelectBtn = Instance.new("TextButton")
+local StartBtn = Instance.new("TextButton")
+
+ScreenGui.Name = "AutoFarmGui"
+ScreenGui.Parent = game.CoreGui -- Hoặc LocalPlayer.PlayerGui
+ScreenGui.ResetOnSpawn = false
+
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainFrame.Position = UDim2.new(0.5, -100, 0.5, -115)
+MainFrame.Size = UDim2.new(0, 200, 0, 230)
+MainFrame.Active = true
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
+
+Title.Parent = MainFrame
+Title.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+Title.Size = UDim2.new(1, -30, 0, 30)
+Title.Font = Enum.Font.GothamBold
+Title.Text = "  Auto Farm Hub"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 14
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Instance.new("UICorner", Title).CornerRadius = UDim.new(0, 10)
+
+MinimizeBtn.Parent = MainFrame
+MinimizeBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+MinimizeBtn.Position = UDim2.new(1, -30, 0, 0)
+MinimizeBtn.Size = UDim2.new(0, 30, 0, 30)
+MinimizeBtn.Font = Enum.Font.GothamBold
+MinimizeBtn.Text = "-"
+MinimizeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+MinimizeBtn.TextSize = 18
+Instance.new("UICorner", MinimizeBtn).CornerRadius = UDim.new(0, 10)
+
+SpeedInput.Parent = MainFrame
+SpeedInput.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+SpeedInput.Position = UDim2.new(0.1, 0, 0, 40)
+SpeedInput.Size = UDim2.new(0.8, 0, 0, 30)
+SpeedInput.Font = Enum.Font.Gotham
+SpeedInput.Text = "80"
+SpeedInput.PlaceholderText = "Nhập tốc độ bay..."
+SpeedInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+SpeedInput.TextSize = 14
+Instance.new("UICorner", SpeedInput).CornerRadius = UDim.new(0, 8)
+
+RefreshBtn.Parent = MainFrame
+RefreshBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+RefreshBtn.Position = UDim2.new(0.1, 0, 0, 80)
+RefreshBtn.Size = UDim2.new(0.8, 0, 0, 35)
+RefreshBtn.Font = Enum.Font.Gotham
+RefreshBtn.Text = "Check / Refresh Items"
+RefreshBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+RefreshBtn.TextSize = 14
+Instance.new("UICorner", RefreshBtn).CornerRadius = UDim.new(0, 8)
+
+ItemSelectBtn.Parent = MainFrame
+ItemSelectBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+ItemSelectBtn.Position = UDim2.new(0.1, 0, 0, 125)
+ItemSelectBtn.Size = UDim2.new(0.8, 0, 0, 35)
+ItemSelectBtn.Font = Enum.Font.Gotham
+ItemSelectBtn.Text = "Select: None"
+ItemSelectBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ItemSelectBtn.TextSize = 14
+Instance.new("UICorner", ItemSelectBtn).CornerRadius = UDim.new(0, 8)
+
+StartBtn.Parent = MainFrame
+StartBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+StartBtn.Position = UDim2.new(0.1, 0, 0, 170)
+StartBtn.Size = UDim2.new(0.8, 0, 0, 45)
+StartBtn.Font = Enum.Font.GothamBold
+StartBtn.Text = "START FARM"
+StartBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+StartBtn.TextSize = 16
+Instance.new("UICorner", StartBtn).CornerRadius = UDim.new(0, 8)
+
+-- Logic Kéo Thả (Mượt mà & Fix lỗi giật)
+local dragging
+local dragInput
+local dragStart
+local startPos
+
+Title.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = MainFrame.Position
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+-- Logic Nút Bấm UI
+local minimized = false
+MinimizeBtn.MouseButton1Click:Connect(function()
+    minimized = not minimized
+    if minimized then
+        MainFrame.Size = UDim2.new(0, 200, 0, 30)
+        SpeedInput.Visible = false
+        RefreshBtn.Visible = false
+        ItemSelectBtn.Visible = false
+        StartBtn.Visible = false
+        MinimizeBtn.Text = "+"
+    else
+        MainFrame.Size = UDim2.new(0, 200, 0, 230)
+        SpeedInput.Visible = true
+        RefreshBtn.Visible = true
+        ItemSelectBtn.Visible = true
+        StartBtn.Visible = true
+        MinimizeBtn.Text = "-"
+    end
+end)
+
+---------------------------------
+-- HÀM HỖ TRỢ FARM
+---------------------------------
+local function GetTools()
+    ToolList = {}
+    local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+    
+    for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
+        if item:IsA("Tool") then table.insert(ToolList, item.Name) end
+    end
+    for _, item in pairs(character:GetChildren()) do
+        if item:IsA("Tool") then table.insert(ToolList, item.Name) end
+    end
+    if #ToolList == 0 then table.insert(ToolList, "No Tool Found") end
+end
+
+local function EquipTool()
+    local character = LocalPlayer.Character
+    if not character then return end
+    
+    local tool = LocalPlayer.Backpack:FindFirstChild(SelectedTool)
+    if tool then
+        character.Humanoid:EquipTool(tool)
+    end
+end
+
+local function TweenTo(targetCFrame)
+    local character = LocalPlayer.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+    
+    local root = character.HumanoidRootPart
+    local distance = (root.Position - targetCFrame.Position).Magnitude
+    
+    -- Lấy tốc độ từ UI, nếu nhập bậy bạ (chữ) thì mặc định là 80
+    local speed = tonumber(SpeedInput.Text) or 80 
+    local time = distance / speed
+    
+    local tweenInfo = TweenInfo.new(time, Enum.EasingStyle.Linear)
+    local tween = TweenService:Create(root, tweenInfo, {CFrame = targetCFrame})
+    
+    local bv = Instance.new("BodyVelocity")
+    bv.Velocity = Vector3.new(0, 0, 0)
+    bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+    bv.Parent = root
+    
+    tween:Play()
+    tween.Completed:Wait()
+    if bv then bv:Destroy() end
+end
+
+local function UseSkill()
+    if AbilityRemotes and AbilityRemotes:FindFirstChild("RequestAbility") then
+        pcall(function()
+            AbilityRemotes.RequestAbility:FireServer(2)
+        end)
+    end
+end
+
+local function CheckAndKillBoss()
+    local boss = workspace:FindFirstChild("NPCs") and workspace.NPCs:FindFirstChild("StrongestShinobiBoss")
+    if boss and boss:FindFirstChild("HumanoidRootPart") and boss:FindFirstChild("Humanoid") and boss.Humanoid.Health > 0 then
+        while _G.AutoFarm and boss and boss:FindFirstChild("Humanoid") and boss.Humanoid.Health > 0 do
+            EquipTool()
+            TweenTo(boss.HumanoidRootPart.CFrame * CFrame.new(0, 0, 5))
+            UseSkill()
+            task.wait(0.5)
+        end
+        return true
+    end
+    return false
+end
+
+-- Vòng lặp Farm
+local function FarmLogic()
+    while _G.AutoFarm do
+        for _, island in ipairs(Islands) do
+            if not _G.AutoFarm then break end
+            
+            if island.HasBoss then
+                CheckAndKillBoss()
+            end
+            
+            if Remotes and Remotes:FindFirstChild("TeleportToPortal") then
+                pcall(function()
+                    Remotes.TeleportToPortal:FireServer(island.Name)
+                end)
+                task.wait(1.5)
+            end
+            
+            for _, cframe in ipairs(island.CFrames) do
+                if not _G.AutoFarm then break end
+                
+                if island.HasBoss and CheckAndKillBoss() then
+                    break
+                end
+                
+                EquipTool()
+                TweenTo(cframe)
+                UseSkill()
+                task.wait(1)
+            end
+        end
+        task.wait(0.1)
+    end
+end
+
+RefreshBtn.MouseButton1Click:Connect(function()
+    GetTools()
+    CurrentToolIndex = 1
+    SelectedTool = ToolList[CurrentToolIndex] or "No Tool Found"
+    ItemSelectBtn.Text = "Tool: " .. SelectedTool
+end)
+
+ItemSelectBtn.MouseButton1Click:Connect(function()
+    if #ToolList > 0 then
+        CurrentToolIndex = CurrentToolIndex + 1
+        if CurrentToolIndex > #ToolList then
+            CurrentToolIndex = 1
+        end
+        SelectedTool = ToolList[CurrentToolIndex]
+        ItemSelectBtn.Text = "Tool: " .. SelectedTool
+    end
+end)
+
+StartBtn.MouseButton1Click:Connect(function()
+    _G.AutoFarm = not _G.AutoFarm
+    if _G.AutoFarm then
+        StartBtn.Text = "STOP FARM"
+        StartBtn.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
+        task.spawn(FarmLogic)
+    else
+        StartBtn.Text = "START FARM"
+        StartBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+    end
+end)
+
+-- Lấy item lần đầu khi load
+GetTools()
+if #ToolList > 0 then
+    SelectedTool = ToolList[1]
+    ItemSelectBtn.Text = "Tool: " .. SelectedTool
+end
