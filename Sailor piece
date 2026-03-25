@@ -242,7 +242,7 @@ local function StartFarmLogic()
         if not char or not char:FindFirstChild("Humanoid") or char.Humanoid.Health <= 0 then
             print("Đang đợi hồi sinh...")
             LocalPlayer.CharacterAdded:Wait()
-            task.wait(0.5) -- Đợi load hẳn
+            task.wait(1) -- Đợi load hẳn
             continue -- Quay lại từ đầu vòng lặp while (Đảo 1)
         end
 
@@ -255,7 +255,7 @@ local function StartFarmLogic()
             -- Teleport
             if Remotes and Remotes:FindFirstChild("TeleportToPortal") then
                 pcall(function() Remotes.TeleportToPortal:FireServer(island.Name) end)
-                task.wait(0.4)
+                task.wait(0.5)
             end
             
             for _, cf in ipairs(island.CFrames) do
@@ -265,10 +265,10 @@ local function StartFarmLogic()
                 EquipTool()
                 TweenTo(cf)
                 UseSkill()
-                task.wait(0.4)
+                task.wait(0.5)
             end
         end
-        task.wait(0.2)
+        task.wait(0.4)
     end
 end
 
