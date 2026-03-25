@@ -281,7 +281,7 @@ local function FarmLogic()
                 EquipTool()
                 TweenTo(cframe)
                 UseSkill()
-                task.wait(0.3)
+                task.wait(0.5)
             end
         end
         task.wait(0.1)
