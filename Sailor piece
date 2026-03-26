@@ -54,6 +54,8 @@ local MainFrame = Instance.new("Frame")
 local Title = Instance.new("TextLabel")
 local MinimizeBtn = Instance.new("TextButton")
 local SpeedInput = Instance.new("TextBox")
+local MapLoadDelayInput = Instance.new("TextBox")
+local StayDelayInput = Instance.new("TextBox")
 local RefreshBtn = Instance.new("TextButton")
 local ItemSelectBtn = Instance.new("TextButton")
 local BossBtn = Instance.new("TextButton")
@@ -66,8 +68,8 @@ ScreenGui.ResetOnSpawn = false
 MainFrame.Name = "MainFrame"
 MainFrame.Parent = ScreenGui
 MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-MainFrame.Position = UDim2.new(0.5, -100, 0.5, -137)
-MainFrame.Size = UDim2.new(0, 200, 0, 275)
+MainFrame.Position = UDim2.new(0.5, -100, 0.5, -185)
+MainFrame.Size = UDim2.new(0, 200, 0, 355)
 MainFrame.Active = true
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
 
@@ -102,9 +104,31 @@ SpeedInput.TextColor3 = Color3.fromRGB(255, 255, 255)
 SpeedInput.TextSize = 14
 Instance.new("UICorner", SpeedInput).CornerRadius = UDim.new(0, 8)
 
+MapLoadDelayInput.Parent = MainFrame
+MapLoadDelayInput.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+MapLoadDelayInput.Position = UDim2.new(0.1, 0, 0, 80)
+MapLoadDelayInput.Size = UDim2.new(0.8, 0, 0, 30)
+MapLoadDelayInput.Font = Enum.Font.Gotham
+MapLoadDelayInput.Text = "0.7"
+MapLoadDelayInput.PlaceholderText = "Delay Load Map (s)"
+MapLoadDelayInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+MapLoadDelayInput.TextSize = 14
+Instance.new("UICorner", MapLoadDelayInput).CornerRadius = UDim.new(0, 8)
+
+StayDelayInput.Parent = MainFrame
+StayDelayInput.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+StayDelayInput.Position = UDim2.new(0.1, 0, 0, 120)
+StayDelayInput.Size = UDim2.new(0.8, 0, 0, 30)
+StayDelayInput.Font = Enum.Font.Gotham
+StayDelayInput.Text = "0.8"
+StayDelayInput.PlaceholderText = "Delay Tới Đích (s)"
+StayDelayInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+StayDelayInput.TextSize = 14
+Instance.new("UICorner", StayDelayInput).CornerRadius = UDim.new(0, 8)
+
 RefreshBtn.Parent = MainFrame
 RefreshBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-RefreshBtn.Position = UDim2.new(0.1, 0, 0, 80)
+RefreshBtn.Position = UDim2.new(0.1, 0, 0, 160)
 RefreshBtn.Size = UDim2.new(0.8, 0, 0, 35)
 RefreshBtn.Font = Enum.Font.Gotham
 RefreshBtn.Text = "Check / Refresh Items"
@@ -114,7 +138,7 @@ Instance.new("UICorner", RefreshBtn).CornerRadius = UDim.new(0, 8)
 
 ItemSelectBtn.Parent = MainFrame
 ItemSelectBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-ItemSelectBtn.Position = UDim2.new(0.1, 0, 0, 125)
+ItemSelectBtn.Position = UDim2.new(0.1, 0, 0, 205)
 ItemSelectBtn.Size = UDim2.new(0.8, 0, 0, 35)
 ItemSelectBtn.Font = Enum.Font.Gotham
 ItemSelectBtn.Text = "Select: None"
@@ -124,7 +148,7 @@ Instance.new("UICorner", ItemSelectBtn).CornerRadius = UDim.new(0, 8)
 
 BossBtn.Parent = MainFrame
 BossBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
-BossBtn.Position = UDim2.new(0.1, 0, 0, 170)
+BossBtn.Position = UDim2.new(0.1, 0, 0, 250)
 BossBtn.Size = UDim2.new(0.8, 0, 0, 35)
 BossBtn.Font = Enum.Font.Gotham
 BossBtn.Text = "Auto Boss: ON"
@@ -134,7 +158,7 @@ Instance.new("UICorner", BossBtn).CornerRadius = UDim.new(0, 8)
 
 StartBtn.Parent = MainFrame
 StartBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
-StartBtn.Position = UDim2.new(0.1, 0, 0, 215)
+StartBtn.Position = UDim2.new(0.1, 0, 0, 295)
 StartBtn.Size = UDim2.new(0.8, 0, 0, 45)
 StartBtn.Font = Enum.Font.GothamBold
 StartBtn.Text = "START FARM"
@@ -174,14 +198,18 @@ MinimizeBtn.MouseButton1Click:Connect(function()
     if minimized then
         MainFrame.Size = UDim2.new(0, 200, 0, 30)
         SpeedInput.Visible = false
+        MapLoadDelayInput.Visible = false
+        StayDelayInput.Visible = false
         RefreshBtn.Visible = false
         ItemSelectBtn.Visible = false
         BossBtn.Visible = false
         StartBtn.Visible = false
         MinimizeBtn.Text = "+"
     else
-        MainFrame.Size = UDim2.new(0, 200, 0, 275)
+        MainFrame.Size = UDim2.new(0, 200, 0, 355)
         SpeedInput.Visible = true
+        MapLoadDelayInput.Visible = true
+        StayDelayInput.Visible = true
         RefreshBtn.Visible = true
         ItemSelectBtn.Visible = true
         BossBtn.Visible = true
@@ -274,7 +302,8 @@ local function FarmLogic()
                 pcall(function()
                     Remotes.TeleportToPortal:FireServer(island.Name)
                 end)
-                task.wait(0.7)
+                local mapDelay = tonumber(MapLoadDelayInput.Text) or 0.7
+                task.wait(mapDelay)
             end
             
             for _, cframe in ipairs(island.CFrames) do
@@ -287,7 +316,9 @@ local function FarmLogic()
                 EquipTool()
                 TweenTo(cframe)
                 UseSkill()
-                task.wait(0.8)
+                
+                local stayDelay = tonumber(StayDelayInput.Text) or 0.8
+                task.wait(stayDelay)
             end
         end
         task.wait(0.1)
