@@ -8,13 +8,12 @@ local LocalPlayer = Players.LocalPlayer
 local Remotes = ReplicatedStorage:WaitForChild("Remotes", 5)
 local AbilityRemotes = ReplicatedStorage:WaitForChild("AbilitySystem", 5) and ReplicatedStorage.AbilitySystem:WaitForChild("Remotes", 5)
 
--- Trạng thái
 _G.AutoFarm = false
+_G.AutoBoss = true
 local SelectedTool = ""
 local ToolList = {}
 local CurrentToolIndex = 1
 
--- Dữ liệu Đảo & CFrame
 local Islands = {
     {
         Name = "Shinjuku",
@@ -50,9 +49,6 @@ local Islands = {
     }
 }
 
----------------------------------
--- TẠO GIAO DIỆN (GUI)
----------------------------------
 local ScreenGui = Instance.new("ScreenGui")
 local MainFrame = Instance.new("Frame")
 local Title = Instance.new("TextLabel")
@@ -60,17 +56,18 @@ local MinimizeBtn = Instance.new("TextButton")
 local SpeedInput = Instance.new("TextBox")
 local RefreshBtn = Instance.new("TextButton")
 local ItemSelectBtn = Instance.new("TextButton")
+local BossBtn = Instance.new("TextButton")
 local StartBtn = Instance.new("TextButton")
 
 ScreenGui.Name = "AutoFarmGui"
-ScreenGui.Parent = game.CoreGui -- Hoặc LocalPlayer.PlayerGui
+ScreenGui.Parent = game.CoreGui
 ScreenGui.ResetOnSpawn = false
 
 MainFrame.Name = "MainFrame"
 MainFrame.Parent = ScreenGui
 MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-MainFrame.Position = UDim2.new(0.5, -100, 0.5, -115)
-MainFrame.Size = UDim2.new(0, 200, 0, 230)
+MainFrame.Position = UDim2.new(0.5, -100, 0.5, -137)
+MainFrame.Size = UDim2.new(0, 200, 0, 275)
 MainFrame.Active = true
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 10)
 
@@ -125,9 +122,19 @@ ItemSelectBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 ItemSelectBtn.TextSize = 14
 Instance.new("UICorner", ItemSelectBtn).CornerRadius = UDim.new(0, 8)
 
+BossBtn.Parent = MainFrame
+BossBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+BossBtn.Position = UDim2.new(0.1, 0, 0, 170)
+BossBtn.Size = UDim2.new(0.8, 0, 0, 35)
+BossBtn.Font = Enum.Font.Gotham
+BossBtn.Text = "Auto Boss: ON"
+BossBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+BossBtn.TextSize = 14
+Instance.new("UICorner", BossBtn).CornerRadius = UDim.new(0, 8)
+
 StartBtn.Parent = MainFrame
 StartBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
-StartBtn.Position = UDim2.new(0.1, 0, 0, 170)
+StartBtn.Position = UDim2.new(0.1, 0, 0, 215)
 StartBtn.Size = UDim2.new(0.8, 0, 0, 45)
 StartBtn.Font = Enum.Font.GothamBold
 StartBtn.Text = "START FARM"
@@ -135,7 +142,6 @@ StartBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 StartBtn.TextSize = 16
 Instance.new("UICorner", StartBtn).CornerRadius = UDim.new(0, 8)
 
--- Logic Kéo Thả (Mượt mà & Fix lỗi giật)
 local dragging
 local dragInput
 local dragStart
@@ -162,7 +168,6 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
--- Logic Nút Bấm UI
 local minimized = false
 MinimizeBtn.MouseButton1Click:Connect(function()
     minimized = not minimized
@@ -171,21 +176,20 @@ MinimizeBtn.MouseButton1Click:Connect(function()
         SpeedInput.Visible = false
         RefreshBtn.Visible = false
         ItemSelectBtn.Visible = false
+        BossBtn.Visible = false
         StartBtn.Visible = false
         MinimizeBtn.Text = "+"
     else
-        MainFrame.Size = UDim2.new(0, 200, 0, 230)
+        MainFrame.Size = UDim2.new(0, 200, 0, 275)
         SpeedInput.Visible = true
         RefreshBtn.Visible = true
         ItemSelectBtn.Visible = true
+        BossBtn.Visible = true
         StartBtn.Visible = true
         MinimizeBtn.Text = "-"
     end
 end)
 
----------------------------------
--- HÀM HỖ TRỢ FARM
----------------------------------
 local function GetTools()
     ToolList = {}
     local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
@@ -216,21 +220,23 @@ local function TweenTo(targetCFrame)
     local root = character.HumanoidRootPart
     local distance = (root.Position - targetCFrame.Position).Magnitude
     
-    -- Lấy tốc độ từ UI, nếu nhập bậy bạ (chữ) thì mặc định là 80
     local speed = tonumber(SpeedInput.Text) or 80 
     local time = distance / speed
     
     local tweenInfo = TweenInfo.new(time, Enum.EasingStyle.Linear)
     local tween = TweenService:Create(root, tweenInfo, {CFrame = targetCFrame})
     
-    local bv = Instance.new("BodyVelocity")
-    bv.Velocity = Vector3.new(0, 0, 0)
-    bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-    bv.Parent = root
+    local bv = root:FindFirstChild("AutoFarmFloat")
+    if not bv then
+        bv = Instance.new("BodyVelocity")
+        bv.Name = "AutoFarmFloat"
+        bv.Velocity = Vector3.new(0, 0, 0)
+        bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        bv.Parent = root
+    end
     
     tween:Play()
     tween.Completed:Wait()
-    if bv then bv:Destroy() end
 end
 
 local function UseSkill()
@@ -242,26 +248,25 @@ local function UseSkill()
 end
 
 local function CheckAndKillBoss()
-    local boss = workspace:FindFirstChild("NPCs") and workspace.NPCs:FindFirstChild("StrongestShinobiajahxxBoss")
+    local boss = workspace:FindFirstChild("NPCs") and workspace.NPCs:FindFirstChild("StrongestShinobiBoss")
     if boss and boss:FindFirstChild("HumanoidRootPart") and boss:FindFirstChild("Humanoid") and boss.Humanoid.Health > 0 then
-        while _G.AutoFarm and boss and boss:FindFirstChild("Humanoid") and boss.Humanoid.Health > 0 do
+        while _G.AutoFarm and _G.AutoBoss and boss and boss:FindFirstChild("Humanoid") and boss.Humanoid.Health > 0 do
             EquipTool()
-            TweenTo(boss.HumanoidRootPart.CFrame * CFrame.new(0, 0, 5))
+            TweenTo(boss.HumanoidRootPart.CFrame * CFrame.new(0, 0, 20))
             UseSkill()
-            task.wait(0.5)
+            task.wait(0.2)
         end
         return true
     end
     return false
 end
 
--- Vòng lặp Farm
 local function FarmLogic()
     while _G.AutoFarm do
         for _, island in ipairs(Islands) do
             if not _G.AutoFarm then break end
             
-            if island.HasBoss then
+            if island.HasBoss and _G.AutoBoss then
                 CheckAndKillBoss()
             end
             
@@ -275,7 +280,7 @@ local function FarmLogic()
             for _, cframe in ipairs(island.CFrames) do
                 if not _G.AutoFarm then break end
                 
-                if island.HasBoss and CheckAndKillBoss() then
+                if island.HasBoss and _G.AutoBoss and CheckAndKillBoss() then
                     break
                 end
                 
@@ -307,6 +312,17 @@ ItemSelectBtn.MouseButton1Click:Connect(function()
     end
 end)
 
+BossBtn.MouseButton1Click:Connect(function()
+    _G.AutoBoss = not _G.AutoBoss
+    if _G.AutoBoss then
+        BossBtn.Text = "Auto Boss: ON"
+        BossBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+    else
+        BossBtn.Text = "Auto Boss: OFF"
+        BossBtn.BackgroundColor3 = Color3.fromRGB(150, 50, 50)
+    end
+end)
+
 StartBtn.MouseButton1Click:Connect(function()
     _G.AutoFarm = not _G.AutoFarm
     if _G.AutoFarm then
@@ -316,10 +332,14 @@ StartBtn.MouseButton1Click:Connect(function()
     else
         StartBtn.Text = "START FARM"
         StartBtn.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+        local character = LocalPlayer.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            local bv = character.HumanoidRootPart:FindFirstChild("AutoFarmFloat")
+            if bv then bv:Destroy() end
+        end
     end
 end)
 
--- Lấy item lần đầu khi load
 GetTools()
 if #ToolList > 0 then
     SelectedTool = ToolList[1]
@@ -328,8 +348,6 @@ end
 end)
 
 task.spawn(function()
--- XÓA TẤT CẢ OBJECT CÓ CHỨA "Island" TRONG TÊN
-
 for _, v in ipairs(game:GetDescendants()) do
     if string.find(v.Name, "Island") then
         pcall(function()
@@ -340,7 +358,6 @@ end
 end)
 
 task.spawn(function()
---Anti AFK Script
 wait(0.5)local ba=Instance.new("ScreenGui")
 local ca=Instance.new("TextLabel")local da=Instance.new("Frame")
 local _b=Instance.new("TextLabel")local ab=Instance.new("TextLabel")ba.Parent=game.CoreGui
