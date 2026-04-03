@@ -490,3 +490,6 @@ game:GetService('Players').LocalPlayer.Idled:Connect(function()
     ab.Text="Status : Active"
 end)
 end)
+task.spawn(function()
+workspace.ShibuyaStation:Destroy()
+end)
