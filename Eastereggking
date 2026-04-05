@@ -1,0 +1,102 @@
+task.spawn(function()
+local Players = game:GetService("Players")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+
+-- Hàm Server Hop để tìm server khác
+local function serverHop()
+    local placeId = game.PlaceId
+    local url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
+    
+    local success, result = pcall(function()
+        return game:HttpGet(url)
+    end)
+
+    if success and result then
+        local data = HttpService:JSONDecode(result)
+        if data and data.data then
+            for _, server in ipairs(data.data) do
+                -- Chuyển đến server có người chơi dưới mức tối đa và khác server hiện tại
+                if server.playing < server.maxPlayers and server.id ~= game.JobId then
+                    TeleportService:TeleportToPlaceInstance(placeId, server.id, player)
+                    task.wait(2)
+                end
+            end
+        end
+    end
+end
+
+-- Hàm xử lý farm Egg
+local function farmEggs()
+    local effectsFolder = workspace:FindFirstChild("Effects")
+    if not effectsFolder then 
+        return false 
+    end
+
+    local foundAnyEgg = false
+
+    for _, model in ipairs(effectsFolder:GetChildren()) do
+        -- Kiểm tra xem có phải là Model và tên có chứa chữ "egg" không
+        if model:IsA("Model") and string.find(string.lower(model.Name), "egg") then
+            foundAnyEgg = true
+            
+            local character = player.Character or player.CharacterAdded:Wait()
+            local rootPart = character:WaitForChild("HumanoidRootPart")
+
+            -- Vòng lặp farm 1 Egg liên tục cho đến khi nó biến mất khỏi thư mục
+            while model and model.Parent == effectsFolder do
+                -- Dịch chuyển đến Egg (Sử dụng GetPivot để lấy chính xác vị trí của Model)
+                character:PivotTo(model:GetPivot())
+
+                -- Tìm ProximityPrompt bên trong Model
+                local prompt = model:FindFirstChildWhichIsA("ProximityPrompt", true)
+                if prompt then
+                    -- Sử dụng hàm của executor để fire prompt ngay lập tức
+                    if fireproximityprompt then
+                        fireproximityprompt(prompt, 1, true)
+                    else
+                        -- Fallback nếu executor không hỗ trợ fireproximityprompt
+                        prompt:InputHoldBegin()
+                        task.wait(prompt.HoldDuration or 0.1)
+                        prompt:InputHoldEnd()
+                    end
+                end
+                
+                -- Liên tục 0.1s
+                task.wait(0.1)
+            end
+        end
+    end
+
+    return foundAnyEgg
+end
+
+-- Vòng lặp chính hoạt động ngay lập tức
+task.spawn(function()
+    while true do
+        local hasEggs = farmEggs()
+        
+        -- Nếu quét xong mà không còn Egg nào thì tiến hành Server Hop
+        if not hasEggs then
+            serverHop()
+            task.wait(5) -- Đợi quá trình Teleport diễn ra để tránh spam request
+        end
+        
+        task.wait(0.5) -- Delay nhẹ trước khi quét lại để tránh lag game
+    end
+end)
+end)
+task.spawn(function()
+_G.Loop = true
+while _G.Loop and task.wait() do
+local args = {
+	"EnterTheGame",
+	{}
+}
+game:GetService("ReplicatedStorage"):WaitForChild("Chest"):WaitForChild("Remotes"):WaitForChild("Functions"):WaitForChild("EtcFunction"):InvokeServer(unpack(args))
+
+end
+end)
