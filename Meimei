@@ -5,19 +5,19 @@ local Workspace = game:GetService("Workspace")
 local CoreGui = game:GetService("CoreGui")
 local CurrentCamera = Workspace.CurrentCamera
 
-if CoreGui:FindFirstChild("HealSpamV11") then CoreGui.HealSpamV11:Destroy() end
+if CoreGui:FindFirstChild("UltraSpamV12") then CoreGui.UltraSpamV12:Destroy() end
 
 -- ==========================================
 -- GIAO DIỆN (GUI)
 -- ==========================================
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "HealSpamV11"
+ScreenGui.Name = "UltraSpamV12"
 ScreenGui.Parent = CoreGui
 
 local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0, 260, 0, 250)
-Main.Position = UDim2.new(0.5, -130, 0.5, -125)
-Main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+Main.Size = UDim2.new(0, 260, 0, 220)
+Main.Position = UDim2.new(0.5, -130, 0.5, -110)
+Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 Main.Active = true
 Main.Draggable = true
 Main.Parent = ScreenGui
@@ -25,12 +25,13 @@ Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 10)
 
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 35)
-Title.Text = "HEAL SPAM V11 - UNDERWORLD"
+Title.Text = "HEAL SPAM V12 - ULTRA"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.BackgroundTransparency = 1
 Title.Font = Enum.Font.GothamBold
 Title.Parent = Main
 
+-- Button 1: Giữ nguyên tính năng phụ trợ
 local Btn1 = Instance.new("TextButton")
 Btn1.Size = UDim2.new(0, 220, 0, 30)
 Btn1.Position = UDim2.new(0, 20, 0, 40)
@@ -53,27 +54,19 @@ Instance.new("UICorner", BoxName)
 local BoxDelay = Instance.new("TextBox")
 BoxDelay.Size = UDim2.new(0, 220, 0, 30)
 BoxDelay.Position = UDim2.new(0, 20, 0, 110)
-BoxDelay.PlaceholderText = "Delay Reset (0.1)"
-BoxDelay.Text = "0.1"
+BoxDelay.PlaceholderText = "Spam Rate (Mặc định 0.05)"
+BoxDelay.Text = "0.05"
 BoxDelay.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
 BoxDelay.TextColor3 = Color3.fromRGB(255, 200, 0)
 BoxDelay.Parent = Main
 Instance.new("UICorner", BoxDelay)
 
-local BtnTele = Instance.new("TextButton")
-BtnTele.Size = UDim2.new(0, 220, 0, 30)
-BtnTele.Position = UDim2.new(0, 20, 0, 145)
-BtnTele.BackgroundColor3 = Color3.fromRGB(130, 30, 30)
-BtnTele.Text = "Auto Tele Y -350: OFF"
-BtnTele.TextColor3 = Color3.fromRGB(255, 255, 255)
-BtnTele.Parent = Main
-Instance.new("UICorner", BtnTele)
-
+-- Button 2: Nút chính tích hợp mọi thứ
 local Btn2 = Instance.new("TextButton")
-Btn2.Size = UDim2.new(0, 220, 0, 45)
-Btn2.Position = UDim2.new(0, 20, 0, 185)
+Btn2.Size = UDim2.new(0, 220, 0, 55)
+Btn2.Position = UDim2.new(0, 20, 0, 150)
 Btn2.BackgroundColor3 = Color3.fromRGB(130, 30, 30)
-Btn2.Text = "START SPAM LOOP"
+Btn2.Text = "START ALL-IN-ONE LOOP"
 Btn2.TextColor3 = Color3.fromRGB(255, 255, 255)
 Btn2.Font = Enum.Font.GothamBold
 Btn2.Parent = Main
@@ -82,25 +75,7 @@ Instance.new("UICorner", Btn2)
 -- ==========================================
 -- LOGIC CORE
 -- ==========================================
-local T1, T2, T_Tele = false, false, false
-
-local function TeleUnder()
-    if T_Tele and LocalPlayer.Character then
-        local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if root then
-            root.CFrame = root.CFrame * CFrame.new(0, -350, 0)
-        end
-    end
-end
-
--- Tự động Tele mỗi khi hồi sinh (nếu bật)
-LocalPlayer.CharacterAdded:Connect(function(char)
-    if T_Tele then
-        char:WaitForChild("HumanoidRootPart")
-        task.wait(0.2)
-        TeleUnder()
-    end
-end)
+local T1, T2 = false, false
 
 local function GetAnyTarget(txt)
     if txt == "" then return nil end
@@ -135,13 +110,6 @@ end
 -- XỬ LÝ NÚT BẤM
 -- ==========================================
 
-BtnTele.MouseButton1Click:Connect(function()
-    T_Tele = not T_Tele
-    BtnTele.Text = T_Tele and "Auto Tele Y -350: ON" or "Auto Tele Y -350: OFF"
-    BtnTele.BackgroundColor3 = T_Tele and Color3.fromRGB(40, 120, 40) or Color3.fromRGB(130, 30, 30)
-    if T_Tele then TeleUnder() end
-end)
-
 Btn1.MouseButton1Click:Connect(function()
     T1 = not T1
     Btn1.Text = T1 and "Auto Heal 0 HP: ON" or "Auto Heal 0 HP: OFF"
@@ -162,38 +130,56 @@ end)
 
 Btn2.MouseButton1Click:Connect(function()
     T2 = not T2
-    Btn2.Text = T2 and "STOP LOOP" or "START SPAM LOOP"
+    Btn2.Text = T2 and "STOPPING..." or "START ALL-IN-ONE LOOP"
     Btn2.BackgroundColor3 = T2 and Color3.fromRGB(40, 120, 40) or Color3.fromRGB(130, 30, 30)
     
+    if not T2 then
+        -- Trả camera về mình khi tắt
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+            CurrentCamera.CameraSubject = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        end
+        return
+    end
+
     task.spawn(function()
         local ResetRemote = ReplicatedStorage:WaitForChild("Knit"):WaitForChild("Knit"):WaitForChild("Services"):WaitForChild("JoinService"):WaitForChild("RE"):WaitForChild("Reset")
         
         while T2 do
             local target = GetAnyTarget(BoxName.Text)
-            local waitTime = tonumber(BoxDelay.Text) or 0.1
+            local rate = tonumber(BoxDelay.Text) or 0.05
             
             if target then
-                -- Soi máu mục tiêu
+                -- 1. Khóa Camera vào mục tiêu
                 local targetHum = target:FindFirstChildOfClass("Humanoid")
                 if targetHum then CurrentCamera.CameraSubject = targetHum end
                 
-                -- Thực hiện combo
+                -- 2. Spam Remote nhanh bằng task.spawn (Chạy 5 luồng cùng lúc)
                 if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Moveset") then
-                    if FireHeal(target) then
-                        task.wait(waitTime)
-                        ResetRemote:FireServer() -- Gọi Remote Reset bạn đưa
-                        
-                        -- Chờ nhân vật mới xuất hiện
-                        LocalPlayer.CharacterAdded:Wait()
-                        task.wait(0.3) 
+                    for i = 1, 5 do
+                        task.spawn(function()
+                            FireHeal(target)
+                        end)
                     end
+                    task.wait(rate) -- Đợi nhịp cực ngắn theo input
+
+                    -- 3. Gọi Remote Reset
+                    ResetRemote:FireServer()
+                    
+                    -- 4. Đợi nhân vật mới và Teleport Y -350
+                    local newChar = LocalPlayer.CharacterAdded:Wait()
+                    local hrp = newChar:WaitForChild("HumanoidRootPart", 5)
+                    if hrp then
+                        task.wait(0.1) -- Đợi nhân vật định hình 1 chút
+                        hrp.CFrame = hrp.CFrame * CFrame.new(0, -350, 0) -- Ép xuống địa ngục
+                    end
+                    
+                    -- Đợi Moveset xuất hiện để đảm bảo có thể bắn quạ tiếp
+                    repeat task.wait() until newChar:FindFirstChild("Moveset")
+                    task.wait(0.2)
                 end
+            else
+                task.wait(0.5)
             end
-            task.wait()
-        end
-        -- Trả camera về mình khi tắt
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
-            CurrentCamera.CameraSubject = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
         end
     end)
 end)
