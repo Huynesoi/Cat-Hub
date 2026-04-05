@@ -1,0 +1,63 @@
+local Players = game:GetService("Players")
+
+local player = Players.LocalPlayer
+
+-- Hàm xử lý farm Egg
+local function farmEggs()
+    local effectsFolder = workspace:FindFirstChild("Effects")
+    if not effectsFolder then 
+        return false 
+    end
+
+    local foundAnyEgg = false
+
+    for _, model in ipairs(effectsFolder:GetChildren()) do
+        -- Kiểm tra xem có phải là Model và tên có chứa chữ "egg" không
+        if model:IsA("Model") and string.find(string.lower(model.Name), "egg") then
+            foundAnyEgg = true
+            
+            local character = player.Character or player.CharacterAdded:Wait()
+
+            -- Vòng lặp farm 1 Egg liên tục cho đến khi nó biến mất khỏi thư mục
+            while model and model.Parent == effectsFolder do
+                -- Dịch chuyển đến Egg (Sử dụng GetPivot để lấy chính xác vị trí của Model)
+                character:PivotTo(model:GetPivot())
+
+                -- Tìm ProximityPrompt bên trong Model
+                local prompt = model:FindFirstChildWhichIsA("ProximityPrompt", true)
+                if prompt then
+                    -- Sử dụng hàm của executor để fire prompt ngay lập tức
+                    if fireproximityprompt then
+                        fireproximityprompt(prompt, 1, true)
+                    else
+                        -- Fallback nếu executor không hỗ trợ fireproximityprompt
+                        prompt:InputHoldBegin()
+                        task.wait(prompt.HoldDuration or 0.1)
+                        prompt:InputHoldEnd()
+                    end
+                end
+                
+                -- Liên tục 0.1s
+                task.wait(0.1)
+            end
+        end
+    end
+
+    return foundAnyEgg
+end
+
+-- Vòng lặp chính hoạt động ngay lập tức
+task.spawn(function()
+    while true do
+        local hasEggs = farmEggs()
+        
+        -- Nếu không có Egg nào trên map, script sẽ đợi 1 giây rồi quét lại
+        -- Việc delay này rất quan trọng để tránh làm crash game (tránh vòng lặp chạy vô hạn không có thời gian nghỉ)
+        if not hasEggs then
+            task.wait(1) 
+        else
+            -- Nếu vừa farm xong Egg, nghỉ 0.1s trước khi tìm Egg tiếp theo
+            task.wait(0.1) 
+        end
+    end
+end)
