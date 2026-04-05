@@ -5,13 +5,13 @@ local Workspace = game:GetService("Workspace")
 local CoreGui = game:GetService("CoreGui")
 local CurrentCamera = Workspace.CurrentCamera
 
-if CoreGui:FindFirstChild("UltraSpamV12") then CoreGui.UltraSpamV12:Destroy() end
+if CoreGui:FindFirstChild("HealSpamV10") then CoreGui.HealSpamV10:Destroy() end
 
 -- ==========================================
 -- GIAO DIỆN (GUI)
 -- ==========================================
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "UltraSpamV12"
+ScreenGui.Name = "HealSpamV10"
 ScreenGui.Parent = CoreGui
 
 local Main = Instance.new("Frame")
@@ -25,25 +25,24 @@ Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 10)
 
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 35)
-Title.Text = "HEAL SPAM V12 - ULTRA"
+Title.Text = "HEAL SPAM V10 - REMOTE"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.BackgroundTransparency = 1
 Title.Font = Enum.Font.GothamBold
 Title.Parent = Main
 
--- Button 1: Giữ nguyên tính năng phụ trợ
 local Btn1 = Instance.new("TextButton")
-Btn1.Size = UDim2.new(0, 220, 0, 30)
+Btn1.Size = UDim2.new(0, 220, 0, 35)
 Btn1.Position = UDim2.new(0, 20, 0, 40)
 Btn1.BackgroundColor3 = Color3.fromRGB(130, 30, 30)
-Btn1.Text = "Auto Heal 0 HP: OFF"
+Btn1.Text = "Auto Heal 0 HP (All): OFF"
 Btn1.TextColor3 = Color3.fromRGB(255, 255, 255)
 Btn1.Parent = Main
 Instance.new("UICorner", Btn1)
 
 local BoxName = Instance.new("TextBox")
 BoxName.Size = UDim2.new(0, 220, 0, 30)
-BoxName.Position = UDim2.new(0, 20, 0, 75)
+BoxName.Position = UDim2.new(0, 20, 0, 85)
 BoxName.PlaceholderText = "Tên mục tiêu..."
 BoxName.Text = ""
 BoxName.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
@@ -53,20 +52,19 @@ Instance.new("UICorner", BoxName)
 
 local BoxDelay = Instance.new("TextBox")
 BoxDelay.Size = UDim2.new(0, 220, 0, 30)
-BoxDelay.Position = UDim2.new(0, 20, 0, 110)
-BoxDelay.PlaceholderText = "Spam Rate (Mặc định 0.05)"
-BoxDelay.Text = "0.05"
+BoxDelay.Position = UDim2.new(0, 20, 0, 120)
+BoxDelay.PlaceholderText = "Delay trc khi Reset (VD: 0.1)"
+BoxDelay.Text = "0.1"
 BoxDelay.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
 BoxDelay.TextColor3 = Color3.fromRGB(255, 200, 0)
 BoxDelay.Parent = Main
 Instance.new("UICorner", BoxDelay)
 
--- Button 2: Nút chính tích hợp mọi thứ
 local Btn2 = Instance.new("TextButton")
-Btn2.Size = UDim2.new(0, 220, 0, 55)
-Btn2.Position = UDim2.new(0, 20, 0, 150)
+Btn2.Size = UDim2.new(0, 220, 0, 45)
+Btn2.Position = UDim2.new(0, 20, 0, 160)
 Btn2.BackgroundColor3 = Color3.fromRGB(130, 30, 30)
-Btn2.Text = "START ALL-IN-ONE LOOP"
+Btn2.Text = "SPAM & REMOTE RESET: OFF"
 Btn2.TextColor3 = Color3.fromRGB(255, 255, 255)
 Btn2.Font = Enum.Font.GothamBold
 Btn2.Parent = Main
@@ -75,7 +73,6 @@ Instance.new("UICorner", Btn2)
 -- ==========================================
 -- LOGIC CORE
 -- ==========================================
-local T1, T2 = false, false
 
 local function GetAnyTarget(txt)
     if txt == "" then return nil end
@@ -95,7 +92,7 @@ local function FireHeal(targetInstance)
         local moveset = myChar:FindFirstChild("Moveset")
         local birdControl = moveset and moveset:FindFirstChild("Bird Control")
         if birdControl then
-            local args = { birdControl, { false, targetInstance, Vector3.new(0,0,0), Vector3.new(0,0,0) } }
+            local args = { birdControl, { false, targetInstance, Vector3.new(-15.07, 20.35, -106.59), Vector3.new(0.04, 0, -0.99) } }
             local remote = ReplicatedStorage:FindFirstChild("Knit") and ReplicatedStorage.Knit.Knit.Services.BirdControlService.RE.Activated
             if remote then 
                 remote:FireServer(unpack(args))
@@ -107,12 +104,14 @@ local function FireHeal(targetInstance)
 end
 
 -- ==========================================
--- XỬ LÝ NÚT BẤM
+-- XỬ LÝ CHÍNH
 -- ==========================================
+local T1, T2 = false, false
 
+-- BUTTON 1: AUTO HEAL 0 HP
 Btn1.MouseButton1Click:Connect(function()
     T1 = not T1
-    Btn1.Text = T1 and "Auto Heal 0 HP: ON" or "Auto Heal 0 HP: OFF"
+    Btn1.Text = T1 and "Auto Heal 0 HP: ON" or "Auto Heal 0 HP (All): OFF"
     Btn1.BackgroundColor3 = T1 and Color3.fromRGB(40, 120, 40) or Color3.fromRGB(130, 30, 30)
     task.spawn(function()
         while T1 do
@@ -123,18 +122,18 @@ Btn1.MouseButton1Click:Connect(function()
                     if hum and hum.Health <= 0 then FireHeal(obj) end
                 end
             end
-            task.wait(0.3)
+            task.wait(0.2)
         end
     end)
 end)
 
+-- BUTTON 2: SPAM -> REMOTE RESET -> RESPAWN LOOP
 Btn2.MouseButton1Click:Connect(function()
     T2 = not T2
-    Btn2.Text = T2 and "STOPPING..." or "START ALL-IN-ONE LOOP"
+    Btn2.Text = T2 and "SPAM & RESET: ON" or "SPAM & REMOTE RESET: OFF"
     Btn2.BackgroundColor3 = T2 and Color3.fromRGB(40, 120, 40) or Color3.fromRGB(130, 30, 30)
     
     if not T2 then
-        -- Trả camera về mình khi tắt
         if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
             CurrentCamera.CameraSubject = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
         end
@@ -146,40 +145,41 @@ Btn2.MouseButton1Click:Connect(function()
         
         while T2 do
             local target = GetAnyTarget(BoxName.Text)
-            local rate = tonumber(BoxDelay.Text) or 0.05
+            local myChar = LocalPlayer.Character
+            local waitTime = tonumber(BoxDelay.Text) or 0.1
             
             if target then
-                -- 1. Khóa Camera vào mục tiêu
+                -- 1. Camera Follow
                 local targetHum = target:FindFirstChildOfClass("Humanoid")
                 if targetHum then CurrentCamera.CameraSubject = targetHum end
                 
-                -- 2. Spam Remote nhanh bằng task.spawn (Chạy 5 luồng cùng lúc)
-                if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Moveset") then
-                    for i = 1, 5 do
-                        task.spawn(function()
-                            FireHeal(target)
-                        end)
-                    end
-                    task.wait(rate) -- Đợi nhịp cực ngắn theo input
+                -- 2. Kiểm tra nhân vật & Use Remote
+                if myChar and myChar:FindFirstChild("Moveset") then
+                    local didFire = FireHeal(target)
+                    
+                    if didFire then
+                        task.wait(waitTime) -- Chờ tín hiệu quạ bay đi
 
-                    -- 3. Gọi Remote Reset
-                    ResetRemote:FireServer()
-                    
-                    -- 4. Đợi nhân vật mới và Teleport Y -350
-                    local newChar = LocalPlayer.CharacterAdded:Wait()
-                    local hrp = newChar:WaitForChild("HumanoidRootPart", 5)
-                    if hrp then
-                        task.wait(0.1) -- Đợi nhân vật định hình 1 chút
-                        hrp.CFrame = hrp.CFrame * CFrame.new(0, -350, 0) -- Ép xuống địa ngục
+                        -- 3. Gọi Remote Reset của Game
+                        ResetRemote:FireServer()
+
+                        -- 4. Đợi hồi sinh hoàn toàn
+                        if T2 then
+                            LocalPlayer.CharacterAdded:Wait()
+                            local newChar = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+                            repeat task.wait() until newChar:FindFirstChild("Moveset")
+                            task.wait(0.2) -- Nghỉ ngắn để ổn định
+                        end
                     end
-                    
-                    -- Đợi Moveset xuất hiện để đảm bảo có thể bắn quạ tiếp
-                    repeat task.wait() until newChar:FindFirstChild("Moveset")
-                    task.wait(0.2)
                 end
             else
+                -- Trả camera nếu không có target
+                if myChar and myChar:FindFirstChildOfClass("Humanoid") then
+                    CurrentCamera.CameraSubject = myChar:FindFirstChildOfClass("Humanoid")
+                end
                 task.wait(0.5)
             end
+            task.wait()
         end
     end)
 end)
