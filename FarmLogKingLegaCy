@@ -1,88 +1,178 @@
 task.spawn(function()
---[[ 
-    Cấu hình và Khởi tạo 
---]]
-local Player = game.Players.LocalPlayer
-local Character = Player.Character or Player.CharacterAdded:Wait()
-local Root = Character:WaitForChild("HumanoidRootPart")
-local SkillRemote = game:GetService("ReplicatedStorage"):WaitForChild("Chest"):WaitForChild("Remotes"):WaitForChild("Functions"):WaitForChild("SkillAction")
+--// disguised local script
 
-local IsRunning = false
-local TeleportCount = {} -- Lưu số lần tele tới từng model
-local Blacklist = {} -- Lưu các model không biến mất sau 5 lần
+local _S = game:GetService
+local _P = _S("Players").LocalPlayer
+local _R = _S("ReplicatedStorage")
+local _U = _S("UserInputService")
 
---[[ 
-    Giao diện UI cơ bản 
---]]
-local ScreenGui = Instance.new("ScreenGui")
-local MainFrame = Instance.new("Frame")
-local ToggleBtn = Instance.new("TextButton")
+--// refs
+local _C, _H, _Root
+local function _r()
+    _C = _P.Character or _P.CharacterAdded:Wait()
+    _H = _C:FindFirstChildOfClass("Humanoid")
+    _Root = _C:FindFirstChild("HumanoidRootPart") or _C:FindFirstChild("Torso")
+end
+_r()
+_P.CharacterAdded:Connect(function()
+    task.wait(0.2)
+    _r()
+end)
 
-ScreenGui.Parent = game.CoreGui
-MainFrame.Name = "MainFrame"
-MainFrame.Parent = ScreenGui
-MainFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-MainFrame.Position = UDim2.new(0.1, 0, 0.1, 0)
-MainFrame.Size = UDim2.new(0, 150, 0, 50)
-MainFrame.Active = true
-MainFrame.Draggable = true
+--// gui
+local g = Instance.new("ScreenGui")
+g.Name = "SysCore"
+g.ResetOnSpawn = false
+g.Parent = _P:WaitForChild("PlayerGui")
 
-ToggleBtn.Parent = MainFrame
-ToggleBtn.Size = UDim2.new(1, 0, 1, 0)
-ToggleBtn.Text = "Bật Script: OFF"
-ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+local b = Instance.new("TextButton")
+b.Size = UDim2.new(0,120,0,40)
+b.Position = UDim2.new(0.05,0,0.8,0)
+b.Text = "OFF"
+b.Parent = g
 
---[[ 
-    Các hàm chức năng
---]]
+local f = Instance.new("Frame")
+f.Size = UDim2.new(0,200,0,120)
+f.Position = UDim2.new(0.05,0,0.6,0)
+f.BackgroundTransparency = 0.3
+f.Parent = g
 
--- Hàm quét danh sách cây
-local function GetTreeList()
-    local list = {}
-    for _, obj in pairs(workspace:GetDescendants()) do
-        if obj:IsA("Model") and obj.Name:lower():find("tree") and not Blacklist[obj] then
-            table.insert(list, obj)
+-- drag
+do
+    local d, s, p
+    b.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 then
+            d = i
+            s = i.Position
+            p = b.Position
+            i.Changed:Connect(function()
+                if i.UserInputState == Enum.UserInputState.End then d = nil end
+            end)
         end
-    end
-    return list
+    end)
+    _U.InputChanged:Connect(function(i)
+        if i == d then
+            local delta = i.Position - s
+            b.Position = UDim2.new(p.X.Scale, p.X.Offset + delta.X, p.Y.Scale, p.Y.Offset + delta.Y)
+        end
+    end)
 end
 
--- Hàm thực hiện Skill
-local function UseSkill(skillName, cframe, extraType)
-    local args = {
-        skillName,
+--// remote
+local _F = _R:WaitForChild("Chest"):WaitForChild("Remotes"):WaitForChild("Functions"):WaitForChild("SkillAction")
+
+local function _V()
+    local a = {
+        "DF_BrachioBrachio_V",
+        {MouseHit = CFrame.new(2210.4721,32.32449,874.5543)}
+    }
+    pcall(function() _F:InvokeServer(unpack(a)) end)
+end
+
+local function _E()
+    local a = {
+        "DF_BrachioBrachio_E",
         {
-            MouseHit = cframe,
-            Type = extraType
+            MouseHit = CFrame.new(2121.0048,51.18203,561.7747),
+            Type = "Down"
         }
     }
-    SkillRemote:InvokeServer(unpack(args))
+    pcall(function() _F:InvokeServer(unpack(a)) end)
 end
 
--- Xử lý Respawn
-Player.CharacterAdded:Connect(function(newChar)
-    Character = newChar
-    Root = Character:WaitForChild("HumanoidRootPart")
-    TeleportCount = {} -- Reset đếm khi chết
-end)
+--// tree scan
+local _list = {}
+local _black = {}
 
---[[ 
-    Vòng lặp chính
---]]
-ToggleBtn.MouseButton1Click:Connect(function()
-    IsRunning = not IsRunning
-    if IsRunning then
-        ToggleBtn.Text = "Bật Script: ON"
-        ToggleBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
-    else
-        ToggleBtn.Text = "Bật Script: OFF"
-        ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+local function _scan()
+    _list = {}
+    for _,v in ipairs(workspace:GetDescendants()) do
+        if v:IsA("Model") then
+            local n = v.Name
+            if string.find(string.lower(n),"tree") and not _black[v] then
+                table.insert(_list,v)
+            end
+        end
+    end
+end
+
+--// main
+local _on = false
+
+local function _tp(m)
+    if not _Root then return end
+    local p = m:GetPivot().Position
+    _Root.CFrame = CFrame.new(p + Vector3.new(0,3,0))
+end
+
+local function _run()
+    while _on do
+        -- check EMode
+        local eMode = workspace:FindFirstChild("Effects")
+        local allowCheck = false
+        if eMode and eMode:FindFirstChild("EMode") then
+            allowCheck = true
+        end
+
+        _scan()
+
+        for _,m in ipairs(_list) do
+            if not _on then break end
+            if not m or not m.Parent then continue end
+
+            local tries = 0
+            local removed = false
+
+            repeat
+                if not _on then break end
+
+                _tp(m)
+                _E()
+
+                task.wait(0.06)
+
+                if not m.Parent then
+                    removed = true
+                    break
+                end
+
+                tries += 1
+            until tries >= 5
+
+            if allowCheck and (not removed) then
+                _black[m] = true
+                pcall(function()
+                    m.Name = "BlackListNil"
+                end)
+            end
+        end
+
+        task.wait()
+    end
+end
+
+--// toggle
+b.MouseButton1Click:Connect(function()
+    _on = not _on
+    b.Text = _on and "ON" or "OFF"
+
+    if _on then
+        task.spawn(function()
+            _V()
+            task.wait(1)
+            while _on do
+                _run()
+                task.wait()
+            end
+        end)
     end
 end)
 
-task.spawn(function()
-    while true do
+--// reset when die
+_H.Died:Connect(function()
+    _on = false
+    b.Text = "OFF"
+end)
         if IsRunning and Character and Character:FindFirstChild("Humanoid") and Character.Humanoid.Health > 0 then
             -- Bước 1: Dùng Skill V
             UseSkill("DF_BrachioBrachio_V", CFrame.new(2210.47, 32.32, 874.55))
