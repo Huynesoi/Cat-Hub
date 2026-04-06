@@ -1,179 +1,127 @@
 task.spawn(function()
-local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local CoreGui = game:GetService("CoreGui")
+--[[ 
+    Cấu hình và Khởi tạo 
+--]]
+local Player = game.Players.LocalPlayer
+local Character = Player.Character or Player.CharacterAdded:Wait()
+local Root = Character:WaitForChild("HumanoidRootPart")
+local SkillRemote = game:GetService("ReplicatedStorage"):WaitForChild("Chest"):WaitForChild("Remotes"):WaitForChild("Functions"):WaitForChild("SkillAction")
 
-local LocalPlayer = Players.LocalPlayer
-local skillRemote = ReplicatedStorage:WaitForChild("Chest"):WaitForChild("Remotes"):WaitForChild("Functions"):WaitForChild("SkillAction")
+local IsRunning = false
+local TeleportCount = {} -- Lưu số lần tele tới từng model
+local Blacklist = {} -- Lưu các model không biến mất sau 5 lần
 
--- Biến Trạng Thái
-local isRunning = false  
-local canFarm = false    
-local isDead = false
-
--- ==========================================
--- 1. TẠO GUI GIAO DIỆN CHÍNH
--- ==========================================
-local guiName = "TreeAutoFarmGUI_Huynesoi"
-local targetGui = pcall(function() return CoreGui end) and CoreGui or LocalPlayer:WaitForChild("PlayerGui")
-
-if targetGui:FindFirstChild(guiName) then
-    targetGui:FindFirstChild(guiName):Destroy()
-end
-
+--[[ 
+    Giao diện UI cơ bản 
+--]]
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = guiName
-ScreenGui.Parent = targetGui
-
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 200, 0, 100)
-MainFrame.Position = UDim2.new(0.5, -100, 0.1, 0)
-MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-MainFrame.BorderSizePixel = 2
+local ToggleBtn = Instance.new("TextButton")
+
+ScreenGui.Parent = game.CoreGui
+MainFrame.Name = "MainFrame"
 MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+MainFrame.Position = UDim2.new(0.1, 0, 0.1, 0)
+MainFrame.Size = UDim2.new(0, 150, 0, 50)
 MainFrame.Active = true
-MainFrame.Draggable = true 
+MainFrame.Draggable = true
 
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 0, 30)
-Title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.Text = "Tree Farm (No Blacklist)"
-Title.Font = Enum.Font.SourceSansBold
-Title.TextSize = 16
-Title.Parent = MainFrame
+ToggleBtn.Parent = MainFrame
+ToggleBtn.Size = UDim2.new(1, 0, 1, 0)
+ToggleBtn.Text = "Bật Script: OFF"
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 
-local ToggleButton = Instance.new("TextButton")
-ToggleButton.Size = UDim2.new(0.8, 0, 0, 40)
-ToggleButton.Position = UDim2.new(0.1, 0, 0.45, 0)
-ToggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-ToggleButton.Text = "OFF"
-ToggleButton.Font = Enum.Font.SourceSansBold
-ToggleButton.TextSize = 20
-ToggleButton.Parent = MainFrame
+--[[ 
+    Các hàm chức năng
+--]]
 
--- ==========================================
--- 2. CÁC HÀM XỬ LÝ SKILL
--- ==========================================
-local function fireSkillV()
-    local argsV = {
-        "DF_BrachioBrachio_V",
-        {MouseHit = CFrame.new(2210.47, 32.32, 874.55, 1, 0, 0, 0, 1, 0, 0, 0, 1)}
-    }
-    pcall(function() skillRemote:InvokeServer(unpack(argsV)) end)
-end
-
-local function fireSkillE()
-    local argsE = {
-        "DF_BrachioBrachio_E",
-        {MouseHit = CFrame.new(2121.00, 51.18, 561.77, 1, 0, 0, 0, 1, 0, 0, 0, 1), Type = "Down"}
-    }
-    pcall(function() skillRemote:InvokeServer(unpack(argsE)) end)
-end
-
--- ==========================================
--- 3. XỬ LÝ NHÂN VẬT & RE-START
--- ==========================================
-local function startFarmSequence()
-    if not isRunning then return end
-    canFarm = false 
-    
-    task.wait(2) 
-    if isRunning and not isDead then
-        fireSkillV()
-        task.wait(1) 
-        if isRunning and not isDead then
-            canFarm = true
+-- Hàm quét danh sách cây
+local function GetTreeList()
+    local list = {}
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("Model") and obj.Name:lower():find("tree") and not Blacklist[obj] then
+            table.insert(list, obj)
         end
     end
+    return list
 end
 
-local function setupCharacter(character)
-    isDead = false
-    local humanoid = character:WaitForChild("Humanoid")
-    humanoid.Died:Connect(function()
-        isDead = true
-        canFarm = false
-    end)
-    task.spawn(startFarmSequence)
+-- Hàm thực hiện Skill
+local function UseSkill(skillName, cframe, extraType)
+    local args = {
+        skillName,
+        {
+            MouseHit = cframe,
+            Type = extraType
+        }
+    }
+    SkillRemote:InvokeServer(unpack(args))
 end
 
-if LocalPlayer.Character then setupCharacter(LocalPlayer.Character) end
-LocalPlayer.CharacterAdded:Connect(setupCharacter)
+-- Xử lý Respawn
+Player.CharacterAdded:Connect(function(newChar)
+    Character = newChar
+    Root = Character:WaitForChild("HumanoidRootPart")
+    TeleportCount = {} -- Reset đếm khi chết
+end)
 
-ToggleButton.MouseButton1Click:Connect(function()
-    isRunning = not isRunning
-    ToggleButton.Text = isRunning and "ON" or "OFF"
-    ToggleButton.BackgroundColor3 = isRunning and Color3.fromRGB(50, 200, 50) or Color3.fromRGB(200, 50, 50)
-    
-    if isRunning and LocalPlayer.Character and not isDead then
-        task.spawn(startFarmSequence)
+--[[ 
+    Vòng lặp chính
+--]]
+ToggleBtn.MouseButton1Click:Connect(function()
+    IsRunning = not IsRunning
+    if IsRunning then
+        ToggleBtn.Text = "Bật Script: ON"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
     else
-        canFarm = false
+        ToggleBtn.Text = "Bật Script: OFF"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
     end
 end)
 
--- ==========================================
--- 4. LUỒNG SPAM SKILL E (Chạy độc lập)
--- ==========================================
 task.spawn(function()
     while true do
-        if isRunning and canFarm and not isDead then
-            fireSkillE()
-        end
-        task.wait() 
-    end
-end)
+        if IsRunning and Character and Character:FindFirstChild("Humanoid") and Character.Humanoid.Health > 0 then
+            -- Bước 1: Dùng Skill V
+            UseSkill("DF_BrachioBrachio_V", CFrame.new(2210.47, 32.32, 874.55))
+            
+            task.wait(1)
+            
+            -- Bước 2: Quét danh sách và bắt đầu Teleport/Spam E
+            local TreeList = GetTreeList()
+            
+            for _, tree in pairs(TreeList) do
+                if not IsRunning or Character.Humanoid.Health <= 0 then break end
+                if not tree or not tree.PrimaryPart then continue end
 
--- ==========================================
--- 5. LUỒNG TELEPORT (Bỏ hoàn toàn Blacklist)
--- ==========================================
-task.spawn(function()
-    while true do
-        if isRunning and canFarm and not isDead and LocalPlayer.Character then
-            local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if root then
-                -- Quét danh sách cây
-                local treesToFarm = {}
-                for _, obj in ipairs(workspace:GetDescendants()) do
-                    if obj:IsA("Model") and string.find(obj.Name:lower(), "tree") then
-                        table.insert(treesToFarm, obj)
+                -- Teleport tới cây
+                Root.CFrame = tree:GetModelCFrame()
+                
+                -- Dùng Skill E
+                UseSkill("DF_BrachioBrachio_E", CFrame.new(2121.00, 51.18, 561.77), "Down")
+                
+                -- Kiểm tra hiệu ứng EMode để xử lý Blacklist
+                task.wait(0.06)
+                
+                local isEModeActive = workspace:FindFirstChild("Effects") and workspace.Effects:FindFirstChild("EMode")
+                
+                if isEModeActive then
+                    -- Nếu có EMode (Skill đang trúng/hoạt động), kiểm tra xem cây có biến mất không
+                    TeleportCount[tree] = (TeleportCount[tree] or 0) + 1
+                    
+                    if TeleportCount[tree] >= 5 then
+                        Blacklist[tree] = true
+                        tree.Name = "BlackListNil" -- Đổi tên để tránh trùng lặp
+                        warn("Đã Blacklist model: " .. tree.Name)
                     end
                 end
-
-                -- Teleport theo danh sách
-                if #treesToFarm > 0 then
-                    for _, tree in ipairs(treesToFarm) do
-                        if not (isRunning and canFarm and not isDead) then break end
-                        
-                        -- Check Cooldown bằng EMode
-                        while isRunning and canFarm and not isDead do
-                            local effects = workspace:FindFirstChild("Effects")
-                            if effects and effects:FindFirstChild("EMode") then
-                                break 
-                            end
-                            task.wait(0.1) -- Đợi hồi chiêu
-                        end
-                        
-                        if not (isRunning and canFarm and not isDead) then break end
-
-                        -- Teleport thẳng tới cây
-                        if tree and tree.Parent then
-                            pcall(function()
-                                root.CFrame = tree:GetPivot()
-                            end)
-                            task.wait(0.06) 
-                        end
-                    end
-                end
-                table.clear(treesToFarm)
             end
         end
-        task.wait(0.3) -- Nghỉ ngắn trước khi quét lại toàn bộ map
+        task.wait(0.1)
     end
 end)
-
 
 
 end)
