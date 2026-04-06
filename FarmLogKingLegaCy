@@ -6,7 +6,7 @@ local LocalPlayer = Players.LocalPlayer
 local isDead = false
 local currentTreeList = {} -- Danh sách cây cố định cho mỗi vòng
 local skillRemote = ReplicatedStorage:WaitForChild("Chest"):WaitForChild("Remotes"):WaitForChild("Functions"):WaitForChild("SkillAction")
-
+-- local abc à
 -- Hàm Spam Skill E (Chạy độc lập)
 task.spawn(function()
     while true do
@@ -80,7 +80,7 @@ task.spawn(function()
                         -- Kiểm tra cây còn tồn tại không
                         if targetTree and targetTree.Parent then
                             root.CFrame = targetTree:GetPivot()
-                            task.wait(0.1) -- Delay 0.1s theo ý bạn
+                            task.wait(0.06) -- Delay 0.1s theo ý bạn
                         end
                     end
                 end
