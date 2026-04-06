@@ -6,11 +6,13 @@ local LocalPlayer = Players.LocalPlayer
 local isDead = false
 local skillRemote = ReplicatedStorage:WaitForChild("Chest"):WaitForChild("Remotes"):WaitForChild("Functions"):WaitForChild("SkillAction")
 
--- Cấu hình
-local TELEPORT_DELAY = 0.06 -- Tốc độ nhảy cây
-local SCAN_INTERVAL = 0.5 -- Thời gian nghỉ giữa mỗi lần quét lại toàn bản đồ
+-- Cấu hình hệ thống chống "cây chết"
+local treeTracker = {}    -- Đếm số lần tele tới từng cây
+local blacklistedTrees = {} -- Danh sách các cây bị bỏ qua vĩnh viễn
+local MAX_ATTEMPTS = 5    -- Giới hạn 5 lần tele
+local TELEPORT_DELAY = 0.06
 
--- 1. Luồng Spam Skill E (Tối ưu để không gây lag)
+-- 1. Luồng Spam Skill E
 task.spawn(function()
     local argsE = {
         "DF_BrachioBrachio_E",
@@ -21,15 +23,13 @@ task.spawn(function()
     }
     while true do
         if not isDead then
-            pcall(function() 
-                skillRemote:InvokeServer(unpack(argsE)) 
-            end)
+            pcall(function() skillRemote:InvokeServer(unpack(argsE)) end)
         end
-        task.wait() -- Spam theo frame (nhanh nhất có thể)
+        task.wait() 
     end
 end)
 
--- 2. Xử lý hồi sinh
+-- 2. Xử lý hồi sinh & dùng Skill V
 local function onCharacterAdded(character)
     isDead = true
     local humanoid = character:WaitForChild("Humanoid")
@@ -50,47 +50,58 @@ end
 if LocalPlayer.Character then task.spawn(onCharacterAdded, LocalPlayer.Character) end
 LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
 
--- 3. Vòng lặp Teleport (Bản Fix lỗi bỏ sót và chậm)
+-- 3. Vòng lặp Teleport & Logic lọc cây lỗi
 task.spawn(function()
     while true do
         if not isDead and LocalPlayer.Character then
             local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
             if root then
-                -- Tối ưu quét: Chỉ tìm Model và lọc tên ngay lập tức
+                -- Lấy danh sách cây mới
                 local treesToFarm = {}
-                local allDescendants = workspace:GetDescendants()
-                
-                for i = 1, #allDescendants do
-                    local obj = allDescendants[i]
+                for _, obj in ipairs(workspace:GetDescendants()) do
                     if obj:IsA("Model") and string.find(obj.Name:lower(), "tree") then
-                        table.insert(treesToFarm, obj)
+                        -- CHỈ THÊM VÀO NẾU: Cây chưa bị blacklist
+                        if not blacklistedTrees[obj] then
+                            table.insert(treesToFarm, obj)
+                        end
                     end
                 end
 
-                -- Thực hiện Teleport theo danh sách đã "chốt"
+                -- Bắt đầu Teleport theo danh sách đã lọc
                 if #treesToFarm > 0 then
                     for _, tree in ipairs(treesToFarm) do
                         if isDead then break end
                         
-                        -- Kiểm tra kỹ xem cây còn thật sự ở đó không
-                        if tree and tree.Parent and tree:FindFirstChildWhichIsA("BasePart", true) then
+                        -- Kiểm tra lần cuối trước khi nhảy: Cây còn tồn tại không?
+                        if tree and tree.Parent then
+                            -- Ghi nhận số lần nhảy tới cây này
+                            treeTracker[tree] = (treeTracker[tree] or 0) + 1
+                            
+                            -- Nếu đã quá 5 lần mà cây vẫn còn đó -> Cho vào Blacklist
+                            if treeTracker[tree] > MAX_ATTEMPTS then
+                                blacklistedTrees[tree] = true
+                                treeTracker[tree] = nil -- Giải phóng bộ nhớ đếm
+                                continue -- Bỏ qua cây này ngay lập tức
+                            end
+
+                            -- Thực hiện nhảy
                             pcall(function()
                                 root.CFrame = tree:GetPivot()
                             end)
                             task.wait(TELEPORT_DELAY)
+                        else
+                            -- Nếu cây đã biến mất (đã farm xong), xóa nó khỏi bộ đếm để sạch bộ nhớ
+                            treeTracker[tree] = nil
                         end
                     end
                 end
-                
-                -- Giải phóng bộ nhớ cho bảng cũ
                 table.clear(treesToFarm)
-                treesToFarm = nil
             end
         end
-        -- Nghỉ một chút để CPU "thở" trước khi quét đợt tiếp theo (Chống lag cực hiệu quả)
-        task.wait(SCAN_INTERVAL)
+        task.wait(0.5) -- Nghỉ 0.5s để server cập nhật cây mới
     end
 end)
+
 
 end)
 
