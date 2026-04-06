@@ -2,14 +2,14 @@ task.spawn(function()
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
-
+-- fix cs1d
 local isDead = false
 local skillRemote = ReplicatedStorage:WaitForChild("Chest"):WaitForChild("Remotes"):WaitForChild("Functions"):WaitForChild("SkillAction")
 
 -- Cấu hình hệ thống chống "cây chết"
 local treeTracker = {}    -- Đếm số lần tele tới từng cây
 local blacklistedTrees = {} -- Danh sách các cây bị bỏ qua vĩnh viễn
-local MAX_ATTEMPTS = 5    -- Giới hạn 5 lần tele
+local MAX_ATTEMPTS = 20    -- Giới hạn 5 lần tele
 local TELEPORT_DELAY = 0.06
 
 -- 1. Luồng Spam Skill E
