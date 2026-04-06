@@ -4,40 +4,39 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 
 local isDead = false
-local currentTreeList = {}
 local skillRemote = ReplicatedStorage:WaitForChild("Chest"):WaitForChild("Remotes"):WaitForChild("Functions"):WaitForChild("SkillAction")
 
--- 1. Luồng Spam Skill E (Chạy liên tục không nghỉ)
+-- Cấu hình
+local TELEPORT_DELAY = 0.06 -- Tốc độ nhảy cây
+local SCAN_INTERVAL = 0.5 -- Thời gian nghỉ giữa mỗi lần quét lại toàn bản đồ
+
+-- 1. Luồng Spam Skill E (Tối ưu để không gây lag)
 task.spawn(function()
+    local argsE = {
+        "DF_BrachioBrachio_E",
+        {
+            MouseHit = CFrame.new(2121.0048828125, 51.182037353515625, 561.7747802734375, 1, 0, 0, 0, 1, 0, 0, 0, 1),
+            Type = "Down"
+        }
+    }
     while true do
         if not isDead then
-            local args = {
-                "DF_BrachioBrachio_E",
-                {
-                    MouseHit = CFrame.new(2121.0048828125, 51.182037353515625, 561.7747802734375, 1, 0, 0, 0, 1, 0, 0, 0, 1),
-                    Type = "Down"
-                }
-            }
-            pcall(function() skillRemote:InvokeServer(unpack(args)) end)
+            pcall(function() 
+                skillRemote:InvokeServer(unpack(argsE)) 
+            end)
         end
-        task.wait() -- Spam tốc độ tối đa
+        task.wait() -- Spam theo frame (nhanh nhất có thể)
     end
 end)
 
--- 2. Hàm xử lý khi Nhân vật chết và hồi sinh
+-- 2. Xử lý hồi sinh
 local function onCharacterAdded(character)
     isDead = true
-    currentTreeList = {} -- Xóa danh sách để reset lộ trình khi chết
-    
     local humanoid = character:WaitForChild("Humanoid")
-    humanoid.Died:Connect(function()
-        isDead = true
-    end)
+    humanoid.Died:Connect(function() isDead = true end)
 
-    -- Đợi 5 giây sau khi respawn theo yêu cầu
     task.wait(5)
     
-    -- Sử dụng Skill V trước khi bắt đầu lại
     local argsV = {
         "DF_BrachioBrachio_V",
         {
@@ -45,50 +44,51 @@ local function onCharacterAdded(character)
         }
     }
     pcall(function() skillRemote:InvokeServer(unpack(argsV)) end)
-    
-    isDead = false -- Mở khóa để bắt đầu farm
+    isDead = false
 end
 
 if LocalPlayer.Character then task.spawn(onCharacterAdded, LocalPlayer.Character) end
 LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
 
--- 3. Vòng lặp Teleport theo danh sách Model có chữ "tree"
+-- 3. Vòng lặp Teleport (Bản Fix lỗi bỏ sót và chậm)
 task.spawn(function()
     while true do
         if not isDead and LocalPlayer.Character then
             local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            
             if root then
-                -- Quét tất cả các Model có chứa chữ "tree" trong tên (không phân biệt hoa thường)
-                currentTreeList = {}
-                for _, obj in ipairs(workspace:GetDescendants()) do
-                    if obj:IsA("Model") then
-                        -- Chuyển tên về chữ thường rồi tìm chữ "tree"
-                        if string.find(string.lower(obj.Name), "tree") then
-                            table.insert(currentTreeList, obj)
-                        end
+                -- Tối ưu quét: Chỉ tìm Model và lọc tên ngay lập tức
+                local treesToFarm = {}
+                local allDescendants = workspace:GetDescendants()
+                
+                for i = 1, #allDescendants do
+                    local obj = allDescendants[i]
+                    if obj:IsA("Model") and string.find(obj.Name:lower(), "tree") then
+                        table.insert(treesToFarm, obj)
                     end
                 end
 
-                -- Thực hiện Teleport theo danh sách đã quét được
-                if #currentTreeList > 0 then
-                    for i = 1, #currentTreeList do
-                        -- Nếu chết trong lúc đang chạy danh sách thì dừng ngay
-                        if isDead then break end 
-
-                        local target = currentTreeList[i]
-                        if target and target.Parent then
-                            -- Dùng pcall để tránh lỗi nếu Model bị xóa đột ngột
+                -- Thực hiện Teleport theo danh sách đã "chốt"
+                if #treesToFarm > 0 then
+                    for _, tree in ipairs(treesToFarm) do
+                        if isDead then break end
+                        
+                        -- Kiểm tra kỹ xem cây còn thật sự ở đó không
+                        if tree and tree.Parent and tree:FindFirstChildWhichIsA("BasePart", true) then
                             pcall(function()
-                                root.CFrame = target:GetPivot()
+                                root.CFrame = tree:GetPivot()
                             end)
-                            task.wait(0.06) -- Nhảy cây tiếp theo sau 0.1s
+                            task.wait(TELEPORT_DELAY)
                         end
                     end
                 end
+                
+                -- Giải phóng bộ nhớ cho bảng cũ
+                table.clear(treesToFarm)
+                treesToFarm = nil
             end
         end
-        task.wait(0.5) -- Đợi một chút trước khi quét danh sách mới để tránh lag máy
+        -- Nghỉ một chút để CPU "thở" trước khi quét đợt tiếp theo (Chống lag cực hiệu quả)
+        task.wait(SCAN_INTERVAL)
     end
 end)
 
