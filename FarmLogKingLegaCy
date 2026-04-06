@@ -4,10 +4,10 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 
 local isDead = false
-local currentTreeList = {} -- Danh sách cây cố định cho mỗi vòng
+local currentTreeList = {}
 local skillRemote = ReplicatedStorage:WaitForChild("Chest"):WaitForChild("Remotes"):WaitForChild("Functions"):WaitForChild("SkillAction")
--- local abc à
--- Hàm Spam Skill E (Chạy độc lập)
+
+-- 1. Luồng Spam Skill E (Chạy liên tục không nghỉ)
 task.spawn(function()
     while true do
         if not isDead then
@@ -20,24 +20,24 @@ task.spawn(function()
             }
             pcall(function() skillRemote:InvokeServer(unpack(args)) end)
         end
-        task.wait() -- Spam liên tục
+        task.wait() -- Spam tốc độ tối đa
     end
 end)
 
--- Hàm xử lý khi chết và hồi sinh
+-- 2. Hàm xử lý khi Nhân vật chết và hồi sinh
 local function onCharacterAdded(character)
     isDead = true
-    currentTreeList = {} -- Xóa sạch danh sách cũ khi chết để tránh lỗi tele
+    currentTreeList = {} -- Xóa danh sách để reset lộ trình khi chết
     
     local humanoid = character:WaitForChild("Humanoid")
     humanoid.Died:Connect(function()
         isDead = true
     end)
 
-    -- Đợi 5 giây sau khi hồi sinh
+    -- Đợi 5 giây sau khi respawn theo yêu cầu
     task.wait(5)
     
-    -- Dùng Skill V
+    -- Sử dụng Skill V trước khi bắt đầu lại
     local argsV = {
         "DF_BrachioBrachio_V",
         {
@@ -46,47 +46,49 @@ local function onCharacterAdded(character)
     }
     pcall(function() skillRemote:InvokeServer(unpack(argsV)) end)
     
-    isDead = false -- Cho phép farm tiếp
+    isDead = false -- Mở khóa để bắt đầu farm
 end
 
 if LocalPlayer.Character then task.spawn(onCharacterAdded, LocalPlayer.Character) end
 LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
 
--- Vòng lặp Teleport chính
+-- 3. Vòng lặp Teleport theo danh sách Model có chữ "tree"
 task.spawn(function()
     while true do
         if not isDead and LocalPlayer.Character then
             local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
             
             if root then
-                -- Bước 1: Quét danh sách mới nếu danh sách cũ đã hết
-                local rawTrees = workspace:GetDescendants()
+                -- Quét tất cả các Model có chứa chữ "tree" trong tên (không phân biệt hoa thường)
                 currentTreeList = {}
-                
-                for _, obj in ipairs(rawTrees) do
-                    if obj:IsA("Model") and obj.Name == "Tree" then
-                        table.insert(currentTreeList, obj)
+                for _, obj in ipairs(workspace:GetDescendants()) do
+                    if obj:IsA("Model") then
+                        -- Chuyển tên về chữ thường rồi tìm chữ "tree"
+                        if string.find(string.lower(obj.Name), "tree") then
+                            table.insert(currentTreeList, obj)
+                        end
                     end
                 end
 
-                -- Bước 2: Đi lần lượt từng cây trong danh sách đã chốt
+                -- Thực hiện Teleport theo danh sách đã quét được
                 if #currentTreeList > 0 then
                     for i = 1, #currentTreeList do
-                        local targetTree = currentTreeList[i]
-                        
-                        -- Nếu chết giữa chừng thì hủy vòng lặp for ngay
+                        -- Nếu chết trong lúc đang chạy danh sách thì dừng ngay
                         if isDead then break end 
 
-                        -- Kiểm tra cây còn tồn tại không
-                        if targetTree and targetTree.Parent then
-                            root.CFrame = targetTree:GetPivot()
-                            task.wait(0.06) -- Delay 0.1s theo ý bạn
+                        local target = currentTreeList[i]
+                        if target and target.Parent then
+                            -- Dùng pcall để tránh lỗi nếu Model bị xóa đột ngột
+                            pcall(function()
+                                root.CFrame = target:GetPivot()
+                            end)
+                            task.wait(0.06) -- Nhảy cây tiếp theo sau 0.1s
                         end
                     end
                 end
             end
         end
-        task.wait(0.5) -- Nghỉ một chút trước khi bắt đầu quét danh sách cây mới
+        task.wait(0.5) -- Đợi một chút trước khi quét danh sách mới để tránh lag máy
     end
 end)
 
