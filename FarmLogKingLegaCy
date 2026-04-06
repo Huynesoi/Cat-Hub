@@ -173,47 +173,6 @@ _H.Died:Connect(function()
     _on = false
     b.Text = "OFF"
 end)
-        if IsRunning and Character and Character:FindFirstChild("Humanoid") and Character.Humanoid.Health > 0 then
-            -- Bước 1: Dùng Skill V
-            UseSkill("DF_BrachioBrachio_V", CFrame.new(2210.47, 32.32, 874.55))
-            
-            task.wait(1)
-            
-            -- Bước 2: Quét danh sách và bắt đầu Teleport/Spam E
-            local TreeList = GetTreeList()
-            
-            for _, tree in pairs(TreeList) do
-                if not IsRunning or Character.Humanoid.Health <= 0 then break end
-                if not tree or not tree.PrimaryPart then continue end
-
-                -- Teleport tới cây
-                Root.CFrame = tree:GetModelCFrame()
-                
-                -- Dùng Skill E
-                UseSkill("DF_BrachioBrachio_E", CFrame.new(2121.00, 51.18, 561.77), "Down")
-                
-                -- Kiểm tra hiệu ứng EMode để xử lý Blacklist
-                task.wait(0.06)
-                
-                local isEModeActive = workspace:FindFirstChild("Effects") and workspace.Effects:FindFirstChild("EMode")
-                
-                if isEModeActive then
-                    -- Nếu có EMode (Skill đang trúng/hoạt động), kiểm tra xem cây có biến mất không
-                    TeleportCount[tree] = (TeleportCount[tree] or 0) + 1
-                    
-                    if TeleportCount[tree] >= 5 then
-                        Blacklist[tree] = true
-                        tree.Name = "BlackListNil" -- Đổi tên để tránh trùng lặp
-                        warn("Đã Blacklist model: " .. tree.Name)
-                    end
-                end
-            end
-        end
-        task.wait(0.1)
-    end
-end)
-
-
 end)
 
 task.spawn(function()
