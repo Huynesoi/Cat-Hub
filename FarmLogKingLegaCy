@@ -1,178 +1,140 @@
 task.spawn(function()
---// disguised local script
+--[[
+    Yêu cầu: GUI, Skill V (1 lần), Skill E (Spam), Quét Tree + CFrame, 
+    Teleport mỗi 0.06s, Tự khởi động lại khi Respawn.
+]]
 
-local _S = game:GetService
-local _P = _S("Players").LocalPlayer
-local _R = _S("ReplicatedStorage")
-local _U = _S("UserInputService")
+local Player = game.Players.LocalPlayer
+local RS = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local SkillRemote = RS:WaitForChild("Chest"):WaitForChild("Remotes"):WaitForChild("Functions"):WaitForChild("SkillAction")
 
---// refs
-local _C, _H, _Root
-local function _r()
-    _C = _P.Character or _P.CharacterAdded:Wait()
-    _H = _C:FindFirstChildOfClass("Humanoid")
-    _Root = _C:FindFirstChild("HumanoidRootPart") or _C:FindFirstChild("Torso")
-end
-_r()
-_P.CharacterAdded:Connect(function()
-    task.wait(0.2)
-    _r()
-end)
+-- Biến điều khiển
+_G.ScriptEnabled = false
+local treeData = {} -- Lưu {name, cframe}
 
---// gui
-local g = Instance.new("ScreenGui")
-g.Name = "SysCore"
-g.ResetOnSpawn = false
-g.Parent = _P:WaitForChild("PlayerGui")
+-- 1. TẠO GUI
+local ScreenGui = Instance.new("ScreenGui")
+local MainFrame = Instance.new("Frame")
+local ToggleBtn = Instance.new("TextButton")
+local StatusLabel = Instance.new("TextLabel")
 
-local b = Instance.new("TextButton")
-b.Size = UDim2.new(0,120,0,40)
-b.Position = UDim2.new(0.05,0,0.8,0)
-b.Text = "OFF"
-b.Parent = g
+ScreenGui.Name = "TreeFarm_GUI"
+ScreenGui.Parent = game.CoreGui
+ScreenGui.ResetOnSpawn = false
 
-local f = Instance.new("Frame")
-f.Size = UDim2.new(0,200,0,120)
-f.Position = UDim2.new(0.05,0,0.6,0)
-f.BackgroundTransparency = 0.3
-f.Parent = g
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+MainFrame.Position = UDim2.new(0.1, 0, 0.1, 0)
+MainFrame.Size = UDim2.new(0, 200, 0, 100)
+MainFrame.Active = true
+MainFrame.Draggable = true
 
--- drag
-do
-    local d, s, p
-    b.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 then
-            d = i
-            s = i.Position
-            p = b.Position
-            i.Changed:Connect(function()
-                if i.UserInputState == Enum.UserInputState.End then d = nil end
-            end)
+StatusLabel.Parent = MainFrame
+StatusLabel.Size = UDim2.new(1, 0, 0.4, 0)
+StatusLabel.Text = "Trạng thái: TẮT"
+StatusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+StatusLabel.BackgroundTransparency = 1
+
+ToggleBtn.Parent = MainFrame
+ToggleBtn.Position = UDim2.new(0.1, 0, 0.5, 0)
+ToggleBtn.Size = UDim2.new(0.8, 0, 0.4, 0)
+ToggleBtn.Text = "BẬT SCRIPT"
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+ToggleBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+-- 2. HÀM QUÉT DANH SÁCH TREE
+local function updateTreeList()
+    treeData = {}
+    for _, v in pairs(workspace:GetDescendants()) do
+        if v:IsA("Model") and string.find(string.lower(v.Name), "tree") then
+            -- Lấy CFrame của PrimaryPart hoặc Part đầu tiên tìm thấy
+            local cf = v:GetModelCFrame()
+            table.insert(treeData, {Name = v.Name, CF = cf})
         end
-    end)
-    _U.InputChanged:Connect(function(i)
-        if i == d then
-            local delta = i.Position - s
-            b.Position = UDim2.new(p.X.Scale, p.X.Offset + delta.X, p.Y.Scale, p.Y.Offset + delta.Y)
-        end
-    end)
+    end
+    print("Đã tìm thấy " .. #treeData .. " cây.")
 end
 
---// remote
-local _F = _R:WaitForChild("Chest"):WaitForChild("Remotes"):WaitForChild("Functions"):WaitForChild("SkillAction")
-
-local function _V()
-    local a = {
+-- 3. LOGIC SKILL
+local function useSkillV()
+    local args = {
         "DF_BrachioBrachio_V",
-        {MouseHit = CFrame.new(2210.4721,32.32449,874.5543)}
+        {
+            MouseHit = CFrame.new(2210.47216796875, 32.324493408203125, 874.5543212890625, 1, 0, 0, 0, 1, 0, 0, 0, 1)
+        }
     }
-    pcall(function() _F:InvokeServer(unpack(a)) end)
+    SkillRemote:InvokeServer(unpack(args))
 end
 
-local function _E()
-    local a = {
+local function useSkillE()
+    local args = {
         "DF_BrachioBrachio_E",
         {
-            MouseHit = CFrame.new(2121.0048,51.18203,561.7747),
+            MouseHit = CFrame.new(2121.0048828125, 51.182037353515625, 561.7747802734375, 1, 0, 0, 0, 1, 0, 0, 0, 1),
             Type = "Down"
         }
     }
-    pcall(function() _F:InvokeServer(unpack(a)) end)
+    SkillRemote:InvokeServer(unpack(args))
 end
 
---// tree scan
-local _list = {}
-local _black = {}
+-- 4. VÒNG LẶP CHÍNH
+local function startMainLoop()
+    if not _G.ScriptEnabled then return end
+    
+    -- Bước 1: Dùng skill V
+    useSkillV()
+    task.wait(1)
+    
+    -- Bước 2: Chạy song song Spam E và Teleport
+    task.spawn(function()
+        while _G.ScriptEnabled and task.wait() do
+            useSkillE()
+        end
+    end)
 
-local function _scan()
-    _list = {}
-    for _,v in ipairs(workspace:GetDescendants()) do
-        if v:IsA("Model") then
-            local n = v.Name
-            if string.find(string.lower(n),"tree") and not _black[v] then
-                table.insert(_list,v)
+    -- Bước 3: Teleport vòng lặp qua danh sách Tree
+    while _G.ScriptEnabled do
+        if #treeData == 0 then updateTreeList() end
+        
+        for _, data in ipairs(treeData) do
+            if not _G.ScriptEnabled then break end
+            
+            local char = Player.Character
+            if char and char:FindFirstChild("HumanoidRootPart") then
+                char.HumanoidRootPart.CFrame = data.CF
             end
+            task.wait(0.06)
         end
     end
 end
 
---// main
-local _on = false
-
-local function _tp(m)
-    if not _Root then return end
-    local p = m:GetPivot().Position
-    _Root.CFrame = CFrame.new(p + Vector3.new(0,3,0))
-end
-
-local function _run()
-    while _on do
-        -- check EMode
-        local eMode = workspace:FindFirstChild("Effects")
-        local allowCheck = false
-        if eMode and eMode:FindFirstChild("EMode") then
-            allowCheck = true
-        end
-
-        _scan()
-
-        for _,m in ipairs(_list) do
-            if not _on then break end
-            if not m or not m.Parent then continue end
-
-            local tries = 0
-            local removed = false
-
-            repeat
-                if not _on then break end
-
-                _tp(m)
-                _E()
-
-                task.wait(0.06)
-
-                if not m.Parent then
-                    removed = true
-                    break
-                end
-
-                tries += 1
-            until tries >= 5
-
-            if allowCheck and (not removed) then
-                _black[m] = true
-                pcall(function()
-                    m.Name = "BlackListNil"
-                end)
-            end
-        end
-
-        task.wait()
-    end
-end
-
---// toggle
-b.MouseButton1Click:Connect(function()
-    _on = not _on
-    b.Text = _on and "ON" or "OFF"
-
-    if _on then
-        task.spawn(function()
-            _V()
-            task.wait(1)
-            while _on do
-                _run()
-                task.wait()
-            end
-        end)
+-- 5. XỬ LÝ SỰ KIỆN
+ToggleBtn.MouseButton1Click:Connect(function()
+    _G.ScriptEnabled = not _G.ScriptEnabled
+    
+    if _G.ScriptEnabled then
+        ToggleBtn.Text = "TẮT SCRIPT"
+        StatusLabel.Text = "Trạng thái: ĐANG CHẠY"
+        StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+        updateTreeList()
+        task.spawn(startMainLoop)
+    else
+        ToggleBtn.Text = "BẬT SCRIPT"
+        StatusLabel.Text = "Trạng thái: TẮT"
+        StatusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
     end
 end)
 
---// reset when die
-_H.Died:Connect(function()
-    _on = false
-    b.Text = "OFF"
+-- Tự động chạy lại khi Respawn
+Player.CharacterAdded:Connect(function(character)
+    if _G.ScriptEnabled then
+        task.wait(1) -- Chờ nhân vật load xong
+        task.spawn(startMainLoop)
+    end
 end)
+
 end)
 
 task.spawn(function()
