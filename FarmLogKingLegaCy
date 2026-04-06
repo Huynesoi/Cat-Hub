@@ -2,14 +2,17 @@ task.spawn(function()
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
--- fix cs1d
+
 local isDead = false
 local skillRemote = ReplicatedStorage:WaitForChild("Chest"):WaitForChild("Remotes"):WaitForChild("Functions"):WaitForChild("SkillAction")
 
--- Cấu hình hệ thống chống "cây chết"
-local treeTracker = {}    -- Đếm số lần tele tới từng cây
-local blacklistedTrees = {} -- Danh sách các cây bị bỏ qua vĩnh viễn
-local MAX_ATTEMPTS = 20    -- Giới hạn 5 lần tele
+-- Hệ thống lưu trữ sử dụng Weak Tables để tự động dọn dẹp bộ nhớ
+local treeTracker = {}
+local blacklistedTrees = {}
+setmetatable(treeTracker, {__mode = "k"}) -- Tự xóa dữ liệu nếu Instance bị Destroy
+setmetatable(blacklistedTrees, {__mode = "k"})
+
+local MAX_ATTEMPTS = 5    
 local TELEPORT_DELAY = 0.06
 
 -- 1. Luồng Spam Skill E
@@ -29,9 +32,12 @@ task.spawn(function()
     end
 end)
 
--- 2. Xử lý hồi sinh & dùng Skill V
+-- 2. Xử lý hồi sinh
 local function onCharacterAdded(character)
     isDead = true
+    treeTracker = {} 
+    setmetatable(treeTracker, {__mode = "k"})
+    
     local humanoid = character:WaitForChild("Humanoid")
     humanoid.Died:Connect(function() isDead = true end)
 
@@ -50,57 +56,58 @@ end
 if LocalPlayer.Character then task.spawn(onCharacterAdded, LocalPlayer.Character) end
 LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
 
--- 3. Vòng lặp Teleport & Logic lọc cây lỗi
+-- 3. Vòng lặp Teleport chính (Đã gia cố chống dừng script)
 task.spawn(function()
     while true do
-        if not isDead and LocalPlayer.Character then
-            local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if root then
-                -- Lấy danh sách cây mới
-                local treesToFarm = {}
-                for _, obj in ipairs(workspace:GetDescendants()) do
-                    if obj:IsA("Model") and string.find(obj.Name:lower(), "tree") then
-                        -- CHỈ THÊM VÀO NẾU: Cây chưa bị blacklist
-                        if not blacklistedTrees[obj] then
+        local success, err = pcall(function() -- Bọc toàn bộ để tránh lỗi dừng script
+            if not isDead and LocalPlayer.Character then
+                local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if root then
+                    local treesToFarm = {}
+                    
+                    -- Quét nhanh hơn bằng cách giới hạn đối tượng
+                    for _, obj in ipairs(workspace:GetChildren()) do -- Thử GetChildren trước cho nhanh
+                        if obj:IsA("Model") and string.find(obj.Name:lower(), "tree") and not blacklistedTrees[obj] then
                             table.insert(treesToFarm, obj)
                         end
                     end
-                end
+                    
+                    -- Nếu không tìm thấy ở ngoài, mới quét sâu vào Descendants
+                    if #treesToFarm == 0 then
+                        for _, obj in ipairs(workspace:GetDescendants()) do
+                            if obj:IsA("Model") and string.find(obj.Name:lower(), "tree") and not blacklistedTrees[obj] then
+                                table.insert(treesToFarm, obj)
+                            end
+                        end
+                    end
 
-                -- Bắt đầu Teleport theo danh sách đã lọc
-                if #treesToFarm > 0 then
-                    for _, tree in ipairs(treesToFarm) do
-                        if isDead then break end
-                        
-                        -- Kiểm tra lần cuối trước khi nhảy: Cây còn tồn tại không?
-                        if tree and tree.Parent then
-                            -- Ghi nhận số lần nhảy tới cây này
+                    if #treesToFarm > 0 then
+                        for _, tree in ipairs(treesToFarm) do
+                            if isDead or not tree.Parent then continue end
+                            
                             treeTracker[tree] = (treeTracker[tree] or 0) + 1
                             
-                            -- Nếu đã quá 5 lần mà cây vẫn còn đó -> Cho vào Blacklist
                             if treeTracker[tree] > MAX_ATTEMPTS then
                                 blacklistedTrees[tree] = true
-                                treeTracker[tree] = nil -- Giải phóng bộ nhớ đếm
-                                continue -- Bỏ qua cây này ngay lập tức
+                                continue 
                             end
 
-                            -- Thực hiện nhảy
-                            pcall(function()
-                                root.CFrame = tree:GetPivot()
-                            end)
+                            root.CFrame = tree:GetPivot()
                             task.wait(TELEPORT_DELAY)
-                        else
-                            -- Nếu cây đã biến mất (đã farm xong), xóa nó khỏi bộ đếm để sạch bộ nhớ
-                            treeTracker[tree] = nil
                         end
                     end
                 end
-                table.clear(treesToFarm)
             end
+        end)
+
+        if not success then
+            warn("Script gặp lỗi nhưng đã tự khởi động lại: " .. tostring(err))
         end
-        task.wait(0.5) -- Nghỉ 0.5s để server cập nhật cây mới
+        
+        task.wait(0.5) 
     end
 end)
+
 
 
 end)
