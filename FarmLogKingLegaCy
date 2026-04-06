@@ -8,11 +8,11 @@ local LocalPlayer = Players.LocalPlayer
 local skillRemote = ReplicatedStorage:WaitForChild("Chest"):WaitForChild("Remotes"):WaitForChild("Functions"):WaitForChild("SkillAction")
 
 -- Biến Trạng Thái
-local isRunning = false  -- Trạng thái tổng của Script (Bật/Tắt qua GUI)
-local canFarm = false    -- Trạng thái cho phép Spam & Tele (Tạm dừng khi chết)
+local isRunning = false  
+local canFarm = false    
 local isDead = false
 
--- Bảng đếm số lần tele (Tự dọn rác khi cây bị xóa)
+-- Bảng đếm số lần tele
 local treeTracker = {}
 setmetatable(treeTracker, {__mode = "k"})
 
@@ -22,7 +22,6 @@ setmetatable(treeTracker, {__mode = "k"})
 local guiName = "TreeAutoFarmGUI_Huynesoi"
 local targetGui = pcall(function() return CoreGui end) and CoreGui or LocalPlayer:WaitForChild("PlayerGui")
 
--- Xóa GUI cũ nếu lỡ chạy lại script 2 lần
 if targetGui:FindFirstChild(guiName) then
     targetGui:FindFirstChild(guiName):Destroy()
 end
@@ -38,7 +37,7 @@ MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
 MainFrame.BorderSizePixel = 2
 MainFrame.Parent = ScreenGui
 MainFrame.Active = true
-MainFrame.Draggable = true -- Có thể kéo thả GUI
+MainFrame.Draggable = true 
 
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 30)
@@ -83,12 +82,12 @@ end
 -- ==========================================
 local function startFarmSequence()
     if not isRunning then return end
-    canFarm = false -- Khóa không cho tele vội
+    canFarm = false 
     
-    task.wait(2) -- Đợi 2s để nhân vật load hẳn vào map
+    task.wait(2) 
     if isRunning and not isDead then
         fireSkillV()
-        task.wait(1) -- Sau 1s mới kích hoạt Spam E và Tele
+        task.wait(1) 
         if isRunning and not isDead then
             canFarm = true
         end
@@ -102,11 +101,10 @@ local function setupCharacter(character)
     humanoid.Died:Connect(function()
         isDead = true
         canFarm = false
-        treeTracker = {} -- Dọn sạch bộ đếm khi chết
+        treeTracker = {} 
         setmetatable(treeTracker, {__mode = "k"})
     end)
 
-    -- Bắt đầu chuỗi logic farm (Dùng V -> chờ 1s -> Spam E & Tele)
     task.spawn(startFarmSequence)
 end
 
@@ -122,7 +120,6 @@ ToggleButton.MouseButton1Click:Connect(function()
         ToggleButton.Text = "ON"
         ToggleButton.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
         
-        -- Nếu nhân vật đang sống, khởi động ngay chuỗi Farm
         if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") and LocalPlayer.Character.Humanoid.Health > 0 then
             task.spawn(startFarmSequence)
         end
@@ -134,14 +131,14 @@ ToggleButton.MouseButton1Click:Connect(function()
 end)
 
 -- ==========================================
--- 5. LUỒNG SPAM SKILL E
+-- 5. LUỒNG SPAM SKILL E (Không bị dừng)
 -- ==========================================
 task.spawn(function()
     while true do
         if isRunning and canFarm and not isDead then
             fireSkillE()
         end
-        task.wait() -- Tốc độ spam siêu tốc theo Frame
+        task.wait() 
     end
 end)
 
@@ -164,20 +161,33 @@ task.spawn(function()
                 -- Bước 2: Dịch chuyển theo thứ tự
                 if #treesToFarm > 0 then
                     for _, tree in ipairs(treesToFarm) do
-                        -- Kiểm tra liên tục xem có bị tắt tool hoặc chết không
                         if not (isRunning and canFarm and not isDead) then break end
                         
+                        -- TÍNH NĂNG MỚI: Tạm dừng nếu EMode biến mất (Skill đang Cooldown)
+                        while isRunning and canFarm and not isDead do
+                            local effectsFolder = workspace:FindFirstChild("Effects")
+                            -- Tìm an toàn bằng FindFirstChild để tránh báo lỗi chữ đỏ khi mất folder
+                            if effectsFolder and effectsFolder:FindFirstChild("EMode") then
+                                break -- Nếu đã có EMode thì thoát vòng lặp chờ để đi tiếp
+                            end
+                            task.wait(0.1) -- Đợi 0.1s check lại, luồng kia vẫn đang Spam Skill E
+                        end
+                        
+                        -- Phải check lại phòng trường hợp đang chờ thì bị tắt tool hoặc nhân vật chết
+                        if not (isRunning and canFarm and not isDead) then break end
+
+                        -- Xử lý Teleport và Đếm
                         if tree and tree.Parent then
-                            -- Đếm số lần tele
+                            -- Bắt đầu đếm số lần tele
                             treeTracker[tree] = (treeTracker[tree] or 0) + 1
                             
-                            -- ĐỔI TÊN THÀNH BLACKLIST NẾU QUÁ 5 LẦN
+                            -- Nếu quá 5 lần thì tống vào Blacklist
                             if treeTracker[tree] > 5 then
                                 pcall(function()
                                     tree.Name = "BlackListNil"
                                 end)
                                 treeTracker[tree] = nil
-                                continue -- Bỏ qua và sang cây kế tiếp luôn
+                                continue 
                             end
 
                             -- Teleport
@@ -185,7 +195,7 @@ task.spawn(function()
                                 root.CFrame = tree:GetPivot()
                             end)
                             
-                            task.wait(0.06) -- Delay theo đúng yêu cầu
+                            task.wait(0.06) 
                         else
                             treeTracker[tree] = nil
                         end
@@ -194,9 +204,10 @@ task.spawn(function()
                 table.clear(treesToFarm)
             end
         end
-        task.wait(0.2) -- Nghỉ ngắn trước khi quét lại để không bị đơ game
+        task.wait(0.2) 
     end
 end)
+
 
 
 end)
