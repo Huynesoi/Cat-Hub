@@ -86,7 +86,7 @@ task.spawn(function()
                     -- Dịch chuyển tới cây
                     hrp.CFrame = tree:GetPivot()
                 end
-                task.wait(0.05) -- Đợi 0.1 giây rồi sang cây tiếp theo
+                task.wait(0.06) -- Đợi 0.1 giây rồi sang cây tiếp theo
             end
             -- Hết danh sách sẽ tự động quét lại ở vòng lặp while kế tiếp
         end
