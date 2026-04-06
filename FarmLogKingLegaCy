@@ -4,93 +4,89 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 
 local isDead = false
-local skillAction = ReplicatedStorage:WaitForChild("Chest"):WaitForChild("Remotes"):WaitForChild("Functions"):WaitForChild("SkillAction")
+local currentTreeList = {} -- Danh sách cây cố định cho mỗi vòng
+local skillRemote = ReplicatedStorage:WaitForChild("Chest"):WaitForChild("Remotes"):WaitForChild("Functions"):WaitForChild("SkillAction")
 
--- Hàm gọi Skill E
-local function fireSkillE()
-    local args = {
-        "DF_BrachioBrachio_E",
-        {
-            MouseHit = CFrame.new(2121.0048828125, 51.182037353515625, 561.7747802734375, 1, 0, 0, 0, 1, 0, 0, 0, 1),
-            Type = "Down"
-        }
-    }
-    pcall(function()
-        skillAction:InvokeServer(unpack(args))
+-- Hàm Spam Skill E (Chạy độc lập)
+task.spawn(function()
+    while true do
+        if not isDead then
+            local args = {
+                "DF_BrachioBrachio_E",
+                {
+                    MouseHit = CFrame.new(2121.0048828125, 51.182037353515625, 561.7747802734375, 1, 0, 0, 0, 1, 0, 0, 0, 1),
+                    Type = "Down"
+                }
+            }
+            pcall(function() skillRemote:InvokeServer(unpack(args)) end)
+        end
+        task.wait() -- Spam liên tục
+    end
+end)
+
+-- Hàm xử lý khi chết và hồi sinh
+local function onCharacterAdded(character)
+    isDead = true
+    currentTreeList = {} -- Xóa sạch danh sách cũ khi chết để tránh lỗi tele
+    
+    local humanoid = character:WaitForChild("Humanoid")
+    humanoid.Died:Connect(function()
+        isDead = true
     end)
-end
 
--- Hàm gọi Skill V
-local function fireSkillV()
-    local args = {
+    -- Đợi 5 giây sau khi hồi sinh
+    task.wait(5)
+    
+    -- Dùng Skill V
+    local argsV = {
         "DF_BrachioBrachio_V",
         {
             MouseHit = CFrame.new(2210.47216796875, 32.324493408203125, 874.5543212890625, 1, 0, 0, 0, 1, 0, 0, 0, 1)
         }
     }
-    pcall(function()
-        skillAction:InvokeServer(unpack(args))
-    end)
+    pcall(function() skillRemote:InvokeServer(unpack(argsV)) end)
+    
+    isDead = false -- Cho phép farm tiếp
 end
 
--- Hàm lấy danh sách cây
-local function getTrees()
-    local treeList = {}
-    for _, obj in ipairs(workspace:GetDescendants()) do 
-        if obj:IsA("Model") and obj.Name == "Tree" then
-            table.insert(treeList, obj)
-        end
-    end
-    return treeList
-end
+if LocalPlayer.Character then task.spawn(onCharacterAdded, LocalPlayer.Character) end
+LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
 
--- Quản lý trạng thái nhân vật
-local function setupCharacter(character)
-    local humanoid = character:WaitForChild("Humanoid")
-    isDead = false
-    humanoid.Died:Connect(function()
-        isDead = true
-    end)
-end
-
-if LocalPlayer.Character then setupCharacter(LocalPlayer.Character) end
-
-LocalPlayer.CharacterAdded:Connect(function(character)
-    isDead = true 
-    task.wait(5) 
-    fireSkillV() 
-    setupCharacter(character)
-end)
-
--- Luồng 1: Spam Skill E liên tục (không bị ảnh hưởng bởi delay teleport)
-task.spawn(function()
-    while true do
-        if not isDead then
-            fireSkillE()
-        end
-        task.wait() -- Spam cực nhanh theo tốc độ frame
-    end
-end)
-
--- Luồng 2: Teleport theo danh sách Tree mỗi 0.1s
+-- Vòng lặp Teleport chính
 task.spawn(function()
     while true do
         if not isDead and LocalPlayer.Character then
-            local trees = getTrees()
+            local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
             
-            for _, tree in ipairs(trees) do
-                if isDead then break end
+            if root then
+                -- Bước 1: Quét danh sách mới nếu danh sách cũ đã hết
+                local rawTrees = workspace:GetDescendants()
+                currentTreeList = {}
                 
-                local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                if hrp and tree:IsA("Model") then
-                    -- Dịch chuyển tới cây
-                    hrp.CFrame = tree:GetPivot()
+                for _, obj in ipairs(rawTrees) do
+                    if obj:IsA("Model") and obj.Name == "Tree" then
+                        table.insert(currentTreeList, obj)
+                    end
                 end
-                task.wait(0.06) -- Đợi 0.1 giây rồi sang cây tiếp theo
+
+                -- Bước 2: Đi lần lượt từng cây trong danh sách đã chốt
+                if #currentTreeList > 0 then
+                    for i = 1, #currentTreeList do
+                        local targetTree = currentTreeList[i]
+                        
+                        -- Nếu chết giữa chừng thì hủy vòng lặp for ngay
+                        if isDead then break end 
+
+                        -- Kiểm tra cây còn tồn tại không
+                        if targetTree and targetTree.Parent then
+                            root.CFrame = targetTree:GetPivot()
+                            task.wait(0.1) -- Delay 0.1s theo ý bạn
+                        end
+                    end
+                end
             end
-            -- Hết danh sách sẽ tự động quét lại ở vòng lặp while kế tiếp
         end
-        task.wait(0.5) -- Nghỉ ngắn trước khi quét lại danh sách mới
+        task.wait(0.5) -- Nghỉ một chút trước khi bắt đầu quét danh sách cây mới
     end
 end)
 
