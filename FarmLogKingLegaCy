@@ -2,7 +2,6 @@ task.spawn(function()
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CoreGui = game:GetService("CoreGui")
-local RunService = game:GetService("RunService")
 
 local LocalPlayer = Players.LocalPlayer
 local skillRemote = ReplicatedStorage:WaitForChild("Chest"):WaitForChild("Remotes"):WaitForChild("Functions"):WaitForChild("SkillAction")
@@ -11,10 +10,6 @@ local skillRemote = ReplicatedStorage:WaitForChild("Chest"):WaitForChild("Remote
 local isRunning = false  
 local canFarm = false    
 local isDead = false
-
--- Bảng đếm số lần tele
-local treeTracker = {}
-setmetatable(treeTracker, {__mode = "k"})
 
 -- ==========================================
 -- 1. TẠO GUI GIAO DIỆN CHÍNH
@@ -43,9 +38,9 @@ local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 30)
 Title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.Text = "Tree Auto Farm"
+Title.Text = "Tree Farm (No Blacklist)"
 Title.Font = Enum.Font.SourceSansBold
-Title.TextSize = 18
+Title.TextSize = 16
 Title.Parent = MainFrame
 
 local ToggleButton = Instance.new("TextButton")
@@ -78,7 +73,7 @@ local function fireSkillE()
 end
 
 -- ==========================================
--- 3. XỬ LÝ NHÂN VẬT & LOGIC KHỞI ĐỘNG LẠI
+-- 3. XỬ LÝ NHÂN VẬT & RE-START
 -- ==========================================
 local function startFarmSequence()
     if not isRunning then return end
@@ -97,41 +92,30 @@ end
 local function setupCharacter(character)
     isDead = false
     local humanoid = character:WaitForChild("Humanoid")
-    
     humanoid.Died:Connect(function()
         isDead = true
         canFarm = false
-        treeTracker = {} 
-        setmetatable(treeTracker, {__mode = "k"})
     end)
-
     task.spawn(startFarmSequence)
 end
 
 if LocalPlayer.Character then setupCharacter(LocalPlayer.Character) end
 LocalPlayer.CharacterAdded:Connect(setupCharacter)
 
--- ==========================================
--- 4. LOGIC GIAO DIỆN BẬT / TẮT
--- ==========================================
 ToggleButton.MouseButton1Click:Connect(function()
     isRunning = not isRunning
-    if isRunning then
-        ToggleButton.Text = "ON"
-        ToggleButton.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
-        
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") and LocalPlayer.Character.Humanoid.Health > 0 then
-            task.spawn(startFarmSequence)
-        end
+    ToggleButton.Text = isRunning and "ON" or "OFF"
+    ToggleButton.BackgroundColor3 = isRunning and Color3.fromRGB(50, 200, 50) or Color3.fromRGB(200, 50, 50)
+    
+    if isRunning and LocalPlayer.Character and not isDead then
+        task.spawn(startFarmSequence)
     else
-        ToggleButton.Text = "OFF"
-        ToggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
         canFarm = false
     end
 end)
 
 -- ==========================================
--- 5. LUỒNG SPAM SKILL E (Không bị dừng)
+-- 4. LUỒNG SPAM SKILL E (Chạy độc lập)
 -- ==========================================
 task.spawn(function()
     while true do
@@ -143,14 +127,14 @@ task.spawn(function()
 end)
 
 -- ==========================================
--- 6. LUỒNG TELEPORT & QUẢN LÝ CÂY
+-- 5. LUỒNG TELEPORT (Bỏ hoàn toàn Blacklist)
 -- ==========================================
 task.spawn(function()
     while true do
         if isRunning and canFarm and not isDead and LocalPlayer.Character then
             local root = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
             if root then
-                -- Bước 1: Quét và tạo danh sách
+                -- Quét danh sách cây
                 local treesToFarm = {}
                 for _, obj in ipairs(workspace:GetDescendants()) do
                     if obj:IsA("Model") and string.find(obj.Name:lower(), "tree") then
@@ -158,53 +142,35 @@ task.spawn(function()
                     end
                 end
 
-                -- Bước 2: Dịch chuyển theo thứ tự
+                -- Teleport theo danh sách
                 if #treesToFarm > 0 then
                     for _, tree in ipairs(treesToFarm) do
                         if not (isRunning and canFarm and not isDead) then break end
                         
-                        -- TÍNH NĂNG MỚI: Tạm dừng nếu EMode biến mất (Skill đang Cooldown)
+                        -- Check Cooldown bằng EMode
                         while isRunning and canFarm and not isDead do
-                            local effectsFolder = workspace:FindFirstChild("Effects")
-                            -- Tìm an toàn bằng FindFirstChild để tránh báo lỗi chữ đỏ khi mất folder
-                            if effectsFolder and effectsFolder:FindFirstChild("EMode") then
-                                break -- Nếu đã có EMode thì thoát vòng lặp chờ để đi tiếp
+                            local effects = workspace:FindFirstChild("Effects")
+                            if effects and effects:FindFirstChild("EMode") then
+                                break 
                             end
-                            task.wait(0.1) -- Đợi 0.1s check lại, luồng kia vẫn đang Spam Skill E
+                            task.wait(0.1) -- Đợi hồi chiêu
                         end
                         
-                        -- Phải check lại phòng trường hợp đang chờ thì bị tắt tool hoặc nhân vật chết
                         if not (isRunning and canFarm and not isDead) then break end
 
-                        -- Xử lý Teleport và Đếm
+                        -- Teleport thẳng tới cây
                         if tree and tree.Parent then
-                            -- Bắt đầu đếm số lần tele
-                            treeTracker[tree] = (treeTracker[tree] or 0) + 1
-                            
-                            -- Nếu quá 5 lần thì tống vào Blacklist
-                            if treeTracker[tree] > 5 then
-                                pcall(function()
-                                    tree.Name = "BlackListNil"
-                                end)
-                                treeTracker[tree] = nil
-                                continue 
-                            end
-
-                            -- Teleport
                             pcall(function()
                                 root.CFrame = tree:GetPivot()
                             end)
-                            
                             task.wait(0.06) 
-                        else
-                            treeTracker[tree] = nil
                         end
                     end
                 end
                 table.clear(treesToFarm)
             end
         end
-        task.wait(0.2) 
+        task.wait(0.3) -- Nghỉ ngắn trước khi quét lại toàn bộ map
     end
 end)
 
