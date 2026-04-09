@@ -1,0 +1,303 @@
+--[[ 
+    AIMBOT GUNNER - MOBILE OPTIMIZED V3
+    Fix lỗi ESP cho Player/NPC vừa reset hoặc núp sau tường.
+    Thêm nút tách biệt ESP và xử lý lỗi xung đột Lock Target.
+]]
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
+
+-- === CẤU HÌNH HỆ THỐNG ===
+local Config = {
+    Aimbot = false,
+    FOVMode = false,
+    ESP = true,            -- MỚI: Tách riêng tính năng ESP
+    WallCheck = false,
+    TeamCheck = false,
+    HealthTarget = false,
+    TargetPlayerName = "",
+    FOVRadius = 90,
+    Smoothness = 0.2,
+    MaxDistance = 1000,
+    MinDistance = 3,
+    
+    SnapMode = true,
+    TargetPart = "Head",
+    AimNPC = false,
+    Prediction = false,
+    BulletSpeed = 250,
+    LockTarget = false
+}
+
+local CurrentLock = nil
+local BodyParts = {"Head", "HumanoidRootPart", "Torso", "UpperTorso", "LowerTorso"}
+local PartIndex = 1
+
+-- === TẠO GIAO DIỆN (GUI CHO MOBILE) ===
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "GunnerGuiMobile"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Size = UDim2.new(0, 50, 0, 50)
+ToggleBtn.Position = UDim2.new(0, 15, 0.5, -25)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
+ToggleBtn.Text = "AIM"
+ToggleBtn.TextColor3 = Color3.new(1, 1, 1)
+ToggleBtn.Font = Enum.Font.GothamBold
+ToggleBtn.TextSize = 14
+ToggleBtn.Parent = ScreenGui
+Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(1, 0)
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 200, 0, 280)
+MainFrame.Position = UDim2.new(0, 80, 0.5, -140)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+MainFrame.Visible = false
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+Instance.new("UICorner", MainFrame)
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 25)
+Title.Text = "AIM CONFIG"
+Title.TextColor3 = Color3.fromRGB(200, 30, 30)
+Title.BackgroundTransparency = 1
+Title.Font = Enum.Font.GothamBold
+Title.Parent = MainFrame
+
+local ScrollFrame = Instance.new("ScrollingFrame")
+ScrollFrame.Size = UDim2.new(1, 0, 1, -30)
+ScrollFrame.Position = UDim2.new(0, 0, 0, 30)
+ScrollFrame.BackgroundTransparency = 1
+ScrollFrame.ScrollBarThickness = 3
+ScrollFrame.CanvasSize = UDim2.new(0, 0, 1.9, 0)
+ScrollFrame.Parent = MainFrame
+
+local UIList = Instance.new("UIListLayout", ScrollFrame)
+UIList.Padding = UDim.new(0, 4)
+UIList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+ToggleBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+end)
+
+local FOVCircle = Instance.new("Frame")
+FOVCircle.Size = UDim2.new(0, Config.FOVRadius * 2, 0, Config.FOVRadius * 2)
+FOVCircle.Position = UDim2.new(0.5, -Config.FOVRadius, 0.5, -Config.FOVRadius)
+FOVCircle.BackgroundTransparency = 1
+FOVCircle.Visible = false
+FOVCircle.Parent = ScreenGui
+local FOVStroke = Instance.new("UIStroke", FOVCircle)
+FOVStroke.Color = Color3.new(1, 0, 0)
+FOVStroke.Thickness = 1.5
+Instance.new("UICorner", FOVCircle).CornerRadius = UDim.new(1, 0)
+
+-- === HÀM BỔ TRỢ UI ===
+local function CreateButton(text, toggleKey)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0.9, 0, 0, 28)
+    btn.BackgroundColor3 = Config[toggleKey] and Color3.fromRGB(0, 130, 0) or Color3.fromRGB(45, 45, 45)
+    btn.Text = text .. (Config[toggleKey] and ": ON" or ": OFF")
+    btn.TextColor3 = Color3.new(0.8, 0.8, 0.8)
+    if Config[toggleKey] then btn.TextColor3 = Color3.new(1, 1, 1) end
+    btn.Font = Enum.Font.Gotham
+    btn.TextSize = 12
+    btn.Parent = ScrollFrame
+    Instance.new("UICorner", btn)
+
+    btn.MouseButton1Click:Connect(function()
+        Config[toggleKey] = not Config[toggleKey]
+        btn.Text = text .. (Config[toggleKey] and ": ON" or ": OFF")
+        btn.BackgroundColor3 = Config[toggleKey] and Color3.fromRGB(0, 130, 0) or Color3.fromRGB(45, 45, 45)
+        btn.TextColor3 = Color3.new(1, 1, 1)
+        
+        if toggleKey == "FOVMode" then FOVCircle.Visible = Config.FOVMode end
+        if toggleKey == "LockTarget" and not Config.LockTarget then CurrentLock = nil end
+    end)
+end
+
+-- Khởi tạo các nút
+CreateButton("Show ESP (Đỏ)", "ESP") -- Nút mới
+CreateButton("Aimbot V2 (FOV)", "FOVMode")
+CreateButton("Aimbot Normal", "Aimbot")
+CreateButton("Snap Aim", "SnapMode")
+CreateButton("Lock Target (Ghim)", "LockTarget")
+CreateButton("Aim NPC", "AimNPC")
+CreateButton("Prediction", "Prediction")
+CreateButton("Wall Check", "WallCheck")
+CreateButton("Team Check", "TeamCheck")
+CreateButton("Auto Low Health", "HealthTarget")
+
+local PartCycleBtn = Instance.new("TextButton")
+PartCycleBtn.Size = UDim2.new(0.9, 0, 0, 28)
+PartCycleBtn.BackgroundColor3 = Color3.fromRGB(30, 70, 130)
+PartCycleBtn.Text = "Aim Part: " .. BodyParts[PartIndex]
+PartCycleBtn.TextColor3 = Color3.new(1, 1, 1)
+PartCycleBtn.Font = Enum.Font.GothamBold
+PartCycleBtn.TextSize = 12
+PartCycleBtn.Parent = ScrollFrame
+Instance.new("UICorner", PartCycleBtn)
+
+PartCycleBtn.MouseButton1Click:Connect(function()
+    PartIndex = PartIndex + 1
+    if PartIndex > #BodyParts then PartIndex = 1 end
+    Config.TargetPart = BodyParts[PartIndex]
+    PartCycleBtn.Text = "Aim Part: " .. Config.TargetPart
+    CurrentLock = nil 
+end)
+
+local function CreateTextBox(placeholder, defaultText, callback)
+    local box = Instance.new("TextBox")
+    box.Size = UDim2.new(0.9, 0, 0, 28)
+    box.PlaceholderText = placeholder
+    box.Text = defaultText
+    box.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    box.TextColor3 = Color3.new(1, 1, 1)
+    box.Font = Enum.Font.Gotham
+    box.TextSize = 12
+    box.Parent = ScrollFrame
+    Instance.new("UICorner", box)
+    box.FocusLost:Connect(function() callback(box.Text) end)
+end
+
+CreateTextBox("Target Name...", "", function(text) Config.TargetPlayerName = text end)
+CreateTextBox("Bullet Speed: 250", "250", function(text) 
+    local speed = tonumber(text)
+    if speed then Config.BulletSpeed = speed end
+end)
+
+
+-- === LOGIC PREDICTION ===
+local function GetPredictedPosition(targetPart)
+    local pos = targetPart.Position
+    if Config.Prediction then
+        local velocity = targetPart.AssemblyLinearVelocity or targetPart.Velocity
+        local distance = (pos - Camera.CFrame.Position).Magnitude
+        local travelTime = distance / Config.BulletSpeed
+        return pos + (velocity * travelTime)
+    end
+    return pos
+end
+
+-- === LOGIC QUÉT MỤC TIÊU & ESP (ĐÃ FIX LỖI) ===
+local function GetClosestTarget()
+    local target = nil
+    local shortestDist = math.huge
+    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+    local function CheckEntity(char, isPlayer)
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        local part = char:FindFirstChild(Config.TargetPart) or char:FindFirstChild("HumanoidRootPart")
+
+        if hum then
+            -- 1. XỬ LÝ ESP TRƯỚC TIÊN (Không bị cản trở bởi khoảng cách, tường hay camera)
+            local hl = char:FindFirstChild("GunnerESP")
+            if not hl then
+                hl = Instance.new("Highlight")
+                hl.Name = "GunnerESP"
+                hl.FillColor = Color3.new(1, 0, 0)
+                hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                hl.Parent = char
+            end
+
+            local isEnemy = true
+            if isPlayer then
+                local player = Players:GetPlayerFromCharacter(char)
+                if Config.TeamCheck and player and player.Team == LocalPlayer.Team then isEnemy = false end
+            end
+
+            -- Cập nhật trạng thái ESP (Bật nếu có 1 trong 3 nút hoạt động và mục tiêu còn sống)
+            hl.Enabled = (Config.Aimbot or Config.FOVMode or Config.ESP) and (hum.Health > 0) and isEnemy
+
+            -- 2. SAU ĐÓ MỚI XỬ LÝ LOGIC AIMBOT
+            if hum.Health <= 0 or not isEnemy or not part then return end
+
+            if isPlayer then
+                local player = Players:GetPlayerFromCharacter(char)
+                if Config.TargetPlayerName ~= "" and not string.find(string.lower(player.Name), string.lower(Config.TargetPlayerName)) then return end
+            end
+
+            if Config.HealthTarget and hum.Health > 30 then return end
+
+            local dist3D = (part.Position - Camera.CFrame.Position).Magnitude
+            if dist3D < Config.MinDistance or dist3D > Config.MaxDistance then return end
+
+            local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+            if onScreen then
+                if Config.WallCheck then
+                    local rayParams = RaycastParams.new()
+                    rayParams.FilterDescendantsInstances = {LocalPlayer.Character, char}
+                    rayParams.FilterType = Enum.RaycastFilterType.Exclude
+                    if Workspace:Raycast(Camera.CFrame.Position, (part.Position - Camera.CFrame.Position).Unit * dist3D, rayParams) then return end
+                end
+
+                if Config.FOVMode then
+                    local dist2D = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+                    if dist2D <= Config.FOVRadius and dist2D < shortestDist then
+                        shortestDist = dist2D
+                        target = part
+                    end
+                elseif dist3D < shortestDist then
+                    shortestDist = dist3D
+                    target = part
+                end
+            end
+        end
+    end
+
+    -- CHẠY VÒNG LẶP ESP VÀ QUÉT MỤC TIÊU
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character then CheckEntity(p.Character, true) end
+    end
+
+    if Config.AimNPC then
+        for _, obj in pairs(Workspace:GetDescendants()) do
+            if obj:IsA("Model") and obj ~= LocalPlayer.Character and not Players:GetPlayerFromCharacter(obj) then
+                CheckEntity(obj, false)
+            end
+        end
+    end
+
+    -- 3. LOGIC LOCK TARGET (Xử lý ghim sau khi đã cập nhật xong ESP cho toàn map)
+    if Config.LockTarget then
+        if CurrentLock and CurrentLock.Parent then
+            local hum = CurrentLock.Parent:FindFirstChildOfClass("Humanoid")
+            if hum and hum.Health > 0 then
+                return CurrentLock
+            else
+                CurrentLock = nil
+            end
+        end
+        if target then CurrentLock = target end
+    end
+
+    return target
+end
+
+RunService.RenderStepped:Connect(function()
+    -- Liên tục chạy vòng lặp nếu có bất kỳ tính năng ESP/Aim nào đang mở
+    if Config.Aimbot or Config.FOVMode or Config.ESP then
+        local target = GetClosestTarget()
+        
+        -- Chỉ thực hiện thao tác lia camera nếu đang bật tính năng Nhắm
+        if target and (Config.Aimbot or Config.FOVMode) then
+            local finalPos = GetPredictedPosition(target)
+            local lookAt = CFrame.new(Camera.CFrame.Position, finalPos)
+            
+            if Config.SnapMode then
+                Camera.CFrame = lookAt
+            else
+                Camera.CFrame = Camera.CFrame:Lerp(lookAt, Config.Smoothness)
+            end
+        end
+    else
+        CurrentLock = nil 
+    end
+end)
