@@ -1,7 +1,7 @@
 --[[ 
-    AIMBOT GUNNER - MOBILE OPTIMIZED V3
-    Fix lỗi ESP cho Player/NPC vừa reset hoặc núp sau tường.
-    Thêm nút tách biệt ESP và xử lý lỗi xung đột Lock Target.
+    AIMBOT GUNNER - MOBILE OPTIMIZED V7 (ULTIMATE FIX)
+    1. Fix Lỗi Tách Camera: Liên tục ép CameraSubject và CameraType về nhân vật.
+    2. pcall: Chống sập script do lỗi toán học vô hình.
 ]]
 
 local Players = game:GetService("Players")
@@ -15,17 +15,15 @@ local Camera = Workspace.CurrentCamera
 local Config = {
     Aimbot = false,
     FOVMode = false,
-    ESP = true,            -- MỚI: Tách riêng tính năng ESP
+    ESP = true,
     WallCheck = false,
     TeamCheck = false,
     HealthTarget = false,
     TargetPlayerName = "",
     FOVRadius = 90,
-    Smoothness = 0.2,
-    MaxDistance = 1000,
+    MaxDistance = 3000,
     MinDistance = 3,
     
-    SnapMode = true,
     TargetPart = "Head",
     AimNPC = false,
     Prediction = false,
@@ -36,8 +34,26 @@ local Config = {
 local CurrentLock = nil
 local BodyParts = {"Head", "HumanoidRootPart", "Torso", "UpperTorso", "LowerTorso"}
 local PartIndex = 1
+local CachedNPCs = {}
 
--- === TẠO GIAO DIỆN (GUI CHO MOBILE) ===
+-- === BỘ NHỚ ĐỆM NPC ===
+local function CacheEntity(obj)
+    if obj:IsA("Humanoid") and obj.Parent and obj.Parent:IsA("Model") then
+        local model = obj.Parent
+        if model ~= LocalPlayer.Character and not Players:GetPlayerFromCharacter(model) then
+            CachedNPCs[model] = true
+        end
+    end
+end
+
+for _, obj in pairs(Workspace:GetDescendants()) do CacheEntity(obj) end
+Workspace.DescendantAdded:Connect(CacheEntity)
+Workspace.DescendantRemoving:Connect(function(obj)
+    if obj:IsA("Model") and CachedNPCs[obj] then CachedNPCs[obj] = nil
+    elseif obj:IsA("Humanoid") and obj.Parent and CachedNPCs[obj.Parent] then CachedNPCs[obj.Parent] = nil end
+end)
+
+-- === GIAO DIỆN GUI ===
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "GunnerGuiMobile"
 ScreenGui.ResetOnSpawn = false
@@ -66,7 +82,7 @@ Instance.new("UICorner", MainFrame)
 
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 25)
-Title.Text = "AIM CONFIG"
+Title.Text = "AIM CONFIG V7"
 Title.TextColor3 = Color3.fromRGB(200, 30, 30)
 Title.BackgroundTransparency = 1
 Title.Font = Enum.Font.GothamBold
@@ -77,16 +93,14 @@ ScrollFrame.Size = UDim2.new(1, 0, 1, -30)
 ScrollFrame.Position = UDim2.new(0, 0, 0, 30)
 ScrollFrame.BackgroundTransparency = 1
 ScrollFrame.ScrollBarThickness = 3
-ScrollFrame.CanvasSize = UDim2.new(0, 0, 1.9, 0)
+ScrollFrame.CanvasSize = UDim2.new(0, 0, 1.7, 0)
 ScrollFrame.Parent = MainFrame
 
 local UIList = Instance.new("UIListLayout", ScrollFrame)
 UIList.Padding = UDim.new(0, 4)
 UIList.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
-ToggleBtn.MouseButton1Click:Connect(function()
-    MainFrame.Visible = not MainFrame.Visible
-end)
+ToggleBtn.MouseButton1Click:Connect(function() MainFrame.Visible = not MainFrame.Visible end)
 
 local FOVCircle = Instance.new("Frame")
 FOVCircle.Size = UDim2.new(0, Config.FOVRadius * 2, 0, Config.FOVRadius * 2)
@@ -99,14 +113,12 @@ FOVStroke.Color = Color3.new(1, 0, 0)
 FOVStroke.Thickness = 1.5
 Instance.new("UICorner", FOVCircle).CornerRadius = UDim.new(1, 0)
 
--- === HÀM BỔ TRỢ UI ===
 local function CreateButton(text, toggleKey)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(0.9, 0, 0, 28)
     btn.BackgroundColor3 = Config[toggleKey] and Color3.fromRGB(0, 130, 0) or Color3.fromRGB(45, 45, 45)
     btn.Text = text .. (Config[toggleKey] and ": ON" or ": OFF")
-    btn.TextColor3 = Color3.new(0.8, 0.8, 0.8)
-    if Config[toggleKey] then btn.TextColor3 = Color3.new(1, 1, 1) end
+    btn.TextColor3 = Config[toggleKey] and Color3.new(1, 1, 1) or Color3.new(0.8, 0.8, 0.8)
     btn.Font = Enum.Font.Gotham
     btn.TextSize = 12
     btn.Parent = ScrollFrame
@@ -116,18 +128,15 @@ local function CreateButton(text, toggleKey)
         Config[toggleKey] = not Config[toggleKey]
         btn.Text = text .. (Config[toggleKey] and ": ON" or ": OFF")
         btn.BackgroundColor3 = Config[toggleKey] and Color3.fromRGB(0, 130, 0) or Color3.fromRGB(45, 45, 45)
-        btn.TextColor3 = Color3.new(1, 1, 1)
-        
+        btn.TextColor3 = Config[toggleKey] and Color3.new(1, 1, 1) or Color3.new(0.8, 0.8, 0.8)
         if toggleKey == "FOVMode" then FOVCircle.Visible = Config.FOVMode end
         if toggleKey == "LockTarget" and not Config.LockTarget then CurrentLock = nil end
     end)
 end
 
--- Khởi tạo các nút
-CreateButton("Show ESP (Đỏ)", "ESP") -- Nút mới
+CreateButton("Show ESP (Đỏ)", "ESP")
 CreateButton("Aimbot V2 (FOV)", "FOVMode")
 CreateButton("Aimbot Normal", "Aimbot")
-CreateButton("Snap Aim", "SnapMode")
 CreateButton("Lock Target (Ghim)", "LockTarget")
 CreateButton("Aim NPC", "AimNPC")
 CreateButton("Prediction", "Prediction")
@@ -173,20 +182,19 @@ CreateTextBox("Bullet Speed: 250", "250", function(text)
     if speed then Config.BulletSpeed = speed end
 end)
 
-
--- === LOGIC PREDICTION ===
+-- === LOGIC QUÉT VÀ PREDICTION (Giữ nguyên độ ổn định) ===
 local function GetPredictedPosition(targetPart)
     local pos = targetPart.Position
     if Config.Prediction then
         local velocity = targetPart.AssemblyLinearVelocity or targetPart.Velocity
+        if velocity.Magnitude > 150 then velocity = velocity.Unit * 150 end
         local distance = (pos - Camera.CFrame.Position).Magnitude
-        local travelTime = distance / Config.BulletSpeed
+        local travelTime = math.min(distance / Config.BulletSpeed, 1.5)
         return pos + (velocity * travelTime)
     end
     return pos
 end
 
--- === LOGIC QUÉT MỤC TIÊU & ESP (ĐÃ FIX LỖI) ===
 local function GetClosestTarget()
     local target = nil
     local shortestDist = math.huge
@@ -196,15 +204,13 @@ local function GetClosestTarget()
         local hum = char:FindFirstChildOfClass("Humanoid")
         local part = char:FindFirstChild(Config.TargetPart) or char:FindFirstChild("HumanoidRootPart")
 
-        if hum then
-            -- 1. XỬ LÝ ESP TRƯỚC TIÊN (Không bị cản trở bởi khoảng cách, tường hay camera)
+        if hum and part then
             local hl = char:FindFirstChild("GunnerESP")
             if not hl then
-                hl = Instance.new("Highlight")
+                hl = Instance.new("Highlight", char)
                 hl.Name = "GunnerESP"
                 hl.FillColor = Color3.new(1, 0, 0)
                 hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                hl.Parent = char
             end
 
             local isEnemy = true
@@ -213,38 +219,36 @@ local function GetClosestTarget()
                 if Config.TeamCheck and player and player.Team == LocalPlayer.Team then isEnemy = false end
             end
 
-            -- Cập nhật trạng thái ESP (Bật nếu có 1 trong 3 nút hoạt động và mục tiêu còn sống)
             hl.Enabled = (Config.Aimbot or Config.FOVMode or Config.ESP) and (hum.Health > 0) and isEnemy
 
-            -- 2. SAU ĐÓ MỚI XỬ LÝ LOGIC AIMBOT
-            if hum.Health <= 0 or not isEnemy or not part then return end
-
+            if hum.Health <= 0 or not isEnemy then return end
             if isPlayer then
                 local player = Players:GetPlayerFromCharacter(char)
                 if Config.TargetPlayerName ~= "" and not string.find(string.lower(player.Name), string.lower(Config.TargetPlayerName)) then return end
             end
-
             if Config.HealthTarget and hum.Health > 30 then return end
 
             local dist3D = (part.Position - Camera.CFrame.Position).Magnitude
             if dist3D < Config.MinDistance or dist3D > Config.MaxDistance then return end
 
-            local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
-            if onScreen then
-                if Config.WallCheck then
-                    local rayParams = RaycastParams.new()
-                    rayParams.FilterDescendantsInstances = {LocalPlayer.Character, char}
-                    rayParams.FilterType = Enum.RaycastFilterType.Exclude
-                    if Workspace:Raycast(Camera.CFrame.Position, (part.Position - Camera.CFrame.Position).Unit * dist3D, rayParams) then return end
-                end
+            if Config.WallCheck then
+                local rayParams = RaycastParams.new()
+                rayParams.FilterDescendantsInstances = {LocalPlayer.Character, char}
+                rayParams.FilterType = Enum.RaycastFilterType.Exclude
+                if Workspace:Raycast(Camera.CFrame.Position, (part.Position - Camera.CFrame.Position).Unit * dist3D, rayParams) then return end
+            end
 
-                if Config.FOVMode then
+            if Config.FOVMode then
+                local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
+                if onScreen then
                     local dist2D = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
                     if dist2D <= Config.FOVRadius and dist2D < shortestDist then
                         shortestDist = dist2D
                         target = part
                     end
-                elseif dist3D < shortestDist then
+                end
+            elseif Config.Aimbot then
+                if dist3D < shortestDist then
                     shortestDist = dist3D
                     target = part
                 end
@@ -252,28 +256,17 @@ local function GetClosestTarget()
         end
     end
 
-    -- CHẠY VÒNG LẶP ESP VÀ QUÉT MỤC TIÊU
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character then CheckEntity(p.Character, true) end
-    end
-
+    for _, p in pairs(Players:GetPlayers()) do if p ~= LocalPlayer and p.Character then CheckEntity(p.Character, true) end end
     if Config.AimNPC then
-        for _, obj in pairs(Workspace:GetDescendants()) do
-            if obj:IsA("Model") and obj ~= LocalPlayer.Character and not Players:GetPlayerFromCharacter(obj) then
-                CheckEntity(obj, false)
-            end
+        for model, _ in pairs(CachedNPCs) do
+            if model and model.Parent then CheckEntity(model, false) else CachedNPCs[model] = nil end
         end
     end
 
-    -- 3. LOGIC LOCK TARGET (Xử lý ghim sau khi đã cập nhật xong ESP cho toàn map)
     if Config.LockTarget then
         if CurrentLock and CurrentLock.Parent then
             local hum = CurrentLock.Parent:FindFirstChildOfClass("Humanoid")
-            if hum and hum.Health > 0 then
-                return CurrentLock
-            else
-                CurrentLock = nil
-            end
+            if hum and hum.Health > 0 then return CurrentLock else CurrentLock = nil end
         end
         if target then CurrentLock = target end
     end
@@ -281,23 +274,31 @@ local function GetClosestTarget()
     return target
 end
 
-RunService.RenderStepped:Connect(function()
-    -- Liên tục chạy vòng lặp nếu có bất kỳ tính năng ESP/Aim nào đang mở
-    if Config.Aimbot or Config.FOVMode or Config.ESP then
-        local target = GetClosestTarget()
-        
-        -- Chỉ thực hiện thao tác lia camera nếu đang bật tính năng Nhắm
-        if target and (Config.Aimbot or Config.FOVMode) then
-            local finalPos = GetPredictedPosition(target)
-            local lookAt = CFrame.new(Camera.CFrame.Position, finalPos)
+-- === ĐIỀU CHỈNH CAMERA (FIX TRIỆT ĐỂ LỖI DETACH) ===
+RunService:BindToRenderStep("GunnerAimbot", Enum.RenderPriority.Camera.Value + 1, function()
+    -- Dùng pcall để đảm bảo nếu có lỗi văng toán học, script cũng không bị sập
+    pcall(function()
+        if Config.Aimbot or Config.FOVMode or Config.ESP then
+            local target = GetClosestTarget()
             
-            if Config.SnapMode then
-                Camera.CFrame = lookAt
-            else
-                Camera.CFrame = Camera.CFrame:Lerp(lookAt, Config.Smoothness)
+            if target and (Config.Aimbot or Config.FOVMode) then
+                local finalPos = GetPredictedPosition(target)
+                local currentCameraPos = Camera.CFrame.Position
+                
+                if (finalPos - currentCameraPos).Magnitude > 0.5 then
+                    -- Snap Aim trực tiếp
+                    Camera.CFrame = CFrame.lookAt(currentCameraPos, finalPos)
+                    
+                    -- KIỂM SOÁT TÌNH TRẠNG TÁCH CAMERA (ANTI-DETACH FIX)
+                    -- Đoạn này ép hệ thống phải luôn lấy nhân vật của bạn làm tâm điểm
+                    Camera.CameraType = Enum.CameraType.Custom
+                    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+                        Camera.CameraSubject = LocalPlayer.Character.Humanoid
+                    end
+                end
             end
+        else
+            CurrentLock = nil 
         end
-    else
-        CurrentLock = nil 
-    end
+    end)
 end)
