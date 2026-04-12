@@ -38,7 +38,7 @@ local function farmEggs()
                 end
                 
                 -- Liên tục 0.1s
-                task.wait(5)
+                task.wait(1)
             end
         end
     end
