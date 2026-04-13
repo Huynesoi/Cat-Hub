@@ -1,7 +1,8 @@
 --[[ 
-    AIMBOT GUNNER - MOBILE OPTIMIZED V7 (ULTIMATE FIX)
-    1. Fix Lỗi Tách Camera: Liên tục ép CameraSubject và CameraType về nhân vật.
-    2. pcall: Chống sập script do lỗi toán học vô hình.
+    AIMBOT GUNNER - MOBILE OPTIMIZED V14
+    1. Fix FOV: Luôn nằm chính giữa màn hình khi thay đổi kích thước.
+    2. Fix Range: Đổi thành dạng đĩa (thảm) dưới chân để góc nhìn thứ 1 vẫn thấy.
+    3. Giữ nguyên hệ thống Khóa Layout 🔒.
 ]]
 
 local Players = game:GetService("Players")
@@ -9,7 +10,6 @@ local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
 local LocalPlayer = Players.LocalPlayer
-local Camera = Workspace.CurrentCamera
 
 -- === CẤU HÌNH HỆ THỐNG ===
 local Config = {
@@ -20,23 +20,53 @@ local Config = {
     TeamCheck = false,
     HealthTarget = false,
     TargetPlayerName = "",
+    
     FOVRadius = 90,
-    MaxDistance = 3000,
-    MinDistance = 3,
+    MinDistance = 0,
+    MaxDistance = 1000,
     
     TargetPart = "Head",
+    AimPlayer = true,
     AimNPC = false,
     Prediction = false,
     BulletSpeed = 250,
-    LockTarget = false
+    LockTarget = false,
+    IgnoreDead = true,
+    
+    AntiOffAim = true,
+    ShowRange = false
 }
 
 local CurrentLock = nil
+local StickyTarget = nil
 local BodyParts = {"Head", "HumanoidRootPart", "Torso", "UpperTorso", "LowerTorso"}
 local PartIndex = 1
 local CachedNPCs = {}
 
--- === BỘ NHỚ ĐỆM NPC ===
+-- === BIẾN QUẢN LÝ GIAO DIỆN (NÚT KHÓA) ===
+local EditMode = false
+local UiElements = {}
+
+-- === TẠO VÒNG PHẠM VI (ĐĨA DƯỚI CHÂN) ===
+local RangeDisc = Instance.new("Part")
+RangeDisc.Name = "GunnerRangeDisc"
+local Mesh = Instance.new("CylinderMesh", RangeDisc) -- Dùng CylinderMesh để mặt phẳng hướng lên trên
+RangeDisc.Material = Enum.Material.Neon
+RangeDisc.Color = Color3.fromRGB(0, 255, 100) -- Xanh lá dạ quang
+RangeDisc.Transparency = 0.85
+RangeDisc.Anchored = true
+RangeDisc.CanCollide = false
+RangeDisc.CastShadow = false
+RangeDisc.CanQuery = false
+
+local function IsLocalPlayerAlive()
+    local char = LocalPlayer.Character
+    if not char then return false end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum or hum.Health <= 0 then return false end
+    return true
+end
+
 local function CacheEntity(obj)
     if obj:IsA("Humanoid") and obj.Parent and obj.Parent:IsA("Model") then
         local model = obj.Parent
@@ -53,15 +83,16 @@ Workspace.DescendantRemoving:Connect(function(obj)
     elseif obj:IsA("Humanoid") and obj.Parent and CachedNPCs[obj.Parent] then CachedNPCs[obj.Parent] = nil end
 end)
 
--- === GIAO DIỆN GUI ===
+-- === GIAO DIỆN GUI TỔNG ===
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "GunnerGuiMobile"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
+-- NÚT BẬT TẮT MENU CHÍNH
 local ToggleBtn = Instance.new("TextButton")
 ToggleBtn.Size = UDim2.new(0, 50, 0, 50)
-ToggleBtn.Position = UDim2.new(0, 15, 0.5, -25)
+ToggleBtn.Position = UDim2.new(0, 15, 0.5, -50)
 ToggleBtn.BackgroundColor3 = Color3.fromRGB(200, 30, 30)
 ToggleBtn.Text = "AIM"
 ToggleBtn.TextColor3 = Color3.new(1, 1, 1)
@@ -69,6 +100,16 @@ ToggleBtn.Font = Enum.Font.GothamBold
 ToggleBtn.TextSize = 14
 ToggleBtn.Parent = ScreenGui
 Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(1, 0)
+
+-- NÚT EDIT MENU (NÚT KHÓA 🔒)
+local LockBtn = Instance.new("TextButton")
+LockBtn.Size = UDim2.new(0, 42, 0, 42)
+LockBtn.Position = UDim2.new(0, 19, 0.5, 10)
+LockBtn.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+LockBtn.Text = "🔒"
+LockBtn.TextSize = 18
+LockBtn.Parent = ScreenGui
+Instance.new("UICorner", LockBtn).CornerRadius = UDim.new(1, 0)
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 200, 0, 280)
@@ -82,7 +123,7 @@ Instance.new("UICorner", MainFrame)
 
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 25)
-Title.Text = "AIM CONFIG V7"
+Title.Text = "AIM CONFIG V14"
 Title.TextColor3 = Color3.fromRGB(200, 30, 30)
 Title.BackgroundTransparency = 1
 Title.Font = Enum.Font.GothamBold
@@ -93,7 +134,7 @@ ScrollFrame.Size = UDim2.new(1, 0, 1, -30)
 ScrollFrame.Position = UDim2.new(0, 0, 0, 30)
 ScrollFrame.BackgroundTransparency = 1
 ScrollFrame.ScrollBarThickness = 3
-ScrollFrame.CanvasSize = UDim2.new(0, 0, 1.7, 0)
+ScrollFrame.CanvasSize = UDim2.new(0, 0, 2.3, 0)
 ScrollFrame.Parent = MainFrame
 
 local UIList = Instance.new("UIListLayout", ScrollFrame)
@@ -102,9 +143,41 @@ UIList.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 ToggleBtn.MouseButton1Click:Connect(function() MainFrame.Visible = not MainFrame.Visible end)
 
+-- === LOGIC NÚT 🔒 (EDIT MODE) ===
+local function UpdateUIModes()
+    for _, item in ipairs(UiElements) do
+        if EditMode then
+            item.Instance.Visible = true
+            if item.Overlay then item.Overlay.Visible = true end
+            if item.IsHidden then
+                item.Instance.BackgroundColor3 = Color3.fromRGB(200, 170, 0)
+            else
+                item.RestoreColor()
+            end
+        else
+            if item.Overlay then item.Overlay.Visible = false end
+            if item.IsHidden then
+                item.Instance.Visible = false
+            else
+                item.Instance.Visible = true
+                item.RestoreColor()
+            end
+        end
+    end
+end
+
+LockBtn.MouseButton1Click:Connect(function()
+    EditMode = not EditMode
+    LockBtn.BackgroundColor3 = EditMode and Color3.fromRGB(0, 180, 0) or Color3.fromRGB(100, 100, 100)
+    if EditMode then MainFrame.Visible = true end
+    UpdateUIModes()
+end)
+
+-- VÒNG TRÒN FOV (ĐÃ FIX ANCHOR POINT LUÔN Ở GIỮA)
 local FOVCircle = Instance.new("Frame")
+FOVCircle.AnchorPoint = Vector2.new(0.5, 0.5) -- Fix: Tâm luôn ở chính giữa
 FOVCircle.Size = UDim2.new(0, Config.FOVRadius * 2, 0, Config.FOVRadius * 2)
-FOVCircle.Position = UDim2.new(0.5, -Config.FOVRadius, 0.5, -Config.FOVRadius)
+FOVCircle.Position = UDim2.new(0.5, 0, 0.5, 0) -- Fix: Đặt ở giữa màn hình
 FOVCircle.BackgroundTransparency = 1
 FOVCircle.Visible = false
 FOVCircle.Parent = ScreenGui
@@ -113,77 +186,166 @@ FOVStroke.Color = Color3.new(1, 0, 0)
 FOVStroke.Thickness = 1.5
 Instance.new("UICorner", FOVCircle).CornerRadius = UDim.new(1, 0)
 
+-- === HÀM TẠO NÚT CÓ TÍCH HỢP HỆ THỐNG EDIT ===
 local function CreateButton(text, toggleKey)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(0.9, 0, 0, 28)
-    btn.BackgroundColor3 = Config[toggleKey] and Color3.fromRGB(0, 130, 0) or Color3.fromRGB(45, 45, 45)
-    btn.Text = text .. (Config[toggleKey] and ": ON" or ": OFF")
-    btn.TextColor3 = Config[toggleKey] and Color3.new(1, 1, 1) or Color3.new(0.8, 0.8, 0.8)
     btn.Font = Enum.Font.Gotham
     btn.TextSize = 12
     btn.Parent = ScrollFrame
     Instance.new("UICorner", btn)
 
+    local itemData = {
+        Instance = btn,
+        IsHidden = false,
+        RestoreColor = function()
+            btn.BackgroundColor3 = Config[toggleKey] and Color3.fromRGB(0, 130, 0) or Color3.fromRGB(45, 45, 45)
+            btn.TextColor3 = Config[toggleKey] and Color3.new(1, 1, 1) or Color3.new(0.8, 0.8, 0.8)
+            btn.Text = text .. (Config[toggleKey] and ": ON" or ": OFF")
+        end
+    }
+    table.insert(UiElements, itemData)
+    itemData.RestoreColor()
+
     btn.MouseButton1Click:Connect(function()
-        Config[toggleKey] = not Config[toggleKey]
-        btn.Text = text .. (Config[toggleKey] and ": ON" or ": OFF")
-        btn.BackgroundColor3 = Config[toggleKey] and Color3.fromRGB(0, 130, 0) or Color3.fromRGB(45, 45, 45)
-        btn.TextColor3 = Config[toggleKey] and Color3.new(1, 1, 1) or Color3.new(0.8, 0.8, 0.8)
-        if toggleKey == "FOVMode" then FOVCircle.Visible = Config.FOVMode end
-        if toggleKey == "LockTarget" and not Config.LockTarget then CurrentLock = nil end
+        if EditMode then
+            itemData.IsHidden = not itemData.IsHidden
+            UpdateUIModes()
+        else
+            Config[toggleKey] = not Config[toggleKey]
+            itemData.RestoreColor()
+            
+            if toggleKey == "FOVMode" then FOVCircle.Visible = Config.FOVMode end
+            if toggleKey == "LockTarget" and not Config.LockTarget then CurrentLock = nil end
+            if toggleKey == "AntiOffAim" and not Config.AntiOffAim then StickyTarget = nil end
+        end
     end)
 end
 
+-- === DANH SÁCH CÁC NÚT ===
 CreateButton("Show ESP (Đỏ)", "ESP")
 CreateButton("Aimbot V2 (FOV)", "FOVMode")
+CreateButton("Anti Off Aim (Dính)", "AntiOffAim")
 CreateButton("Aimbot Normal", "Aimbot")
 CreateButton("Lock Target (Ghim)", "LockTarget")
+CreateButton("Aim Player", "AimPlayer")
 CreateButton("Aim NPC", "AimNPC")
+CreateButton("Ignore Dead (0 HP)", "IgnoreDead")
+CreateButton("Show Range (Thảm Xanh)", "ShowRange")
 CreateButton("Prediction", "Prediction")
 CreateButton("Wall Check", "WallCheck")
 CreateButton("Team Check", "TeamCheck")
-CreateButton("Auto Low Health", "HealthTarget")
 
+-- === NÚT ĐỔI BỘ PHẬN ===
 local PartCycleBtn = Instance.new("TextButton")
 PartCycleBtn.Size = UDim2.new(0.9, 0, 0, 28)
-PartCycleBtn.BackgroundColor3 = Color3.fromRGB(30, 70, 130)
-PartCycleBtn.Text = "Aim Part: " .. BodyParts[PartIndex]
-PartCycleBtn.TextColor3 = Color3.new(1, 1, 1)
 PartCycleBtn.Font = Enum.Font.GothamBold
 PartCycleBtn.TextSize = 12
 PartCycleBtn.Parent = ScrollFrame
 Instance.new("UICorner", PartCycleBtn)
 
+local partItemData = {
+    Instance = PartCycleBtn,
+    IsHidden = false,
+    RestoreColor = function()
+        PartCycleBtn.BackgroundColor3 = Color3.fromRGB(30, 70, 130)
+        PartCycleBtn.TextColor3 = Color3.new(1, 1, 1)
+        PartCycleBtn.Text = "Aim Part: " .. Config.TargetPart
+    end
+}
+table.insert(UiElements, partItemData)
+partItemData.RestoreColor()
+
 PartCycleBtn.MouseButton1Click:Connect(function()
-    PartIndex = PartIndex + 1
-    if PartIndex > #BodyParts then PartIndex = 1 end
-    Config.TargetPart = BodyParts[PartIndex]
-    PartCycleBtn.Text = "Aim Part: " .. Config.TargetPart
-    CurrentLock = nil 
+    if EditMode then
+        partItemData.IsHidden = not partItemData.IsHidden
+        UpdateUIModes()
+    else
+        PartIndex = PartIndex + 1
+        if PartIndex > #BodyParts then PartIndex = 1 end
+        Config.TargetPart = BodyParts[PartIndex]
+        partItemData.RestoreColor()
+        CurrentLock = nil 
+        StickyTarget = nil
+    end
 end)
 
+-- === HÀM TẠO TEXTBOX CÓ TÍCH HỢP HỆ THỐNG EDIT ===
 local function CreateTextBox(placeholder, defaultText, callback)
     local box = Instance.new("TextBox")
     box.Size = UDim2.new(0.9, 0, 0, 28)
     box.PlaceholderText = placeholder
     box.Text = defaultText
-    box.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-    box.TextColor3 = Color3.new(1, 1, 1)
     box.Font = Enum.Font.Gotham
     box.TextSize = 12
     box.Parent = ScrollFrame
     Instance.new("UICorner", box)
-    box.FocusLost:Connect(function() callback(box.Text) end)
+    
+    local overlay = Instance.new("TextButton")
+    overlay.Size = UDim2.new(1, 0, 1, 0)
+    overlay.BackgroundTransparency = 1
+    overlay.Text = ""
+    overlay.Visible = false
+    overlay.Parent = box
+
+    local itemData = {
+        Instance = box,
+        Overlay = overlay,
+        IsHidden = false,
+        RestoreColor = function()
+            box.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+            box.TextColor3 = Color3.new(1, 1, 1)
+        end
+    }
+    table.insert(UiElements, itemData)
+    itemData.RestoreColor()
+
+    overlay.MouseButton1Click:Connect(function()
+        if EditMode then
+            itemData.IsHidden = not itemData.IsHidden
+            UpdateUIModes()
+        end
+    end)
+
+    box.FocusLost:Connect(function() 
+        if not EditMode then callback(box.Text) end
+    end)
 end
 
+-- === DANH SÁCH TEXTBOX ===
 CreateTextBox("Target Name...", "", function(text) Config.TargetPlayerName = text end)
+
+CreateTextBox("Range (Min-Max): 0-1000", Config.MinDistance.."-"..Config.MaxDistance, function(text) 
+    local minStr, maxStr = text:match("(%d+)%s*%-%s*(%d+)")
+    if minStr and maxStr then
+        Config.MinDistance = tonumber(minStr)
+        Config.MaxDistance = tonumber(maxStr)
+    else
+        local singleVal = tonumber(text:match("(%d+)"))
+        if singleVal then
+            Config.MaxDistance = singleVal
+            Config.MinDistance = 0
+        end
+    end
+end)
+
+CreateTextBox("FOV Size: 90", tostring(Config.FOVRadius), function(text) 
+    local size = tonumber(text)
+    if size then 
+        Config.FOVRadius = size 
+        -- Đã fix: Chỉ cần đổi Size, không cần đổi Position nữa
+        FOVCircle.Size = UDim2.new(0, size * 2, 0, size * 2)
+    end
+end)
+
 CreateTextBox("Bullet Speed: 250", "250", function(text) 
     local speed = tonumber(text)
     if speed then Config.BulletSpeed = speed end
 end)
 
--- === LOGIC QUÉT VÀ PREDICTION (Giữ nguyên độ ổn định) ===
-local function GetPredictedPosition(targetPart)
+
+-- === LOGIC QUÉT VÀ PREDICTION CHÍNH ===
+local function GetPredictedPosition(targetPart, Camera)
     local pos = targetPart.Position
     if Config.Prediction then
         local velocity = targetPart.AssemblyLinearVelocity or targetPart.Velocity
@@ -196,8 +358,17 @@ local function GetPredictedPosition(targetPart)
 end
 
 local function GetClosestTarget()
-    local target = nil
-    local shortestDist = math.huge
+    if not IsLocalPlayerAlive() then return nil end
+
+    local Camera = Workspace.CurrentCamera
+    if not Camera then return nil end
+
+    local bestTargetFOV = nil
+    local bestTargetNormal = nil
+    local validSticky = nil
+    
+    local shortestDistFOV = math.huge
+    local shortestDistNormal = math.huge
     local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 
     local function CheckEntity(char, isPlayer)
@@ -205,12 +376,15 @@ local function GetClosestTarget()
         local part = char:FindFirstChild(Config.TargetPart) or char:FindFirstChild("HumanoidRootPart")
 
         if hum and part then
+            if Config.IgnoreDead and hum.Health <= 0 then return end
+
             local hl = char:FindFirstChild("GunnerESP")
             if not hl then
-                hl = Instance.new("Highlight", char)
+                hl = Instance.new("Highlight")
                 hl.Name = "GunnerESP"
                 hl.FillColor = Color3.new(1, 0, 0)
                 hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                hl.Parent = char
             end
 
             local isEnemy = true
@@ -219,10 +393,11 @@ local function GetClosestTarget()
                 if Config.TeamCheck and player and player.Team == LocalPlayer.Team then isEnemy = false end
             end
 
-            hl.Enabled = (Config.Aimbot or Config.FOVMode or Config.ESP) and (hum.Health > 0) and isEnemy
+            hl.Enabled = (Config.Aimbot or Config.FOVMode or Config.ESP) and isEnemy
 
-            if hum.Health <= 0 or not isEnemy then return end
+            if not isEnemy then return end
             if isPlayer then
+                if not Config.AimPlayer then return end
                 local player = Players:GetPlayerFromCharacter(char)
                 if Config.TargetPlayerName ~= "" and not string.find(string.lower(player.Name), string.lower(Config.TargetPlayerName)) then return end
             end
@@ -233,72 +408,117 @@ local function GetClosestTarget()
 
             if Config.WallCheck then
                 local rayParams = RaycastParams.new()
-                rayParams.FilterDescendantsInstances = {LocalPlayer.Character, char}
+                local ignoreList = {char, RangeDisc}
+                if LocalPlayer.Character then table.insert(ignoreList, LocalPlayer.Character) end
+                rayParams.FilterDescendantsInstances = ignoreList
                 rayParams.FilterType = Enum.RaycastFilterType.Exclude
                 if Workspace:Raycast(Camera.CFrame.Position, (part.Position - Camera.CFrame.Position).Unit * dist3D, rayParams) then return end
+            end
+
+            if Config.AntiOffAim and part == StickyTarget then
+                validSticky = part
             end
 
             if Config.FOVMode then
                 local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
                 if onScreen then
                     local dist2D = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
-                    if dist2D <= Config.FOVRadius and dist2D < shortestDist then
-                        shortestDist = dist2D
-                        target = part
+                    if dist2D <= Config.FOVRadius and dist2D < shortestDistFOV then
+                        shortestDistFOV = dist2D
+                        bestTargetFOV = part
                     end
                 end
             elseif Config.Aimbot then
-                if dist3D < shortestDist then
-                    shortestDist = dist3D
-                    target = part
+                if dist3D < shortestDistNormal then
+                    shortestDistNormal = dist3D
+                    bestTargetNormal = part
                 end
             end
         end
     end
 
-    for _, p in pairs(Players:GetPlayers()) do if p ~= LocalPlayer and p.Character then CheckEntity(p.Character, true) end end
+    for _, p in pairs(Players:GetPlayers()) do 
+        if p ~= LocalPlayer and p.Character then CheckEntity(p.Character, true) end 
+    end
     if Config.AimNPC then
         for model, _ in pairs(CachedNPCs) do
             if model and model.Parent then CheckEntity(model, false) else CachedNPCs[model] = nil end
         end
     end
 
+    local finalTarget = nil
+    
+    if Config.FOVMode then
+        if bestTargetFOV then
+            finalTarget = bestTargetFOV
+            StickyTarget = bestTargetFOV
+        elseif Config.AntiOffAim and validSticky then
+            finalTarget = validSticky
+        else
+            StickyTarget = nil
+        end
+    elseif Config.Aimbot then
+        finalTarget = bestTargetNormal
+    end
+
     if Config.LockTarget then
         if CurrentLock and CurrentLock.Parent then
             local hum = CurrentLock.Parent:FindFirstChildOfClass("Humanoid")
+            if Config.IgnoreDead and hum and hum.Health <= 0 then CurrentLock = nil end
             if hum and hum.Health > 0 then return CurrentLock else CurrentLock = nil end
         end
-        if target then CurrentLock = target end
+        if finalTarget then CurrentLock = finalTarget end
     end
 
-    return target
+    return finalTarget
 end
 
--- === ĐIỀU CHỈNH CAMERA (FIX TRIỆT ĐỂ LỖI DETACH) ===
+-- === VÒNG LẶP RENDER CAMERA & RANGE DISC (FIX) ===
 RunService:BindToRenderStep("GunnerAimbot", Enum.RenderPriority.Camera.Value + 1, function()
-    -- Dùng pcall để đảm bảo nếu có lỗi văng toán học, script cũng không bị sập
     pcall(function()
-        if Config.Aimbot or Config.FOVMode or Config.ESP then
+        local isAlive = IsLocalPlayerAlive()
+        local hrp = isAlive and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") or nil
+
+        -- HIỂN THỊ ĐĨA PHẠM VI (RANGE DISC) CẮM DƯỚI CHÂN
+        if Config.ShowRange and hrp then
+            if RangeDisc.Parent ~= Workspace then RangeDisc.Parent = Workspace end
+            -- X, Z là bán kính, Y là độ dày (1 stud)
+            RangeDisc.Size = Vector3.new(Config.MaxDistance * 2, 1, Config.MaxDistance * 2)
+            -- Đặt vị trí thụt xuống 3 stud so với RootPart để chạm đất
+            RangeDisc.CFrame = CFrame.new(hrp.Position - Vector3.new(0, 3, 0))
+        else
+            if RangeDisc.Parent ~= nil then RangeDisc.Parent = nil end
+        end
+
+        if not isAlive then 
+            CurrentLock = nil
+            StickyTarget = nil
+            return 
+        end
+
+        local Camera = Workspace.CurrentCamera
+        if not Camera then return end
+
+        if Config.Aimbot or Config.FOVMode then
             local target = GetClosestTarget()
             
-            if target and (Config.Aimbot or Config.FOVMode) then
-                local finalPos = GetPredictedPosition(target)
+            if target then
+                local finalPos = GetPredictedPosition(target, Camera)
                 local currentCameraPos = Camera.CFrame.Position
                 
-                if (finalPos - currentCameraPos).Magnitude > 0.5 then
-                    -- Snap Aim trực tiếp
+                if typeof(finalPos) == "Vector3" and (finalPos - currentCameraPos).Magnitude > 0.5 then
                     Camera.CFrame = CFrame.lookAt(currentCameraPos, finalPos)
                     
-                    -- KIỂM SOÁT TÌNH TRẠNG TÁCH CAMERA (ANTI-DETACH FIX)
-                    -- Đoạn này ép hệ thống phải luôn lấy nhân vật của bạn làm tâm điểm
-                    Camera.CameraType = Enum.CameraType.Custom
-                    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-                        Camera.CameraSubject = LocalPlayer.Character.Humanoid
+                    if hrp then
+                        local flatTargetPos = Vector3.new(finalPos.X, hrp.Position.Y, finalPos.Z)
+                        hrp.CFrame = CFrame.lookAt(hrp.Position, flatTargetPos)
                     end
                 end
             end
         else
+            if Config.ESP then GetClosestTarget() end
             CurrentLock = nil 
+            StickyTarget = nil
         end
     end)
 end)
