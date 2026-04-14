@@ -1,7 +1,7 @@
 --[[ 
-    AIMBOT GUNNER - MOBILE OPTIMIZED V17 (COLOR ENGINE & FOV FIX)
-    1. Fix Lệch FOV: Sử dụng IgnoreGuiInset để bỏ qua thanh TopBar của Mobile.
-    2. Color Menu: Bảng màu riêng biệt 10 màu cho GUI, FOV và Phạm Vi.
+    AIMBOT GUNNER - MOBILE OPTIMIZED V22
+    1. Quay lại 10 màu cơ bản & Startup Prompt gốc (Chỉ hỏi Rainbow).
+    2. Thêm tính năng: Sáng viền Xanh (Highlight) ở ô màu đang được chọn để dễ nhận biết.
 ]]
 
 local Players = game:GetService("Players")
@@ -15,6 +15,7 @@ local Config = {
     Aimbot = false,
     FOVMode = false,
     ESP = true,           
+    ShowESPDetails = false, 
     WallCheck = true,     
     TeamCheck = false,
     HealthTarget = false,
@@ -29,7 +30,7 @@ local Config = {
     AimNPC = false,
     Prediction = false,
     BulletSpeed = 250,
-    LockTarget = false,
+    LockTarget = true,    
     IgnoreDead = true,    
     
     AntiOffAim = true,    
@@ -39,22 +40,26 @@ local Config = {
 -- CẤU HÌNH MÀU SẮC ĐỘC LẬP
 local ConfigColors = {
     Menu = { isRainbow = true, color = Color3.new(1,0,0) },
-    Range = { isRainbow = false, color = Color3.new(1,0,0) },
-    FOV = { isRainbow = false, color = Color3.new(1,0,0) }
+    Range = { isRainbow = true, color = Color3.new(0,1,0) },
+    FOV = { isRainbow = false, color = Color3.new(1,0,0) },
+    ESPPlayer = { isRainbow = false, color = Color3.new(1,0,0) },
+    ESPNPC = { isRainbow = false, color = Color3.fromRGB(255, 150, 0) },
+    InfoText = { isRainbow = false, color = Color3.new(1,1,1) },       
+    HealthBorder = { isRainbow = false, color = Color3.new(1,1,1) }    
 }
 
--- BẢNG 10 MÀU SẮC TÙY CHỌN
+-- BẢNG 10 MÀU SẮC (CLASSIC)
 local Palette = {
-    {Color3.new(1,1,1), true}, -- Rainbow (Cờ true)
-    {Color3.fromRGB(255, 0, 0), false},   -- Red
-    {Color3.fromRGB(0, 0, 255), false},   -- Blue (Xanh lam đậm)
-    {Color3.fromRGB(0, 255, 0), false},   -- Green
-    {Color3.fromRGB(0, 0, 0), false},     -- Black
-    {Color3.fromRGB(0, 200, 255), false}, -- Xanh Dương (Cyan)
-    {Color3.fromRGB(150, 0, 255), false}, -- Tím
-    {Color3.fromRGB(255, 105, 180), false},-- Hồng
-    {Color3.fromRGB(255, 255, 255), false},-- Trắng
-    {Color3.fromRGB(139, 69, 19), false}   -- Nâu
+    {Color3.new(1,1,1), true}, -- [1] Rainbow
+    {Color3.fromRGB(255, 0, 0), false},   -- [2] Đỏ
+    {Color3.fromRGB(0, 255, 0), false},   -- [3] Xanh lá
+    {Color3.fromRGB(0, 0, 0), false},     -- [4] Đen
+    {Color3.fromRGB(255, 255, 255), false},-- [5] Trắng
+    {Color3.fromRGB(255, 255, 0), false}, -- [6] Vàng
+    {Color3.fromRGB(0, 200, 255), false}, -- [7] Cyan (Lục nhãn cũ)
+    {Color3.fromRGB(150, 0, 20), false},  -- [8] Đỏ thẫm
+    {Color3.fromRGB(148, 0, 211), false}, -- [9] Tím
+    {Color3.fromRGB(0, 0, 255), false}    -- [10] Xanh lam
 }
 
 local CurrentLock = nil
@@ -66,7 +71,7 @@ local CachedNPCs = {}
 local EditMode = false
 local UiElements = {}
 
--- === TẠO VÒNG PHẠM VI (ĐĨA DƯỚI CHÂN) ===
+-- === TẠO VÒNG PHẠM VI ===
 local RangeDisc = Instance.new("Part")
 RangeDisc.Name = "GunnerRangeDisc"
 local Mesh = Instance.new("CylinderMesh", RangeDisc)
@@ -105,10 +110,64 @@ end)
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "GunnerGuiMobile"
 ScreenGui.ResetOnSpawn = false
-ScreenGui.IgnoreGuiInset = true -- FIX LỆCH FOV: Bỏ qua thanh TopBar của Roblox
+ScreenGui.IgnoreGuiInset = true
 ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
--- NÚT BẬT TẮT MENU
+-- === BẢNG HỎI STARTUP PROMPT (CLASSIC) ===
+local PromptFrame = Instance.new("Frame", ScreenGui)
+PromptFrame.Size = UDim2.new(0, 280, 0, 160)
+PromptFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+PromptFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+PromptFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+PromptFrame.ZIndex = 999
+Instance.new("UICorner", PromptFrame)
+Instance.new("UIStroke", PromptFrame).Color = Color3.fromRGB(150, 0, 255)
+
+local PromptTitle = Instance.new("TextLabel", PromptFrame)
+PromptTitle.Size = UDim2.new(1, 0, 0.4, 0)
+PromptTitle.Text = "CÀI ĐẶT MÀU TÂN THỦ\nBạn có muốn bật All Rainbow Mode không?"
+PromptTitle.TextColor3 = Color3.new(1,1,1)
+PromptTitle.BackgroundTransparency = 1
+PromptTitle.Font = Enum.Font.GothamBold
+PromptTitle.TextScaled = true
+PromptTitle.ZIndex = 1000
+
+local BtnRainbow = Instance.new("TextButton", PromptFrame)
+BtnRainbow.Size = UDim2.new(0.8, 0, 0, 35)
+BtnRainbow.Position = UDim2.new(0.1, 0, 0.45, 0)
+BtnRainbow.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+BtnRainbow.Text = "🌈 BẬT TẤT CẢ RAINBOW"
+BtnRainbow.TextColor3 = Color3.new(1,1,1)
+BtnRainbow.Font = Enum.Font.GothamBold
+BtnRainbow.ZIndex = 1000
+Instance.new("UICorner", BtnRainbow)
+
+local BtnCancel = Instance.new("TextButton", PromptFrame)
+BtnCancel.Size = UDim2.new(0.8, 0, 0, 35)
+BtnCancel.Position = UDim2.new(0.1, 0, 0.75, 0)
+BtnCancel.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+BtnCancel.Text = "❌ HỦY & DÙNG MẶC ĐỊNH"
+BtnCancel.TextColor3 = Color3.new(1,1,1)
+BtnCancel.Font = Enum.Font.GothamBold
+BtnCancel.ZIndex = 1000
+Instance.new("UICorner", BtnCancel)
+
+-- Cập nhật màu trên Palette khi Startup chạy
+local UpdateColorSelection -- Khai báo trước hàm update
+
+BtnRainbow.MouseButton1Click:Connect(function()
+    for _, config in pairs(ConfigColors) do
+        config.isRainbow = true
+    end
+    PromptFrame:Destroy()
+    if UpdateColorSelection then UpdateColorSelection() end
+end)
+
+BtnCancel.MouseButton1Click:Connect(function()
+    PromptFrame:Destroy()
+end)
+
+-- === MAIN MENU ===
 local ToggleBtn = Instance.new("TextButton")
 ToggleBtn.Size = UDim2.new(0, 50, 0, 50)
 ToggleBtn.Position = UDim2.new(0, 15, 0.5, -50)
@@ -141,11 +200,10 @@ Instance.new("UICorner", MainFrame)
 
 local MainStroke = Instance.new("UIStroke", MainFrame)
 MainStroke.Thickness = 2.5
-MainStroke.Color = ConfigColors.Menu.color
 
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 25)
-Title.Text = "AIM CONFIG V17"
+Title.Text = "AIM CONFIG V22"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.BackgroundTransparency = 1
 Title.Font = Enum.Font.GothamBold
@@ -156,7 +214,7 @@ ScrollFrame.Size = UDim2.new(1, 0, 1, -30)
 ScrollFrame.Position = UDim2.new(0, 0, 0, 30)
 ScrollFrame.BackgroundTransparency = 1
 ScrollFrame.ScrollBarThickness = 3
-ScrollFrame.CanvasSize = UDim2.new(0, 0, 2.3, 0)
+ScrollFrame.CanvasSize = UDim2.new(0, 0, 2.5, 0)
 ScrollFrame.Parent = MainFrame
 
 local UIList = Instance.new("UIListLayout", ScrollFrame)
@@ -165,9 +223,9 @@ UIList.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 ToggleBtn.MouseButton1Click:Connect(function() MainFrame.Visible = not MainFrame.Visible end)
 
--- === BẢNG ĐIỀU KHIỂN MÀU (COLOR GUI) ===
+-- === COLOR MENU (VỚI TÍNH NĂNG HIGHLIGHT) ===
 local ColorFrame = Instance.new("Frame")
-ColorFrame.Size = UDim2.new(0, 220, 0, 260)
+ColorFrame.Size = UDim2.new(0, 240, 0, 250)
 ColorFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 ColorFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 ColorFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
@@ -179,7 +237,7 @@ Instance.new("UICorner", ColorFrame)
 
 local ColorTitle = Instance.new("TextLabel", ColorFrame)
 ColorTitle.Size = UDim2.new(1, 0, 0, 30)
-ColorTitle.Text = "BẢNG MÀU (COLORS)"
+ColorTitle.Text = "COLOR MENU"
 ColorTitle.TextColor3 = Color3.new(1,1,1)
 ColorTitle.BackgroundTransparency = 1
 ColorTitle.Font = Enum.Font.GothamBold
@@ -193,55 +251,111 @@ CloseColorBtn.BackgroundTransparency = 1
 CloseColorBtn.Font = Enum.Font.GothamBold
 CloseColorBtn.MouseButton1Click:Connect(function() ColorFrame.Visible = false end)
 
-local function BuildColorRow(parent, yPos, labelText, targetKey)
-    local lbl = Instance.new("TextLabel", parent)
-    lbl.Size = UDim2.new(1, 0, 0, 20)
-    lbl.Position = UDim2.new(0, 0, 0, yPos)
-    lbl.Text = labelText
-    lbl.TextColor3 = Color3.new(1,1,1)
-    lbl.BackgroundTransparency = 1
-    lbl.Font = Enum.Font.Gotham
-    
-    local gridFrame = Instance.new("Frame", parent)
-    gridFrame.Size = UDim2.new(1, -20, 0, 45)
-    gridFrame.Position = UDim2.new(0, 10, 0, yPos + 20)
-    gridFrame.BackgroundTransparency = 1
-    
-    local grid = Instance.new("UIGridLayout", gridFrame)
-    grid.CellSize = UDim2.new(0, 25, 0, 25)
-    grid.CellPadding = UDim2.new(0, 10, 0, 10)
-    grid.FillDirection = Enum.FillDirection.Horizontal
-    
-    for _, cData in ipairs(Palette) do
-        local btn = Instance.new("TextButton", gridFrame)
-        btn.Text = ""
-        Instance.new("UICorner", btn).CornerRadius = UDim.new(1, 0) -- Nút hình tròn
-        
-        if cData[2] then
-            btn.BackgroundColor3 = Color3.new(1,1,1)
-            local grad = Instance.new("UIGradient", btn)
-            grad.Color = ColorSequence.new({
-                ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)),
-                ColorSequenceKeypoint.new(0.2, Color3.fromRGB(255, 255, 0)),
-                ColorSequenceKeypoint.new(0.4, Color3.fromRGB(0, 255, 0)),
-                ColorSequenceKeypoint.new(0.6, Color3.fromRGB(0, 255, 255)),
-                ColorSequenceKeypoint.new(0.8, Color3.fromRGB(0, 0, 255)),
-                ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 255))
-            })
+local TargetCategories = {
+    {"Viền Menu GUI", "Menu"},
+    {"Vòng Phạm Vi", "Range"},
+    {"Tâm Ngắm FOV", "FOV"},
+    {"Màu ESP Player", "ESPPlayer"},
+    {"Màu ESP NPC", "ESPNPC"},
+    {"Chữ Thông Tin", "InfoText"},
+    {"Viền Thanh Máu", "HealthBorder"}
+}
+
+local CurrentColorTarget = "Menu" 
+local TargetBtnInstances = {}
+local ColorBtnInstances = {} -- Lưu các nút màu để xử lý viền xanh
+
+UpdateColorSelection = function()
+    local currentConfig = ConfigColors[CurrentColorTarget]
+    for _, item in ipairs(ColorBtnInstances) do
+        if item.isRainbow == currentConfig.isRainbow and item.color == currentConfig.color then
+            item.stroke.Enabled = true -- Bật viền xanh cho ô trùng khớp
         else
-            btn.BackgroundColor3 = cData[1]
+            item.stroke.Enabled = false
         end
-        
-        btn.MouseButton1Click:Connect(function()
-            ConfigColors[targetKey].isRainbow = cData[2]
-            ConfigColors[targetKey].color = cData[1]
-        end)
     end
 end
 
-BuildColorRow(ColorFrame, 30, "Viền GUI (Menu Border)", "Menu")
-BuildColorRow(ColorFrame, 105, "Vòng Phạm Vi (Range)", "Range")
-BuildColorRow(ColorFrame, 180, "Tâm Ngắm (FOV Circle)", "FOV")
+local TargetScroll = Instance.new("ScrollingFrame", ColorFrame)
+TargetScroll.Size = UDim2.new(1, -10, 0, 110)
+TargetScroll.Position = UDim2.new(0, 5, 0, 35)
+TargetScroll.BackgroundTransparency = 1
+TargetScroll.ScrollBarThickness = 3
+TargetScroll.CanvasSize = UDim2.new(0, 0, 0, (#TargetCategories * 35))
+
+local TargetListLayout = Instance.new("UIListLayout", TargetScroll)
+TargetListLayout.Padding = UDim.new(0, 5)
+TargetListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+
+for _, category in ipairs(TargetCategories) do
+    local btn = Instance.new("TextButton", TargetScroll)
+    btn.Size = UDim2.new(0.9, 0, 0, 30)
+    btn.Text = category[1]
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 12
+    btn.BackgroundColor3 = (category[2] == CurrentColorTarget) and Color3.fromRGB(150, 0, 255) or Color3.fromRGB(60, 60, 60)
+    btn.TextColor3 = Color3.new(1,1,1)
+    Instance.new("UICorner", btn)
+    
+    table.insert(TargetBtnInstances, {btn = btn, key = category[2]})
+    
+    btn.MouseButton1Click:Connect(function()
+        CurrentColorTarget = category[2]
+        for _, v in ipairs(TargetBtnInstances) do
+            v.btn.BackgroundColor3 = (v.key == CurrentColorTarget) and Color3.fromRGB(150, 0, 255) or Color3.fromRGB(60, 60, 60)
+        end
+        UpdateColorSelection() -- Cập nhật viền xanh khi đổi mục
+    end)
+end
+
+local PaletteFrame = Instance.new("Frame", ColorFrame)
+PaletteFrame.Size = UDim2.new(1, -10, 0, 90)
+PaletteFrame.Position = UDim2.new(0, 5, 1, -95)
+PaletteFrame.BackgroundTransparency = 1
+
+local PaletteGrid = Instance.new("UIGridLayout", PaletteFrame)
+PaletteGrid.CellSize = UDim2.new(0, 30, 0, 30)
+PaletteGrid.CellPadding = UDim2.new(0, 12, 0, 12)
+PaletteGrid.FillDirection = Enum.FillDirection.Horizontal
+PaletteGrid.HorizontalAlignment = Enum.HorizontalAlignment.Center
+PaletteGrid.VerticalAlignment = Enum.VerticalAlignment.Center
+
+for _, cData in ipairs(Palette) do
+    local btn = Instance.new("TextButton", PaletteFrame)
+    btn.Text = ""
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(1, 0) 
+    
+    local stroke = Instance.new("UIStroke", btn)
+    stroke.Color = Color3.fromRGB(0, 200, 255) -- Màu xanh da trời sáng cho dễ nhìn
+    stroke.Thickness = 2.5
+    stroke.Enabled = false
+    
+    table.insert(ColorBtnInstances, {btn = btn, stroke = stroke, color = cData[1], isRainbow = cData[2]})
+
+    if cData[2] then
+        btn.BackgroundColor3 = Color3.new(1,1,1)
+        local grad = Instance.new("UIGradient", btn)
+        grad.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)),
+            ColorSequenceKeypoint.new(0.2, Color3.fromRGB(255, 255, 0)),
+            ColorSequenceKeypoint.new(0.4, Color3.fromRGB(0, 255, 0)),
+            ColorSequenceKeypoint.new(0.6, Color3.fromRGB(0, 255, 255)),
+            ColorSequenceKeypoint.new(0.8, Color3.fromRGB(0, 0, 255)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 255))
+        })
+    else
+        btn.BackgroundColor3 = cData[1]
+    end
+    
+    btn.MouseButton1Click:Connect(function()
+        ConfigColors[CurrentColorTarget].isRainbow = cData[2]
+        ConfigColors[CurrentColorTarget].color = cData[1]
+        UpdateColorSelection() -- Cập nhật viền xanh ngay lập tức
+    end)
+end
+
+-- Gọi hàm 1 lần để set viền xanh ban đầu
+UpdateColorSelection()
 
 -- === LOGIC NÚT 🔒 ===
 local function UpdateUIModes()
@@ -273,7 +387,6 @@ LockBtn.MouseButton1Click:Connect(function()
     UpdateUIModes()
 end)
 
--- VÒNG TRÒN FOV (TÂM ĐÃ ĐƯỢC CHUẨN HÓA 100%)
 local FOVCircle = Instance.new("Frame")
 FOVCircle.AnchorPoint = Vector2.new(0.5, 0.5)
 FOVCircle.Size = UDim2.new(0, Config.FOVRadius * 2, 0, Config.FOVRadius * 2)
@@ -285,7 +398,6 @@ local FOVStroke = Instance.new("UIStroke", FOVCircle)
 FOVStroke.Thickness = 1.5
 Instance.new("UICorner", FOVCircle).CornerRadius = UDim.new(1, 0)
 
--- HÀM TẠO NÚT
 local function CreateButton(text, toggleKey, isLockedDefault)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(0.9, 0, 0, 28)
@@ -321,44 +433,16 @@ local function CreateButton(text, toggleKey, isLockedDefault)
     end)
 end
 
--- === NÚT MỞ BẢNG MÀU ===
-local ColorMenuBtn = Instance.new("TextButton")
-ColorMenuBtn.Size = UDim2.new(0.9, 0, 0, 28)
-ColorMenuBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 255) -- Màu tím nổi bật
-ColorMenuBtn.Text = "🎨 Color Change"
-ColorMenuBtn.TextColor3 = Color3.new(1,1,1)
-ColorMenuBtn.Font = Enum.Font.GothamBold
-ColorMenuBtn.TextSize = 12
-ColorMenuBtn.Parent = ScrollFrame
-Instance.new("UICorner", ColorMenuBtn)
-
-local colorBtnData = {
-    Instance = ColorMenuBtn,
-    IsHidden = false,
-    RestoreColor = function()
-        ColorMenuBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 255)
-    end
-}
-table.insert(UiElements, colorBtnData)
-
-ColorMenuBtn.MouseButton1Click:Connect(function()
-    if EditMode then
-        colorBtnData.IsHidden = not colorBtnData.IsHidden
-        UpdateUIModes()
-    else
-        ColorFrame.Visible = not ColorFrame.Visible
-    end
-end)
-
--- === DANH SÁCH CÁC NÚT ===
+-- === DANH SÁCH NÚT ===
 CreateButton("Show ESP (Đỏ)", "ESP", true)             
 CreateButton("Wall Check", "WallCheck", true)          
 CreateButton("Anti Off Aim (Dính)", "AntiOffAim", true)  
 CreateButton("Ignore Dead (0 HP)", "IgnoreDead", true) 
+CreateButton("Lock Target (Ghim)", "LockTarget", true) 
 
 CreateButton("Aimbot V2 (FOV)", "FOVMode", false)
 CreateButton("Aimbot Normal", "Aimbot", false)
-CreateButton("Lock Target (Ghim)", "LockTarget", false)
+CreateButton("ESP Details (Info)", "ShowESPDetails", false) 
 CreateButton("Aim Player", "AimPlayer", false)
 CreateButton("Aim NPC", "AimNPC", false)
 CreateButton("Show Range (Thảm Mắt)", "ShowRange", false)
@@ -439,7 +523,6 @@ local function CreateTextBox(placeholder, defaultText, callback, isLockedDefault
     end)
 end
 
--- === DANH SÁCH TEXTBOX ===
 CreateTextBox("Target Name...", "", function(text) Config.TargetPlayerName = text end, false)
 
 CreateTextBox("Phạm vi aim", tostring(Config.MaxDistance), function(text) 
@@ -463,6 +546,33 @@ CreateTextBox("Bullet Speed", tostring(Config.BulletSpeed), function(text)
     if speed then Config.BulletSpeed = speed end
 end, true) 
 
+local ColorMenuBtn = Instance.new("TextButton")
+ColorMenuBtn.Size = UDim2.new(0.9, 0, 0, 28)
+ColorMenuBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 255)
+ColorMenuBtn.Text = "🎨 Color Change"
+ColorMenuBtn.TextColor3 = Color3.new(1,1,1)
+ColorMenuBtn.Font = Enum.Font.GothamBold
+ColorMenuBtn.TextSize = 12
+ColorMenuBtn.Parent = ScrollFrame
+Instance.new("UICorner", ColorMenuBtn)
+
+local colorBtnData = {
+    Instance = ColorMenuBtn,
+    IsHidden = false,
+    RestoreColor = function() ColorMenuBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 255) end
+}
+table.insert(UiElements, colorBtnData)
+
+ColorMenuBtn.MouseButton1Click:Connect(function()
+    if EditMode then
+        colorBtnData.IsHidden = not colorBtnData.IsHidden
+        UpdateUIModes()
+    else
+        ColorFrame.Visible = not ColorFrame.Visible
+        if ColorFrame.Visible then UpdateColorSelection() end
+    end
+end)
+
 UpdateUIModes()
 
 -- === LOGIC QUÉT VÀ PREDICTION ===
@@ -478,7 +588,7 @@ local function GetPredictedPosition(targetPart, Camera)
     return pos
 end
 
-local function GetClosestTarget()
+local function GetClosestTarget(rainbowColor)
     if not IsLocalPlayerAlive() then return nil end
 
     local Camera = Workspace.CurrentCamera
@@ -499,22 +609,89 @@ local function GetClosestTarget()
         if hum and part then
             if Config.IgnoreDead and hum.Health <= 0 then return end
 
-            local hl = char:FindFirstChild("GunnerESP")
-            if not hl then
-                hl = Instance.new("Highlight")
-                hl.Name = "GunnerESP"
-                hl.FillColor = Color3.new(1, 0, 0)
-                hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                hl.Parent = char
-            end
-
             local isEnemy = true
             if isPlayer then
                 local player = Players:GetPlayerFromCharacter(char)
                 if Config.TeamCheck and player and player.Team == LocalPlayer.Team then isEnemy = false end
             end
 
+            if Config.ShowESPDetails and isEnemy and (Config.Aimbot or Config.FOVMode or Config.ESP) then
+                hum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
+            else
+                hum.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.Viewer
+            end
+
+            local hl = char:FindFirstChild("GunnerESP")
+            if not hl then
+                hl = Instance.new("Highlight")
+                hl.Name = "GunnerESP"
+                hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                hl.Parent = char
+            end
+            
             hl.Enabled = (Config.Aimbot or Config.FOVMode or Config.ESP) and isEnemy
+            
+            if hl.Enabled then
+                if isPlayer then
+                    hl.FillColor = ConfigColors.ESPPlayer.isRainbow and rainbowColor or ConfigColors.ESPPlayer.color
+                else
+                    hl.FillColor = ConfigColors.ESPNPC.isRainbow and rainbowColor or ConfigColors.ESPNPC.color
+                end
+            end
+
+            local detailGui = char:FindFirstChild("GunnerDetails")
+            if not detailGui then
+                detailGui = Instance.new("BillboardGui")
+                detailGui.Name = "GunnerDetails"
+                detailGui.Size = UDim2.new(5, 0, 1.5, 0) 
+                detailGui.StudsOffset = Vector3.new(0, 3.5, 0)
+                detailGui.AlwaysOnTop = true
+                detailGui.Parent = char
+
+                local txtInfo = Instance.new("TextLabel", detailGui)
+                txtInfo.Name = "InfoText"
+                txtInfo.Size = UDim2.new(1, 0, 0.5, 0)
+                txtInfo.BackgroundTransparency = 1
+                txtInfo.Font = Enum.Font.GothamBold
+                txtInfo.TextScaled = true 
+                
+                local txtStroke = Instance.new("UIStroke", txtInfo)
+                txtStroke.Thickness = 1.2
+                txtStroke.Color = Color3.new(0,0,0)
+
+                local bgHealth = Instance.new("Frame", detailGui)
+                bgHealth.Name = "BGHealth"
+                bgHealth.Size = UDim2.new(0.9, 0, 0.3, 0)
+                bgHealth.Position = UDim2.new(0.05, 0, 0.6, 0)
+                bgHealth.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
+                
+                local hpStroke = Instance.new("UIStroke", bgHealth)
+                hpStroke.Name = "BorderStroke"
+                hpStroke.Thickness = 1.5
+
+                local healthBar = Instance.new("Frame", bgHealth)
+                healthBar.Name = "HealthBar"
+                healthBar.Size = UDim2.new(1, 0, 1, 0)
+                healthBar.BorderSizePixel = 0
+            end
+
+            if hl.Enabled and Config.ShowESPDetails then
+                detailGui.Enabled = true
+                
+                local dist = math.floor((part.Position - Camera.CFrame.Position).Magnitude)
+                local velocity = part.AssemblyLinearVelocity or part.Velocity
+                local speed = math.floor(velocity.Magnitude)
+                detailGui.InfoText.Text = string.format("%d Studs | %d Spd", dist, speed)
+                
+                detailGui.InfoText.TextColor3 = ConfigColors.InfoText.isRainbow and rainbowColor or ConfigColors.InfoText.color
+                detailGui.BGHealth.BorderStroke.Color = ConfigColors.HealthBorder.isRainbow and rainbowColor or ConfigColors.HealthBorder.color
+
+                local hpPercent = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
+                detailGui.BGHealth.HealthBar.Size = UDim2.new(hpPercent, 0, 1, 0)
+                detailGui.BGHealth.HealthBar.BackgroundColor3 = Color3.new(1 - hpPercent, hpPercent + 0.2, 0.1) 
+            else
+                detailGui.Enabled = false
+            end
 
             if not isEnemy then return end
             if isPlayer then
@@ -568,7 +745,6 @@ local function GetClosestTarget()
     end
 
     local finalTarget = nil
-    
     if Config.FOVMode then
         if bestTargetFOV then
             finalTarget = bestTargetFOV
@@ -594,10 +770,9 @@ local function GetClosestTarget()
     return finalTarget
 end
 
--- === VÒNG LẶP RENDER CHÍNH (COLOR SYSTEM TÍCH HỢP) ===
+-- === VÒNG LẶP RENDER CHÍNH ===
 RunService:BindToRenderStep("GunnerAimbot", Enum.RenderPriority.Camera.Value + 1, function()
     pcall(function()
-        -- HỆ THỐNG XỬ LÝ MÀU SẮC (RAINBOW & TĨNH)
         local hue = tick() % 4 / 4
         local rainbowColor = Color3.fromHSV(hue, 1, 1)
 
@@ -626,7 +801,7 @@ RunService:BindToRenderStep("GunnerAimbot", Enum.RenderPriority.Camera.Value + 1
         if not Camera then return end
 
         if Config.Aimbot or Config.FOVMode then
-            local target = GetClosestTarget()
+            local target = GetClosestTarget(rainbowColor)
             
             if target then
                 local finalPos = GetPredictedPosition(target, Camera)
@@ -642,7 +817,7 @@ RunService:BindToRenderStep("GunnerAimbot", Enum.RenderPriority.Camera.Value + 1
                 end
             end
         else
-            if Config.ESP then GetClosestTarget() end
+            if Config.ESP then GetClosestTarget(rainbowColor) end
             CurrentLock = nil 
             StickyTarget = nil
         end
