@@ -1,7 +1,8 @@
 --[[ 
-    AIMBOT GUNNER - MOBILE OPTIMIZED V22
-    1. Quay lại 10 màu cơ bản & Startup Prompt gốc (Chỉ hỏi Rainbow).
-    2. Thêm tính năng: Sáng viền Xanh (Highlight) ở ô màu đang được chọn để dễ nhận biết.
+    AIMBOT GUNNER - MOBILE OPTIMIZED V25
+    - Fix: Trả lại nút Lock Target với logic thông minh (Smart Lock).
+    - Fix: Xoay nhân vật chuẩn xác (Tắt AutoRotate khi aim).
+    - Fix: Đổi mục tiêu lập tức nếu kẻ địch nấp sau tường hoặc bị kẻ khác che.
 ]]
 
 local Players = game:GetService("Players")
@@ -23,17 +24,15 @@ local Config = {
     
     FOVRadius = 90,
     MinDistance = 0,
-    MaxDistance = 150,    
+    MaxDistance = 200,    
     
     TargetPart = "Head",
     AimPlayer = true,
     AimNPC = false,
     Prediction = false,
     BulletSpeed = 250,
-    LockTarget = true,    
+    LockTarget = false,   -- Đã thêm lại
     IgnoreDead = true,    
-    
-    AntiOffAim = true,    
     ShowRange = false
 }
 
@@ -50,23 +49,23 @@ local ConfigColors = {
 
 -- BẢNG 10 MÀU SẮC (CLASSIC)
 local Palette = {
-    {Color3.new(1,1,1), true}, -- [1] Rainbow
-    {Color3.fromRGB(255, 0, 0), false},   -- [2] Đỏ
-    {Color3.fromRGB(0, 255, 0), false},   -- [3] Xanh lá
-    {Color3.fromRGB(0, 0, 0), false},     -- [4] Đen
-    {Color3.fromRGB(255, 255, 255), false},-- [5] Trắng
-    {Color3.fromRGB(255, 255, 0), false}, -- [6] Vàng
-    {Color3.fromRGB(0, 200, 255), false}, -- [7] Cyan (Lục nhãn cũ)
-    {Color3.fromRGB(150, 0, 20), false},  -- [8] Đỏ thẫm
-    {Color3.fromRGB(148, 0, 211), false}, -- [9] Tím
-    {Color3.fromRGB(0, 0, 255), false}    -- [10] Xanh lam
+    {Color3.new(1,1,1), true}, 
+    {Color3.fromRGB(255, 0, 0), false},   
+    {Color3.fromRGB(0, 255, 0), false},   
+    {Color3.fromRGB(0, 0, 0), false},     
+    {Color3.fromRGB(255, 255, 255), false},
+    {Color3.fromRGB(255, 255, 0), false}, 
+    {Color3.fromRGB(0, 200, 255), false}, 
+    {Color3.fromRGB(150, 0, 20), false},  
+    {Color3.fromRGB(148, 0, 211), false}, 
+    {Color3.fromRGB(0, 0, 255), false}    
 }
 
 local CurrentLock = nil
-local StickyTarget = nil
 local BodyParts = {"Head", "HumanoidRootPart", "Torso", "UpperTorso", "LowerTorso"}
 local PartIndex = 1
 local CachedNPCs = {}
+local IsCurrentlyAiming = false 
 
 local EditMode = false
 local UiElements = {}
@@ -113,7 +112,7 @@ ScreenGui.ResetOnSpawn = false
 ScreenGui.IgnoreGuiInset = true
 ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
--- === BẢNG HỎI STARTUP PROMPT (CLASSIC) ===
+-- BẢNG HỎI STARTUP PROMPT
 local PromptFrame = Instance.new("Frame", ScreenGui)
 PromptFrame.Size = UDim2.new(0, 280, 0, 160)
 PromptFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
@@ -152,20 +151,14 @@ BtnCancel.Font = Enum.Font.GothamBold
 BtnCancel.ZIndex = 1000
 Instance.new("UICorner", BtnCancel)
 
--- Cập nhật màu trên Palette khi Startup chạy
-local UpdateColorSelection -- Khai báo trước hàm update
+local UpdateColorSelection 
 
 BtnRainbow.MouseButton1Click:Connect(function()
-    for _, config in pairs(ConfigColors) do
-        config.isRainbow = true
-    end
+    for _, config in pairs(ConfigColors) do config.isRainbow = true end
     PromptFrame:Destroy()
     if UpdateColorSelection then UpdateColorSelection() end
 end)
-
-BtnCancel.MouseButton1Click:Connect(function()
-    PromptFrame:Destroy()
-end)
+BtnCancel.MouseButton1Click:Connect(function() PromptFrame:Destroy() end)
 
 -- === MAIN MENU ===
 local ToggleBtn = Instance.new("TextButton")
@@ -203,7 +196,7 @@ MainStroke.Thickness = 2.5
 
 local Title = Instance.new("TextLabel")
 Title.Size = UDim2.new(1, 0, 0, 25)
-Title.Text = "AIM CONFIG V22"
+Title.Text = "AIM CONFIG V25"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.BackgroundTransparency = 1
 Title.Font = Enum.Font.GothamBold
@@ -223,7 +216,7 @@ UIList.HorizontalAlignment = Enum.HorizontalAlignment.Center
 
 ToggleBtn.MouseButton1Click:Connect(function() MainFrame.Visible = not MainFrame.Visible end)
 
--- === COLOR MENU (VỚI TÍNH NĂNG HIGHLIGHT) ===
+-- === COLOR MENU ===
 local ColorFrame = Instance.new("Frame")
 ColorFrame.Size = UDim2.new(0, 240, 0, 250)
 ColorFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
@@ -263,13 +256,13 @@ local TargetCategories = {
 
 local CurrentColorTarget = "Menu" 
 local TargetBtnInstances = {}
-local ColorBtnInstances = {} -- Lưu các nút màu để xử lý viền xanh
+local ColorBtnInstances = {} 
 
 UpdateColorSelection = function()
     local currentConfig = ConfigColors[CurrentColorTarget]
     for _, item in ipairs(ColorBtnInstances) do
         if item.isRainbow == currentConfig.isRainbow and item.color == currentConfig.color then
-            item.stroke.Enabled = true -- Bật viền xanh cho ô trùng khớp
+            item.stroke.Enabled = true 
         else
             item.stroke.Enabled = false
         end
@@ -304,7 +297,7 @@ for _, category in ipairs(TargetCategories) do
         for _, v in ipairs(TargetBtnInstances) do
             v.btn.BackgroundColor3 = (v.key == CurrentColorTarget) and Color3.fromRGB(150, 0, 255) or Color3.fromRGB(60, 60, 60)
         end
-        UpdateColorSelection() -- Cập nhật viền xanh khi đổi mục
+        UpdateColorSelection() 
     end)
 end
 
@@ -326,7 +319,7 @@ for _, cData in ipairs(Palette) do
     Instance.new("UICorner", btn).CornerRadius = UDim.new(1, 0) 
     
     local stroke = Instance.new("UIStroke", btn)
-    stroke.Color = Color3.fromRGB(0, 200, 255) -- Màu xanh da trời sáng cho dễ nhìn
+    stroke.Color = Color3.fromRGB(0, 200, 255) 
     stroke.Thickness = 2.5
     stroke.Enabled = false
     
@@ -350,11 +343,10 @@ for _, cData in ipairs(Palette) do
     btn.MouseButton1Click:Connect(function()
         ConfigColors[CurrentColorTarget].isRainbow = cData[2]
         ConfigColors[CurrentColorTarget].color = cData[1]
-        UpdateColorSelection() -- Cập nhật viền xanh ngay lập tức
+        UpdateColorSelection() 
     end)
 end
 
--- Gọi hàm 1 lần để set viền xanh ban đầu
 UpdateColorSelection()
 
 -- === LOGIC NÚT 🔒 ===
@@ -425,10 +417,8 @@ local function CreateButton(text, toggleKey, isLockedDefault)
         else
             Config[toggleKey] = not Config[toggleKey]
             itemData.RestoreColor()
-            
             if toggleKey == "FOVMode" then FOVCircle.Visible = Config.FOVMode end
             if toggleKey == "LockTarget" and not Config.LockTarget then CurrentLock = nil end
-            if toggleKey == "AntiOffAim" and not Config.AntiOffAim then StickyTarget = nil end
         end
     end)
 end
@@ -436,9 +426,8 @@ end
 -- === DANH SÁCH NÚT ===
 CreateButton("Show ESP (Đỏ)", "ESP", true)             
 CreateButton("Wall Check", "WallCheck", true)          
-CreateButton("Anti Off Aim (Dính)", "AntiOffAim", true)  
+CreateButton("Lock Target (Ghim)", "LockTarget", false) -- Tích hợp lại ở đây
 CreateButton("Ignore Dead (0 HP)", "IgnoreDead", true) 
-CreateButton("Lock Target (Ghim)", "LockTarget", true) 
 
 CreateButton("Aimbot V2 (FOV)", "FOVMode", false)
 CreateButton("Aimbot Normal", "Aimbot", false)
@@ -477,8 +466,7 @@ PartCycleBtn.MouseButton1Click:Connect(function()
         if PartIndex > #BodyParts then PartIndex = 1 end
         Config.TargetPart = BodyParts[PartIndex]
         partItemData.RestoreColor()
-        CurrentLock = nil 
-        StickyTarget = nil
+        CurrentLock = nil -- Đổi part thì bỏ ghim mục tiêu cũ
     end
 end)
 
@@ -575,7 +563,7 @@ end)
 
 UpdateUIModes()
 
--- === LOGIC QUÉT VÀ PREDICTION ===
+-- === LOGIC QUÉT VÀ SMART LOCK TÍCH HỢP ===
 local function GetPredictedPosition(targetPart, Camera)
     local pos = targetPart.Position
     if Config.Prediction then
@@ -596,18 +584,27 @@ local function GetClosestTarget(rainbowColor)
 
     local bestTargetFOV = nil
     local bestTargetNormal = nil
-    local validSticky = nil
     
-    local shortestDistFOV = math.huge
+    local shortestDistFOV = Config.FOVRadius 
     local shortestDistNormal = math.huge
     local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    
+    local isCurrentLockStillValid = false
 
     local function CheckEntity(char, isPlayer)
         local hum = char:FindFirstChildOfClass("Humanoid")
         local part = char:FindFirstChild(Config.TargetPart) or char:FindFirstChild("HumanoidRootPart")
 
         if hum and part then
-            if Config.IgnoreDead and hum.Health <= 0 then return end
+            local isDead = hum.Health <= 0
+            
+            if isDead then
+                local hl = char:FindFirstChild("GunnerESP")
+                if hl then hl.Enabled = false end
+                local detailGui = char:FindFirstChild("GunnerDetails")
+                if detailGui then detailGui.Enabled = false end
+                if Config.IgnoreDead then return end 
+            end
 
             local isEnemy = true
             if isPlayer then
@@ -677,15 +674,12 @@ local function GetClosestTarget(rainbowColor)
 
             if hl.Enabled and Config.ShowESPDetails then
                 detailGui.Enabled = true
-                
                 local dist = math.floor((part.Position - Camera.CFrame.Position).Magnitude)
                 local velocity = part.AssemblyLinearVelocity or part.Velocity
                 local speed = math.floor(velocity.Magnitude)
                 detailGui.InfoText.Text = string.format("%d Studs | %d Spd", dist, speed)
-                
                 detailGui.InfoText.TextColor3 = ConfigColors.InfoText.isRainbow and rainbowColor or ConfigColors.InfoText.color
                 detailGui.BGHealth.BorderStroke.Color = ConfigColors.HealthBorder.isRainbow and rainbowColor or ConfigColors.HealthBorder.color
-
                 local hpPercent = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
                 detailGui.BGHealth.HealthBar.Size = UDim2.new(hpPercent, 0, 1, 0)
                 detailGui.BGHealth.HealthBar.BackgroundColor3 = Color3.new(1 - hpPercent, hpPercent + 0.2, 0.1) 
@@ -704,6 +698,7 @@ local function GetClosestTarget(rainbowColor)
             local dist3D = (part.Position - Camera.CFrame.Position).Magnitude
             if dist3D < Config.MinDistance or dist3D > Config.MaxDistance then return end
 
+            -- WALL CHECK: Nếu bị tường cản thì bỏ qua ngay (Kể cả đứa đó đang bị khoá aim)
             if Config.WallCheck then
                 local rayParams = RaycastParams.new()
                 local ignoreList = {char, RangeDisc}
@@ -713,20 +708,28 @@ local function GetClosestTarget(rainbowColor)
                 if Workspace:Raycast(Camera.CFrame.Position, (part.Position - Camera.CFrame.Position).Unit * dist3D, rayParams) then return end
             end
 
-            if Config.AntiOffAim and part == StickyTarget then
-                validSticky = part
-            end
-
             if Config.FOVMode then
                 local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
                 if onScreen then
                     local dist2D = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
-                    if dist2D <= Config.FOVRadius and dist2D < shortestDistFOV then
-                        shortestDistFOV = dist2D
-                        bestTargetFOV = part
+                    if dist2D <= Config.FOVRadius then
+                        
+                        -- Xác nhận mục tiêu đang bị khoá vẫn nằm trong FOV và chưa chết/chưa nấp tường
+                        if Config.LockTarget and CurrentLock == part then
+                            isCurrentLockStillValid = true
+                        end
+
+                        if dist2D < shortestDistFOV then
+                            shortestDistFOV = dist2D
+                            bestTargetFOV = part
+                        end
                     end
                 end
             elseif Config.Aimbot then
+                if Config.LockTarget and CurrentLock == part then
+                    isCurrentLockStillValid = true
+                end
+
                 if dist3D < shortestDistNormal then
                     shortestDistNormal = dist3D
                     bestTargetNormal = part
@@ -744,27 +747,27 @@ local function GetClosestTarget(rainbowColor)
         end
     end
 
+    -- XỬ LÝ KẾT QUẢ CUỐI CÙNG
     local finalTarget = nil
     if Config.FOVMode then
-        if bestTargetFOV then
-            finalTarget = bestTargetFOV
-            StickyTarget = bestTargetFOV
-        elseif Config.AntiOffAim and validSticky then
-            finalTarget = validSticky
+        if Config.LockTarget and isCurrentLockStillValid then
+            finalTarget = CurrentLock -- Ưu tiên giữ nguyên mục tiêu đang ghim
         else
-            StickyTarget = nil
+            finalTarget = bestTargetFOV -- Nếu mục tiêu cũ mất hút hoặc tắt ghim, chọn thằng gần nhất
         end
     elseif Config.Aimbot then
-        finalTarget = bestTargetNormal
+        if Config.LockTarget and isCurrentLockStillValid then
+            finalTarget = CurrentLock
+        else
+            finalTarget = bestTargetNormal
+        end
     end
 
+    -- Cập nhật lại biến khoá
     if Config.LockTarget then
-        if CurrentLock and CurrentLock.Parent then
-            local hum = CurrentLock.Parent:FindFirstChildOfClass("Humanoid")
-            if Config.IgnoreDead and hum and hum.Health <= 0 then CurrentLock = nil end
-            if hum and hum.Health > 0 then return CurrentLock else CurrentLock = nil end
-        end
-        if finalTarget then CurrentLock = finalTarget end
+        CurrentLock = finalTarget
+    else
+        CurrentLock = nil
     end
 
     return finalTarget
@@ -780,7 +783,9 @@ RunService:BindToRenderStep("GunnerAimbot", Enum.RenderPriority.Camera.Value + 1
         FOVStroke.Color = ConfigColors.FOV.isRainbow and rainbowColor or ConfigColors.FOV.color
 
         local isAlive = IsLocalPlayerAlive()
-        local hrp = isAlive and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") or nil
+        local char = isAlive and LocalPlayer.Character or nil
+        local hrp = char and char:FindFirstChild("HumanoidRootPart") or nil
+        local hum = char and char:FindFirstChildOfClass("Humanoid") or nil
 
         if Config.ShowRange and hrp then
             if RangeDisc.Parent ~= Workspace then RangeDisc.Parent = Workspace end
@@ -792,8 +797,9 @@ RunService:BindToRenderStep("GunnerAimbot", Enum.RenderPriority.Camera.Value + 1
         end
 
         if not isAlive then 
+            if IsCurrentlyAiming and hum then hum.AutoRotate = true end
+            IsCurrentlyAiming = false
             CurrentLock = nil
-            StickyTarget = nil
             return 
         end
 
@@ -804,22 +810,37 @@ RunService:BindToRenderStep("GunnerAimbot", Enum.RenderPriority.Camera.Value + 1
             local target = GetClosestTarget(rainbowColor)
             
             if target then
+                -- Bắt đầu Aim: Tắt AutoRotate
+                if not IsCurrentlyAiming then
+                    IsCurrentlyAiming = true
+                    if hum then hum.AutoRotate = false end
+                end
+
                 local finalPos = GetPredictedPosition(target, Camera)
                 local currentCameraPos = Camera.CFrame.Position
                 
                 if typeof(finalPos) == "Vector3" and (finalPos - currentCameraPos).Magnitude > 0.5 then
                     Camera.CFrame = CFrame.lookAt(currentCameraPos, finalPos)
                     
-                    if hrp then
-                        local flatTargetPos = Vector3.new(finalPos.X, hrp.Position.Y, finalPos.Z)
-                        hrp.CFrame = CFrame.lookAt(hrp.Position, flatTargetPos)
+                    local rootPart = char.PrimaryPart or hrp
+                    if rootPart then
+                        local _, camRotY, _ = Camera.CFrame:ToOrientation()
+                        rootPart.CFrame = CFrame.new(rootPart.Position) * CFrame.fromOrientation(0, camRotY, 0)
                     end
+                end
+            else
+                -- Mất mục tiêu: Bật lại AutoRotate
+                if IsCurrentlyAiming then
+                    IsCurrentlyAiming = false
+                    if hum then hum.AutoRotate = true end
                 end
             end
         else
+            if IsCurrentlyAiming then
+                IsCurrentlyAiming = false
+                if hum then hum.AutoRotate = true end
+            end
             if Config.ESP then GetClosestTarget(rainbowColor) end
-            CurrentLock = nil 
-            StickyTarget = nil
         end
     end)
 end)
