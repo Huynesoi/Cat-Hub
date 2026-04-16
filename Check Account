@@ -1,0 +1,64 @@
+local WORKER_URL = "https://mute-sea-c0f9.huynesoi270111.workers.dev"
+local HttpService = game:GetService("HttpService")
+local requestFunc = (syn and syn.request) or request or http_request
+
+-- Giao diện đơn giản
+local ScreenGui = Instance.new("ScreenGui", game:GetService("CoreGui"))
+local Main = Instance.new("Frame", ScreenGui)
+Main.Size = UDim2.new(0, 250, 0, 100)
+Main.Position = UDim2.new(0.5, -125, 0.1, 0)
+Main.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+Main.Draggable = true
+Instance.new("UICorner", Main)
+
+local Input = Instance.new("TextBox", Main)
+Input.Size = UDim2.new(0.8, 0, 0, 30)
+Input.Position = UDim2.new(0.1, 0, 0.2, 0)
+Input.PlaceholderText = "Nhập tên rồi Enter..."
+Instance.new("UICorner", Input)
+
+local Status = Instance.new("TextLabel", Main)
+Status.Size = UDim2.new(1, 0, 0, 30)
+Status.Position = UDim2.new(0, 0, 0.6, 0)
+Status.Text = "Hệ thống 24/7 sẵn sàng"
+Status.TextColor3 = Color3.fromRGB(255, 255, 255)
+Status.BackgroundTransparency = 1
+
+local function callWorker(action, name, id)
+    local success, res = pcall(function()
+        return requestFunc({
+            Url = WORKER_URL,
+            Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = HttpService:JSONEncode({action = action, name = name, userId = tostring(id)})
+        })
+    end)
+    return success
+end
+
+Input.FocusLost:Connect(function(enter)
+    if enter and Input.Text ~= "" then
+        local name = Input.Text
+        Input.Text = "Đang xử lý..."
+        local s, id = pcall(function() return game:GetService("Players"):GetUserIdFromNameAsync(name) end)
+        
+        if s and id then
+            -- Gửi lệnh Add lên Worker
+            if callWorker("add", name, id) then
+                Status.Text = "✅ Đã thêm " .. name .. " vào 24/7"
+                task.wait(2)
+                Status.Text = "Nhập 'remove [tên]' để xóa"
+            end
+        elseif name:sub(1, 7) == "remove " then
+            local target = name:sub(8)
+            local s2, id2 = pcall(function() return game:GetService("Players"):GetUserIdFromNameAsync(target) end)
+            if s2 and id2 then
+                callWorker("remove", target, id2)
+                Status.Text = "❌ Đã xóa " .. target
+            end
+        else
+            Status.Text = "Lỗi tên!"
+        end
+        Input.Text = ""
+    end
+end)
