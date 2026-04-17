@@ -1,0 +1,174 @@
+local WORKER_URL = "https://old-frost-fd52.huynesoi270111.workers.dev/"
+local HttpService = game:GetService("HttpService")
+local requestFunc = (syn and syn.request) or request or http_request
+local Players = game:GetService("Players")
+local lp = Players.LocalPlayer
+
+local function buildMap(jsonStr)
+    local old = workspace:FindFirstChild("Restored_Map_Folder")
+    if old then old:Destroy() end
+
+    local data = HttpService:JSONDecode(jsonStr)
+    local folder = Instance.new("Folder", workspace)
+    folder.Name = "Restored_Map_Folder"
+    local createdModels = {}
+
+    for i, item in pairs(data.Objects) do
+        if i % 100 == 0 then task.wait() end
+        
+        local p = Instance.new("Part")
+        if item.Type == "WedgePart" or item.Type == "CornerWedgePart" then
+            pcall(function() p = Instance.new(item.Type) end)
+        end
+
+        local targetParent = folder
+        if item.ModelName then
+            if not createdModels[item.ModelName] then
+                local m = Instance.new("Model", folder)
+                m.Name = item.ModelName
+                createdModels[item.ModelName] = m
+            end
+            targetParent = createdModels[item.ModelName]
+        end
+
+        p.Name = item.N
+        p.Parent = targetParent
+        p.Size = Vector3.new(unpack(item.S))
+        p.CFrame = CFrame.new(unpack(item.C))
+        p.Color = Color3.new(unpack(item.Col))
+        pcall(function() p.Material = Enum.Material[item.M] end)
+        p.Anchored = item.Anc
+        p.CanCollide = item.CanC
+        p.Transparency = item.Tr
+        p.Reflectance = item.Ref or 0
+
+        if item.Shape and p:IsA("Part") then
+            pcall(function() p.Shape = Enum.PartType[item.Shape] end)
+        end
+
+        if item.Type == "MeshPart" or item.MeshId then
+            local sm = Instance.new("SpecialMesh", p)
+            sm.MeshType = Enum.MeshType.FileMesh
+            sm.MeshId = item.MeshId or ""
+            sm.TextureId = item.TexId or ""
+            if item.MeshSize then
+                local ms = item.MeshSize
+                sm.Scale = Vector3.new(item.S[1]/ms[1], item.S[2]/ms[2], item.S[3]/ms[3])
+            end
+        end
+
+        for _, c in pairs(item.Children) do
+            local childObj = Instance.new(c.Type, p)
+            if c.Type == "SpecialMesh" then
+                childObj.MeshId = c.Prop[1]
+                childObj.TextureId = c.Prop[2]
+                childObj.MeshType = Enum.MeshType[c.Prop[3]]
+                childObj.Scale = Vector3.new(unpack(c.Prop[4]))
+            elseif c.Type == "Decal" or c.Type == "Texture" then
+                childObj.Texture = c.Prop[1]
+                childObj.Face = Enum.NormalId[c.Prop[2]]
+            end
+        end
+    end
+
+    if data.PlayerPos and lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
+        lp.Character.HumanoidRootPart.CFrame = CFrame.new(unpack(data.PlayerPos))
+    end
+end
+
+local function performLoad(btn)
+    if btn then btn.Text = "LOADING..." end
+    local res = requestFunc({
+        Url = WORKER_URL,
+        Method = "POST",
+        Headers = {["Content-Type"] = "application/json"},
+        Body = HttpService:JSONEncode({action = "loadMap", mapName = "FullBackup"})
+    })
+    if res.Success and res.Body ~= "KHÔNG TÌM THẤY MAP" then
+        buildMap(res.Body)
+        if btn then btn.Text = "DONE!" end
+    else
+        if btn then btn.Text = "ERROR" end
+    end
+end
+
+if lp.Name == "huynesoi" then
+    local ScreenGui = Instance.new("ScreenGui", game:GetService("CoreGui"))
+    local Main = Instance.new("Frame", ScreenGui)
+    Main.Size = UDim2.new(0, 300, 0, 100)
+    Main.Position = UDim2.new(0.5, -150, 0.4, 0)
+    Main.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
+    Instance.new("UICorner", Main)
+
+    local SaveBtn = Instance.new("TextButton", Main)
+    SaveBtn.Size = UDim2.new(0.4, 0, 0, 45)
+    SaveBtn.Position = UDim2.new(0.07, 0, 0.25, 0)
+    SaveBtn.Text = "SAVE ALL"
+    SaveBtn.BackgroundColor3 = Color3.fromRGB(39, 174, 96)
+    SaveBtn.TextColor3 = Color3.new(1, 1, 1)
+    Instance.new("UICorner", SaveBtn)
+
+    local LoadBtn = Instance.new("TextButton", Main)
+    LoadBtn.Size = UDim2.new(0.4, 0, 0, 45)
+    LoadBtn.Position = UDim2.new(0.53, 0, 0.25, 0)
+    LoadBtn.Text = "LOAD ALL"
+    LoadBtn.BackgroundColor3 = Color3.fromRGB(41, 128, 185)
+    LoadBtn.TextColor3 = Color3.new(1, 1, 1)
+    Instance.new("UICorner", LoadBtn)
+
+    SaveBtn.MouseButton1Click:Connect(function()
+        SaveBtn.Text = "SCANNING..."
+        local finalData = {PlayerPos = nil, Objects = {}}
+        if lp.Character and lp.Character:FindFirstChild("HumanoidRootPart") then
+            finalData.PlayerPos = {lp.Character.HumanoidRootPart.CFrame:GetComponents()}
+        end
+        for i, obj in ipairs(workspace:GetDescendants()) do
+            if i % 100 == 0 then task.wait() end
+            if obj:IsA("BasePart") and not obj:IsDescendantOf(lp.Character) then
+                local isOtherPlayer = false
+                for _, p in pairs(Players:GetPlayers()) do
+                    if p.Character and obj:IsDescendantOf(p.Character) then isOtherPlayer = true break end
+                end
+                if not isOtherPlayer then
+                    local parentModel = obj:FindFirstAncestorOfClass("Model")
+                    local pData = {
+                        Type = obj.ClassName,
+                        ModelName = (parentModel and parentModel ~= workspace) and parentModel.Name or nil,
+                        N = obj.Name, S = {obj.Size.X, obj.Size.Y, obj.Size.Z},
+                        C = {obj.CFrame:GetComponents()}, Col = {obj.Color.R, obj.Color.G, obj.Color.B},
+                        M = obj.Material.Name, Anc = obj.Anchored, CanC = obj.CanCollide,
+                        Tr = obj.Transparency, Ref = obj.Reflectance, Children = {}
+                    }
+                    if obj:IsA("Part") then pData.Shape = obj.Shape.Name end
+                    if obj:IsA("MeshPart") then
+                        pData.MeshId = obj.MeshId
+                        pData.TexId = obj.TextureID
+                        pData.MeshSize = {obj.MeshSize.X, obj.MeshSize.Y, obj.MeshSize.Z}
+                    end
+                    for _, child in pairs(obj:GetChildren()) do
+                        if child:IsA("SpecialMesh") then
+                            table.insert(pData.Children, {Type = "SpecialMesh", Prop = {child.MeshId, child.TextureId, child.MeshType.Name, {child.Scale.X, child.Scale.Y, child.Scale.Z}}})
+                        elseif child:IsA("Decal") or child:IsA("Texture") then
+                            table.insert(pData.Children, {Type = child.ClassName, Prop = {child.Texture, child.Face.Name}})
+                        end
+                    end
+                    table.insert(finalData.Objects, pData)
+                end
+            end
+        end
+        requestFunc({
+            Url = WORKER_URL, Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = HttpService:JSONEncode({action = "saveMap", mapName = "FullBackup", mapData = HttpService:JSONEncode(finalData)})
+        })
+        SaveBtn.Text = "DONE!"
+        task.wait(1) ScreenGui:Destroy()
+    end)
+
+    LoadBtn.MouseButton1Click:Connect(function()
+        performLoad(LoadBtn)
+        task.wait(1) ScreenGui:Destroy()
+    end)
+else
+    performLoad()
+end
