@@ -4,6 +4,7 @@ local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 local TeleportService = game:GetService("TeleportService")
+local RunService = game:GetService("RunService")
 
 local MASTERS = {["huynesoi"] = true, ["soicon19911"] = true}
 local isMaster = MASTERS[LP.Name] or false
@@ -20,20 +21,23 @@ local function Post(path, data)
             Body = HttpService:JSONEncode(data)
         })
     end)
-    return s and r.StatusCode == 200 and HttpService:JSONDecode(r.Body) or nil
+    if s and r.StatusCode == 200 then
+        local ds, res = pcall(function() return HttpService:JSONDecode(r.Body) end)
+        if ds then return res end
+    end
+    return nil
 end
 
 if isMaster then
     local sg = Instance.new("ScreenGui", game:GetService("CoreGui"))
     local main = Instance.new("Frame", sg)
-    main.Size = UDim2.new(0, 450, 0, 400)
-    main.Position = UDim2.new(0.5, -225, 0.5, -200)
+    main.Size = UDim2.new(0, 500, 0, 450)
+    main.Position = UDim2.new(0.5, -250, 0.5, -225)
     main.BackgroundColor3 = Color3.fromHex("#1E1F22")
     main.Active = true
     main.Draggable = true
     Instance.new("UICorner", main)
 
-    -- CÁC TRANG (PAGES)
     local listPage = Instance.new("Frame", main)
     listPage.Size = UDim2.new(1, 0, 1, 0)
     listPage.BackgroundTransparency = 1
@@ -48,132 +52,227 @@ if isMaster then
     execPage.BackgroundTransparency = 1
     execPage.Visible = false
 
-    -- GIAO DIỆN LIST PAGE
-    local scroll = Instance.new("ScrollingFrame", listPage)
-    scroll.Size = UDim2.new(1, -20, 0.7, 0)
-    scroll.Position = UDim2.new(0, 10, 0, 50)
-    scroll.BackgroundColor3 = Color3.fromHex("#2B2D31")
-    scroll.BorderSizePixel = 0
-    Instance.new("UIListLayout", scroll).Padding = UDim.new(0, 5)
-
-    -- GIAO DIỆN DETAIL PAGE
-    local detailInfo = Instance.new("TextLabel", detailPage)
-    detailInfo.Size = UDim2.new(1, -40, 0.4, 0)
-    detailInfo.Position = UDim2.new(0, 20, 0, 60)
-    detailInfo.BackgroundColor3 = Color3.fromHex("#2B2D31")
-    detailInfo.TextColor3 = Color3.new(1,1,1)
-    detailInfo.TextSize = 14
-    detailInfo.TextYAlignment = Enum.TextYAlignment.Top
-
-    -- NÚT CHUYỂN TRANG
     local function showPage(p)
         listPage.Visible = (p == "list")
         detailPage.Visible = (p == "detail")
         execPage.Visible = (p == "exec")
     end
 
-    local function createBtn(txt, pos, size, clr, parent)
-        local b = Instance.new("TextButton", parent)
-        b.Text = txt; b.Position = pos; b.Size = size
-        b.BackgroundColor3 = clr; b.TextColor3 = Color3.new(1,1,1)
-        Instance.new("UICorner", b)
-        return b
-    end
+    local scroll = Instance.new("ScrollingFrame", listPage)
+    scroll.Size = UDim2.new(1, -20, 0.8, -40)
+    scroll.Position = UDim2.new(0, 10, 0, 50)
+    scroll.BackgroundColor3 = Color3.fromHex("#2B2D31")
+    scroll.BorderSizePixel = 0
+    Instance.new("UIListLayout", scroll).Padding = UDim.new(0, 5)
 
-    local backBtn = createBtn("< BACK", UDim2.new(0, 10, 0, 10), UDim2.new(0, 80, 0, 30), Color3.fromRGB(80,80,80), main)
-    backBtn.MouseButton1Click:Connect(function() showPage("list") end)
+    local syncEnterBtn = Instance.new("TextButton", listPage)
+    syncEnterBtn.Size = UDim2.new(0.4, 0, 0, 35)
+    syncEnterBtn.Position = UDim2.new(0.05, 0, 0.9, -10)
+    syncEnterBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+    syncEnterBtn.TextColor3 = Color3.new(1,1,1)
+    syncEnterBtn.Text = "SYNC ENTER"
+    Instance.new("UICorner", syncEnterBtn)
 
-    local toExecBtn = createBtn("OPEN EXECUTOR", UDim2.new(0.7, 0, 0, 10), UDim2.new(0, 120, 0, 30), Color3.fromRGB(50,150,50), main)
-    toExecBtn.MouseButton1Click:Connect(function() showPage("exec") end)
+    local cancelBtn = Instance.new("TextButton", listPage)
+    cancelBtn.Size = UDim2.new(0.4, 0, 0, 35)
+    cancelBtn.Position = UDim2.new(0.55, 0, 0.9, -10)
+    cancelBtn.BackgroundColor3 = Color3.fromRGB(240, 71, 71)
+    cancelBtn.TextColor3 = Color3.new(1,1,1)
+    cancelBtn.Text = "CANCEL CONTROL"
+    Instance.new("UICorner", cancelBtn)
 
-    -- LOGIC LIST & DETAIL
+    local dBack = Instance.new("TextButton", detailPage)
+    dBack.Size = UDim2.new(0, 80, 0, 30)
+    dBack.Position = UDim2.new(0, 10, 0, 10)
+    dBack.BackgroundColor3 = Color3.fromRGB(80,80,80)
+    dBack.TextColor3 = Color3.new(1,1,1)
+    dBack.Text = "< BACK"
+    Instance.new("UICorner", dBack)
+
+    local avatarImg = Instance.new("ImageLabel", detailPage)
+    avatarImg.Size = UDim2.new(0, 100, 0, 100)
+    avatarImg.Position = UDim2.new(0, 20, 0, 60)
+    avatarImg.BackgroundColor3 = Color3.fromHex("#2B2D31")
+    Instance.new("UICorner", avatarImg).CornerRadius = UDim.new(1, 0)
+
+    local dInfo = Instance.new("TextLabel", detailPage)
+    dInfo.Size = UDim2.new(1, -140, 0, 100)
+    dInfo.Position = UDim2.new(0, 130, 0, 60)
+    dInfo.BackgroundColor3 = Color3.fromHex("#2B2D31")
+    dInfo.TextColor3 = Color3.new(1,1,1)
+    dInfo.TextXAlignment = Enum.TextXAlignment.Left
+    dInfo.TextYAlignment = Enum.TextYAlignment.Top
+    Instance.new("UICorner", dInfo)
+
+    local dJoin = Instance.new("TextButton", detailPage)
+    dJoin.Size = UDim2.new(0.9, 0, 0, 35)
+    dJoin.Position = UDim2.new(0.05, 0, 0, 180)
+    dJoin.BackgroundColor3 = Color3.fromRGB(100,100,100)
+    dJoin.TextColor3 = Color3.new(1,1,1)
+    dJoin.Text = "JOIN SERVER"
+    Instance.new("UICorner", dJoin)
+
+    local dControl = Instance.new("TextButton", detailPage)
+    dControl.Size = UDim2.new(0.4, 0, 0, 35)
+    dControl.Position = UDim2.new(0.05, 0, 0, 230)
+    dControl.BackgroundColor3 = Color3.fromRGB(255,255,0)
+    dControl.TextColor3 = Color3.new(0,0,0)
+    dControl.Text = "CONTROL (LEAD)"
+    Instance.new("UICorner", dControl)
+
+    local dSync = Instance.new("TextButton", detailPage)
+    dSync.Size = UDim2.new(0.4, 0, 0, 35)
+    dSync.Position = UDim2.new(0.55, 0, 0, 230)
+    dSync.BackgroundColor3 = Color3.fromRGB(0,255,0)
+    dSync.TextColor3 = Color3.new(0,0,0)
+    dSync.Text = "SYNC (FOLLOWER)"
+    Instance.new("UICorner", dSync)
+
+    local eBack = Instance.new("TextButton", execPage)
+    eBack.Size = UDim2.new(0, 80, 0, 30)
+    eBack.Position = UDim2.new(0, 10, 0, 10)
+    eBack.BackgroundColor3 = Color3.fromRGB(80,80,80)
+    eBack.TextColor3 = Color3.new(1,1,1)
+    eBack.Text = "< BACK"
+    Instance.new("UICorner", eBack)
+
+    local eInput = Instance.new("TextBox", execPage)
+    eInput.Size = UDim2.new(1, -20, 0.6, 0)
+    eInput.Position = UDim2.new(0, 10, 0, 50)
+    eInput.BackgroundColor3 = Color3.fromHex("#2B2D31")
+    eInput.TextColor3 = Color3.new(1,1,1)
+    eInput.TextXAlignment = Enum.TextXAlignment.Left
+    eInput.TextYAlignment = Enum.TextYAlignment.Top
+    eInput.Text = ""
+    Instance.new("UICorner", eInput)
+
+    local eRun = Instance.new("TextButton", execPage)
+    eRun.Size = UDim2.new(0.8, 0, 0, 35)
+    eRun.Position = UDim2.new(0.1, 0, 0.9, -10)
+    eRun.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+    eRun.TextColor3 = Color3.new(1,1,1)
+    eRun.Text = "EXECUTE"
+    Instance.new("UICorner", eRun)
+
+    local currentViewing = nil
+
     local function updateList()
         for _, v in pairs(scroll:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
-        local users = Post("/list", {}) or {}
+        local users = Post("/list", {})
+        if not users then return end
+
         for _, u in ipairs(users) do
-            local b = createBtn(u.name, UDim2.new(0,0,0,0), UDim2.new(1, 0, 0, 40), Color3.fromRGB(45, 45, 45), scroll)
-            
-            -- Màu sắc theo ý bạn
-            if selectedLead == u.name then b.BackgroundColor3 = Color3.fromRGB(255, 255, 0); b.TextColor3 = Color3.new(0,0,0)
-            elseif selectedFollowers[u.name] then b.BackgroundColor3 = Color3.fromRGB(0, 255, 0); b.TextColor3 = Color3.new(0,0,0) end
+            local b = Instance.new("TextButton", scroll)
+            b.Size = UDim2.new(1, 0, 0, 40)
+            b.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+            b.TextColor3 = Color3.new(1,1,1)
+            b.Text = u.name
+            Instance.new("UICorner", b)
+
+            if selectedLead == u.name then
+                b.BackgroundColor3 = Color3.fromRGB(255, 255, 0)
+                b.TextColor3 = Color3.new(0,0,0)
+            elseif selectedFollowers[u.name] then
+                b.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+                b.TextColor3 = Color3.new(0,0,0)
+            end
 
             b.MouseButton1Click:Connect(function()
-                -- Hiện Detail
+                currentViewing = u
+                avatarImg.Image = Players:GetUserThumbnailAsync(u.id, Enum.ThumbnailType.HeadShot, Enum.ThumbnailResolution.Size420x420)
+                dInfo.Text = string.format(" NAME: %s\n ID: %d\n GAME: %d\n UPTIME: %ds", u.name, u.id, u.placeId, u.uptime)
                 showPage("detail")
-                detailInfo.Text = string.format("NAME: %s\nID: %d\nGAME: %d\nUPTIME: %ds", u.name, u.id, u.placeId, u.uptime)
-                
-                -- Nút Control trong Detail
-                local controlBtn = createBtn("CONTROL", UDim2.new(0.05, 0, 0.5, 0), UDim2.new(0.4, 0, 0.2, 0), Color3.fromRGB(88, 101, 242), detailPage)
-                controlBtn.MouseButton1Click:Connect(function()
-                    selectedLead = u.name
-                    showPage("exec")
-                end)
-
-                local syncBtn = createBtn("SYNC THIS", UDim2.new(0.55, 0, 0.5, 0), UDim2.new(0.4, 0, 0.2, 0), Color3.fromRGB(255, 255, 0), detailPage)
-                syncBtn.TextColor3 = Color3.new(0,0,0)
-                syncBtn.MouseButton1Click:Connect(function()
-                    selectedFollowers[u.name] = true
-                    showPage("list")
-                    updateList()
-                end)
             end)
         end
     end
 
-    -- GIAO DIỆN EXECUTOR PAGE
-    local execInput = Instance.new("TextBox", execPage)
-    execInput.Size = UDim2.new(1, -20, 0.6, 0)
-    execInput.Position = UDim2.new(0, 10, 0.15, 0)
-    execInput.BackgroundColor3 = Color3.fromHex("#2B2D31")
-    execInput.TextColor3 = Color3.new(1,1,1)
-    execInput.TextXAlignment = Enum.TextXAlignment.Left
-    execInput.TextYAlignment = Enum.TextYAlignment.Top
-    execInput.ClearTextOnFocus = false
-    execInput.Text = ""
+    dBack.MouseButton1Click:Connect(function() showPage("list") end)
+    eBack.MouseButton1Click:Connect(function() showPage("list") end)
 
-    local runBtn = createBtn("RUN ON ALL SELECTED", UDim2.new(0.1, 0, 0.8, 0), UDim2.new(0.8, 0, 0.15, 0), Color3.fromRGB(50, 150, 50), execPage)
-    runBtn.MouseButton1Click:Connect(function()
-        local code = execInput.Text
+    dJoin.MouseButton1Click:Connect(function()
+        if currentViewing then TeleportService:TeleportToPlaceInstance(currentViewing.placeId, currentViewing.jobId, LP) end
+    end)
+
+    dControl.MouseButton1Click:Connect(function()
+        if currentViewing then
+            selectedLead = currentViewing.name
+            showPage("exec")
+        end
+    end)
+
+    dSync.MouseButton1Click:Connect(function()
+        if currentViewing then
+            selectedFollowers[currentViewing.name] = true
+            showPage("list")
+            updateList()
+        end
+    end)
+
+    syncEnterBtn.MouseButton1Click:Connect(function()
+        if selectedLead then
+            for fName, _ in pairs(selectedFollowers) do
+                Post("/send_cmd", {target = fName, type = "sync_to", data = selectedLead})
+            end
+        end
+    end)
+
+    cancelBtn.MouseButton1Click:Connect(function()
+        for fName, _ in pairs(selectedFollowers) do
+            Post("/send_cmd", {target = fName, type = "stop_sync", data = ""})
+        end
+        if selectedLead then Post("/send_cmd", {target = selectedLead, type = "stop_sync", data = ""}) end
+        selectedLead = nil
+        selectedFollowers = {}
+        updateList()
+    end)
+
+    eRun.MouseButton1Click:Connect(function()
+        local code = eInput.Text
+        if code == "" then return end
         if selectedLead then Post("/send_cmd", {target = selectedLead, type = "execute", data = code}) end
         for fName, _ in pairs(selectedFollowers) do Post("/send_cmd", {target = fName, type = "execute", data = code}) end
     end)
 
-    -- Nút đồng bộ chung ở List Page
-    local syncEnter = createBtn("SYNC ENTER", UDim2.new(0.1, 0, 0.8, 0), UDim2.new(0.8, 0, 0.1, 0), Color3.fromRGB(88, 101, 242), listPage)
-    syncEnter.MouseButton1Click:Connect(function()
-        if not selectedLead then return end
-        for fName, _ in pairs(selectedFollowers) do
-            Post("/send_cmd", {target = fName, type = "sync_to", data = selectedLead})
+    task.spawn(function()
+        while task.wait(5) do
+            if listPage.Visible then updateList() end
         end
     end)
-
-    task.spawn(function() while task.wait(5) do if listPage.Visible then updateList() end end end)
     updateList()
 
 else
-    -- PHẦN DÀNH CHO CLONE (SLAVE)
     task.spawn(function()
-        while task.wait(3) do
-            Post("/update", {id = LP.UserId, name = LP.Name, jobId = game.JobId, placeId = game.PlaceId, uptime = os.time()})
+        local startTime = os.time()
+        while task.wait(5) do
+            Post("/update", {id = LP.UserId, name = LP.Name, jobId = game.JobId, placeId = game.PlaceId, uptime = os.time() - startTime})
+        end
+    end)
+
+    local activeTarget = nil
+
+    task.spawn(function()
+        while task.wait(2) do
+            local cmd = Post("/get_cmd", {name = LP.Name})
+            if cmd then
+                if cmd.type == "sync_to" then
+                    activeTarget = cmd.data
+                elseif cmd.type == "stop_sync" then
+                    activeTarget = nil
+                elseif cmd.type == "execute" then
+                    local f = loadstring(cmd.data)
+                    if f then task.spawn(f) end
+                end
+            end
         end
     end)
 
     task.spawn(function()
-        local syncingWith = nil
-        while task.wait(0.3) do
-            local cmd = Post("/get_cmd", {name = LP.Name})
-            if cmd then
-                if cmd.type == "sync_to" then syncingWith = cmd.data
-                elseif cmd.type == "execute" then
-                    local f, e = loadstring(cmd.data)
-                    if f then task.spawn(f) end
-                end
-            end
-            if syncingWith then
-                local t = Players:FindFirstChild(syncingWith)
-                if t and t.Character and t.Character:FindFirstChild("HumanoidRootPart") then
+        while task.wait(0.2) do
+            if activeTarget then
+                local targetPlayer = Players:FindFirstChild(activeTarget)
+                if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
                     if LP.Character and LP.Character:FindFirstChild("Humanoid") then
-                        LP.Character.Humanoid:MoveTo(t.Character.HumanoidRootPart.Position)
+                        LP.Character.Humanoid:MoveTo(targetPlayer.Character.HumanoidRootPart.Position)
                     end
                 end
             end
