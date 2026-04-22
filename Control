@@ -1,5 +1,5 @@
 local CF_URL = "https://control.huynesoi270111.workers.dev"
-local req = (syn and syn.request) or (http and http.request) or request or http_request
+local req = (syn and syn.request) or (http and http.request) or http_request or request
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
@@ -218,43 +218,66 @@ if isMaster then
     end)
 
 else
-    task.spawn(function()
-        local startTime = os.time()
-        while task.wait(3) do
-            Post("/update", {id = LP.UserId, name = LP.Name, jobId = game.JobId, placeId = game.PlaceId, uptime = os.time() - startTime})
-        end
-    end)
+    local slaveGui = Instance.new("ScreenGui", game:GetService("CoreGui"))
+    local sFrame = Instance.new("Frame", slaveGui)
+    sFrame.Size = UDim2.new(0, 200, 0, 80)
+    sFrame.Position = UDim2.new(0.5, -100, 0.5, -40)
+    sFrame.BackgroundColor3 = Color3.fromHex("#1E1F22")
+    sFrame.Active = true
+    sFrame.Draggable = true
+    Instance.new("UICorner", sFrame).CornerRadius = UDim.new(0, 8)
 
-    local activeTarget = nil
+    local sBtn = Instance.new("TextButton", sFrame)
+    sBtn.Size = UDim2.new(1, -20, 1, -20)
+    sBtn.Position = UDim2.new(0, 10, 0, 10)
+    sBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+    sBtn.TextColor3 = Color3.new(1,1,1)
+    sBtn.Font = Enum.Font.GothamBold
+    sBtn.TextSize = 14
+    sBtn.Text = "SEND INFO TO MASTER"
+    Instance.new("UICorner", sBtn)
 
-    task.spawn(function()
-        while task.wait(1) do
-            local cmd = Post("/get_cmd", {name = LP.Name})
-            if cmd then
-                if cmd.type == "sync_to" then
-                    activeTarget = cmd.data
-                elseif cmd.type == "stop_sync" then
-                    activeTarget = nil
-                elseif cmd.type == "execute" then
-                    local f = loadstring(cmd.data)
-                    if f then task.spawn(f) end
-                end
+    sBtn.MouseButton1Click:Connect(function()
+        slaveGui:Destroy()
+        
+        task.spawn(function()
+            local startTime = os.time()
+            while task.wait(3) do
+                Post("/update", {id = LP.UserId, name = LP.Name, jobId = game.JobId, placeId = game.PlaceId, uptime = os.time() - startTime})
             end
-        end
-    end)
+        end)
 
-    task.spawn(function()
-        while task.wait(0.1) do
-            if activeTarget then
-                local tPlayer = Players:FindFirstChild(activeTarget)
-                if tPlayer and tPlayer.Character and tPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    if LP.Character and LP.Character:FindFirstChild("Humanoid") then
-                        local pos = tPlayer.Character.HumanoidRootPart.Position
-                        local targetVec = Vector3.new(pos.X, pos.Y, pos.Z)
-                        LP.Character.Humanoid:MoveTo(targetVec)
+        local activeTarget = nil
+
+        task.spawn(function()
+            while task.wait(1) do
+                local cmd = Post("/get_cmd", {name = LP.Name})
+                if cmd then
+                    if cmd.type == "sync_to" then
+                        activeTarget = cmd.data
+                    elseif cmd.type == "stop_sync" then
+                        activeTarget = nil
+                    elseif cmd.type == "execute" then
+                        local f = loadstring(cmd.data)
+                        if f then task.spawn(f) end
                     end
                 end
             end
-        end
+        end)
+
+        task.spawn(function()
+            while task.wait(0.1) do
+                if activeTarget then
+                    local tPlayer = Players:FindFirstChild(activeTarget)
+                    if tPlayer and tPlayer.Character and tPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                        if LP.Character and LP.Character:FindFirstChild("Humanoid") then
+                            local pos = tPlayer.Character.HumanoidRootPart.Position
+                            local targetVec = Vector3.new(pos.X, pos.Y, pos.Z)
+                            LP.Character.Humanoid:MoveTo(targetVec)
+                        end
+                    end
+                end
+            end
+        end)
     end)
 end
