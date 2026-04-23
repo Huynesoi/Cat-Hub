@@ -1,64 +1,138 @@
-local WORKER_URL = "https://mute-sea-c0f9.huynesoi270111.workers.dev"
+local CLOUDFLARE_URL = "https://toolcheckaccount1.huynesoi270111.workers.dev"
+local req = (syn and syn.request) or (http and http.request) or request
 local HttpService = game:GetService("HttpService")
-local requestFunc = (syn and syn.request) or request or http_request
 
--- Giao diện đơn giản
-local ScreenGui = Instance.new("ScreenGui", game:GetService("CoreGui"))
-local Main = Instance.new("Frame", ScreenGui)
-Main.Size = UDim2.new(0, 250, 0, 100)
-Main.Position = UDim2.new(0.5, -125, 0.1, 0)
-Main.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+local statusConfigs = {
+    ["0"] = {enabled = true, msg = ""},
+    ["1"] = {enabled = true, msg = ""},
+    ["2"] = {enabled = true, msg = ""}
+}
+local isHideName, isHideGame = false, false
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Parent = game:GetService("CoreGui")
+
+local Main = Instance.new("Frame")
+Main.Size = UDim2.new(0, 360, 0, 560)
+Main.Position = UDim2.new(0.5, -180, 0.5, -280)
+Main.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+Main.Active = true
 Main.Draggable = true
+Main.Parent = ScreenGui
 Instance.new("UICorner", Main)
 
-local Input = Instance.new("TextBox", Main)
-Input.Size = UDim2.new(0.8, 0, 0, 30)
-Input.Position = UDim2.new(0.1, 0, 0.2, 0)
-Input.PlaceholderText = "Nhập tên rồi Enter..."
-Instance.new("UICorner", Input)
-
-local Status = Instance.new("TextLabel", Main)
-Status.Size = UDim2.new(1, 0, 0, 30)
-Status.Position = UDim2.new(0, 0, 0.6, 0)
-Status.Text = "Hệ thống 24/7 sẵn sàng"
-Status.TextColor3 = Color3.fromRGB(255, 255, 255)
-Status.BackgroundTransparency = 1
-
-local function callWorker(action, name, id)
-    local success, res = pcall(function()
-        return requestFunc({
-            Url = WORKER_URL,
-            Method = "POST",
-            Headers = {["Content-Type"] = "application/json"},
-            Body = HttpService:JSONEncode({action = action, name = name, userId = tostring(id)})
-        })
-    end)
-    return success
+local function createLabel(txt, pos, parent, size)
+    local l = Instance.new("TextLabel")
+    l.Size = UDim2.new(0.9, 0, 0, 20); l.Position = pos; l.Text = txt
+    l.TextColor3 = Color3.fromRGB(200, 200, 200); l.TextXAlignment = Enum.TextXAlignment.Left
+    l.BackgroundTransparency = 1; l.Font = Enum.Font.GothamBold; l.TextSize = size or 12; l.Parent = parent
 end
 
-Input.FocusLost:Connect(function(enter)
-    if enter and Input.Text ~= "" then
-        local name = Input.Text
-        Input.Text = "Đang xử lý..."
-        local s, id = pcall(function() return game:GetService("Players"):GetUserIdFromNameAsync(name) end)
+createLabel("ROBLOX TRACKER PRO V4", UDim2.new(0.05, 0, 0.02, 0), Main, 16)
+
+-- THÊM Ô CHỌN WEBHOOK GÓC PHẢI
+local WebhookBox = Instance.new("TextBox")
+WebhookBox.Size = UDim2.new(0.2, 0, 0, 25)
+WebhookBox.Position = UDim2.new(0.75, 0, 0.015, 0)
+WebhookBox.PlaceholderText = "w1-w20"
+WebhookBox.Text = "w1"
+WebhookBox.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+WebhookBox.TextColor3 = Color3.fromRGB(255, 165, 0)
+WebhookBox.Font = Enum.Font.GothamBold
+WebhookBox.Parent = Main
+Instance.new("UICorner", WebhookBox)
+
+local PlayerBox = Instance.new("TextBox")
+PlayerBox.Size = UDim2.new(0.9, 0, 0, 35); PlayerBox.Position = UDim2.new(0.05, 0, 0.08, 0)
+PlayerBox.PlaceholderText = "Tên Player / remove [tên]"
+PlayerBox.BackgroundColor3 = Color3.fromRGB(40, 40, 40); PlayerBox.TextColor3 = Color3.new(1,1,1); PlayerBox.Parent = Main
+Instance.new("UICorner", PlayerBox)
+
+createLabel("THÊM THỜI GIAN (Để 0 nếu vĩnh viễn):", UDim2.new(0.05, 0, 0.16, 0), Main, 10)
+local function createTimeBox(pht, pos)
+    local b = Instance.new("TextBox"); b.Size = UDim2.new(0.28, 0, 0, 30); b.Position = pos; b.PlaceholderText = pht; b.Text = "0"
+    b.BackgroundColor3 = Color3.fromRGB(40, 40, 40); b.TextColor3 = Color3.new(1,1,1); b.Parent = Main; Instance.new("UICorner", b)
+    return b
+end
+local dBox = createTimeBox("Days", UDim2.new(0.05, 0, 0.2, 0))
+local hBox = createTimeBox("Hours", UDim2.new(0.36, 0, 0.2, 0))
+local mBox = createTimeBox("Mins", UDim2.new(0.67, 0, 0.2, 0))
+
+local function createStatusSection(label, yPos, id, activeColor)
+    createLabel(label, UDim2.new(0.05, 0, yPos, 0), Main, 11)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0.2, 0, 0, 30); btn.Position = UDim2.new(0.05, 0, yPos + 0.035, 0)
+    btn.Text = "ON"; btn.BackgroundColor3 = activeColor; btn.TextColor3 = Color3.new(1,1,1); btn.Parent = Main; Instance.new("UICorner", btn)
+    local box = Instance.new("TextBox")
+    box.Size = UDim2.new(0.65, 0, 0, 30); box.Position = UDim2.new(0.3, 0, yPos + 0.035, 0); box.PlaceholderText = "Tin nhắn..."; box.BackgroundColor3 = Color3.fromRGB(40,40,40); box.TextColor3 = Color3.new(1,1,1); box.TextSize = 12; box.Parent = Main; Instance.new("UICorner", box)
+    btn.MouseButton1Click:Connect(function()
+        statusConfigs[id].enabled = not statusConfigs[id].enabled
+        btn.Text = statusConfigs[id].enabled and "ON" or "OFF"
+        btn.BackgroundColor3 = statusConfigs[id].enabled and activeColor or Color3.fromRGB(70, 70, 70)
+    end)
+    box:GetPropertyChangedSignal("Text"):Connect(function() statusConfigs[id].msg = box.Text end)
+end
+
+createStatusSection("OFFLINE", 0.28, "0", Color3.fromRGB(240, 71, 71))
+createStatusSection("ONLINE", 0.39, "1", Color3.fromRGB(52, 152, 219))
+createStatusSection("IN-GAME", 0.50, "2", Color3.fromRGB(67, 181, 129))
+
+local function createToggle(txt, pos, callback)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(0.43, 0, 0, 35); b.Position = pos; b.Text = txt; b.BackgroundColor3 = Color3.fromRGB(50, 50, 50); b.TextColor3 = Color3.new(1, 1, 1); b.Parent = Main; Instance.new("UICorner", b)
+    local state = false
+    b.MouseButton1Click:Connect(function()
+        state = not state; b.BackgroundColor3 = state and Color3.fromRGB(155, 89, 182) or Color3.fromRGB(50, 50, 50); callback(state)
+    end)
+end
+createToggle("ẨN TÊN", UDim2.new(0.05, 0, 0.65, 0), function(s) isHideName = s end)
+createToggle("ẨN GAME", UDim2.new(0.52, 0, 0.65, 0), function(s) isHideGame = s end)
+
+local Go = Instance.new("TextButton")
+Go.Size = UDim2.new(0.9, 0, 0, 50); Go.Position = UDim2.new(0.05, 0, 0.85, 0); Go.Text = "CẬP NHẬT / THEO DÕI"; Go.BackgroundColor3 = Color3.fromRGB(255, 165, 0); Go.TextColor3 = Color3.new(1, 1, 1); Go.Font = Enum.Font.GothamBold; Go.Parent = Main; Instance.new("UICorner", Go)
+
+Go.MouseButton1Click:Connect(function()
+    local text = PlayerBox.Text
+    local wbKey = WebhookBox.Text:lower()
+    if text == "" or not Go.Active then return end
+    
+    Go.Active = false
+    Go.Text = "ĐANG XỬ LÝ..."
+    
+    task.spawn(function()
+        local isRemove = text:lower():sub(1,7) == "remove "
+        local target = isRemove and text:sub(8) or text
         
-        if s and id then
-            -- Gửi lệnh Add lên Worker
-            if callWorker("add", name, id) then
-                Status.Text = "✅ Đã thêm " .. name .. " vào 24/7"
-                task.wait(2)
-                Status.Text = "Nhập 'remove [tên]' để xóa"
-            end
-        elseif name:sub(1, 7) == "remove " then
-            local target = name:sub(8)
-            local s2, id2 = pcall(function() return game:GetService("Players"):GetUserIdFromNameAsync(target) end)
-            if s2 and id2 then
-                callWorker("remove", target, id2)
-                Status.Text = "❌ Đã xóa " .. target
-            end
-        else
-            Status.Text = "Lỗi tên!"
-        end
-        Input.Text = ""
-    end
+        local success, uRes = pcall(function()
+            return req({ Url = "https://users.roblox.com/v1/usernames/users", Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode({usernames = {target}}) })
+        end)
+
+        if success and uRes and uRes.StatusCode == 200 then
+            local uData = HttpService:JSONDecode(uRes.Body)
+            if uData.data and #uData.data > 0 then
+                pcall(function()
+                    req({
+                        Url = CLOUDFLARE_URL,
+                        Method = "POST",
+                        Headers = {["Content-Type"] = "application/json"},
+                        Body = HttpService:JSONEncode({
+                            targetId = uData.data[1].id,
+                            targetName = uData.data[1].name,
+                            action = isRemove and "remove" or "add",
+                            statusConfigs = statusConfigs,
+                            hideName = isHideName,
+                            hideGame = isHideGame,
+                            d = dBox.Text, h = hBox.Text, m = mBox.Text,
+                            webhookKey = wbKey -- Gửi thêm khóa Webhook (w1, w2,...)
+                        })
+                    })
+                end)
+                Go.Text = "THÀNH CÔNG!"
+            else Go.Text = "SAI TÊN PLAYER!" end
+        else Go.Text = "LỖI KẾT NỐI!" end
+        
+        task.wait(1.5)
+        Go.Text = "CẬP NHẬT / THEO DÕI"
+        Go.Active = true
+    end)
 end)
