@@ -1,0 +1,105 @@
+local Players = game:GetService("Players")
+local localPlayer = Players.LocalPlayer
+
+-- CẤU HÌNH CÁC ID MỤC TIÊU (TARGET_IDS)
+local TARGET_IDS = {
+    ["133447840605824"] = true, -- ID thứ nhất (Sẽ đổi thành ID_1_REPLACEMENT và x2 Tốc độ)
+    ["113963875117859"] = true, -- Các ID còn lại (Vẫn đổi thành REPLACEMENT_ID gốc)
+    ["102053631728986"] = true,
+    ["106282708121342"] = true
+}
+
+-- CẤU HÌNH CÁC ID THAY THẾ (REPLACEMENT)
+local ID_1_REPLACEMENT = "120914276661831" -- ID mới dành riêng cho ID thứ nhất
+local REPLACEMENT_ID = "101681158700275"   -- ID gốc cho các trường hợp còn lại
+
+-- Biến lưu kết nối sự kiện để dọn dẹp khi Reset
+local animConnection = nil
+
+-- Hàm dừng toàn bộ animation đang chạy để tránh chất đống
+local function stopAllAnimations(animator)
+    for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+        track:Stop(0) -- Dừng ngay lập tức không cần hiệu ứng mờ dần
+    end
+end
+
+-- Hàm thiết lập kiểm tra thông minh
+local function setupAnimationReplacer(character)
+    -- Ngắt kết nối cũ nếu có (bảo vệ bộ nhớ khi Reset)
+    if animConnection then 
+        animConnection:Disconnect() 
+        animConnection = nil
+    end
+
+    local humanoid = character:WaitForChild("Humanoid", 5)
+    local animator = humanoid and humanoid:WaitForChild("Animator", 5)
+
+    if not animator then return end
+
+    -- Hàm check và xử lý đổi đòn
+    local function checkAndReplace(track)
+        if track.Animation and track.Animation.AnimationId ~= "" then
+            -- Trích xuất chuỗi số ID
+            local animIdStr = string.match(track.Animation.AnimationId, "%d+")
+            
+            if animIdStr and TARGET_IDS[animIdStr] then
+                -- 1. Xóa sạch toàn bộ các animation đang dùng ngay lập tức
+                stopAllAnimations(animator)
+                
+                -- Khởi tạo biến cấu hình ID phát ra và tốc độ (mặc định)
+                local chosenReplacementId = REPLACEMENT_ID
+                local animSpeed = 1
+                
+                -- 2. Kiểm tra thông minh: Nếu trúng ID thứ nhất trong danh sách
+                if animIdStr == "133447840605824" then
+                    chosenReplacementId = ID_1_REPLACEMENT
+                    animSpeed = 2 -- Đặt tốc độ x2 cho ID này
+                end
+                
+                -- Tạo và cấu hình animation thay thế
+                local newAnim = Instance.new("Animation")
+                newAnim.AnimationId = "rbxassetid://" .. chosenReplacementId
+                
+                local success, newTrack = pcall(function()
+                    return animator:LoadAnimation(newAnim)
+                end)
+                
+                -- 3. Phát đòn mới với cấu hình riêng biệt
+                if success and newTrack then
+                    newTrack:Play()
+                    newTrack:AdjustSpeed(animSpeed) -- Chỉnh tốc độ (x1 hoặc x2 tùy ID)
+                    
+                    if animSpeed == 2 then
+                        warn("🌟 [Smart Replace] Đã đổi ID 1 sang: " .. chosenReplacementId .. " [TỐC ĐỘ X2]")
+                    else
+                        warn("🌟 [Smart Replace] Đã đổi đòn sang: " .. chosenReplacementId .. " [Tốc độ x1]")
+                    end
+                end
+            end
+        end
+    end
+
+    -- Quét nhanh các đòn đang chạy ngay khi vừa hồi sinh/bật script
+    for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+        checkAndReplace(track)
+    end
+
+    -- Lắng nghe liên tục các đòn được kích hoạt sau đó
+    animConnection = animator.AnimationPlayed:Connect(function(track)
+        checkAndReplace(track)
+    end)
+end
+
+-- Khởi chạy cho nhân vật hiện tại
+if localPlayer.Character then
+    setupAnimationReplacer(localPlayer.Character)
+end
+
+-- Bắt sự kiện khi bạn Reset / Hồi sinh để làm mới hoàn toàn hệ thống
+localPlayer.CharacterAdded:Connect(function(newCharacter)
+    task.wait(0.5) -- Chờ nhân vật tải xong hoàn toàn trong game
+    setupAnimationReplacer(newCharacter)
+    print("🔄 [Reset Detected] Đã tái thiết lập và áp dụng lại cấu hình Animation Speed x2.")
+end)
+
+print("✅ [Smart Tracker v5] Script phân loại ID riêng biệt và nhân đôi tốc độ đòn đánh đã sẵn sàng!")
