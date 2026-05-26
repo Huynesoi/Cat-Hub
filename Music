@@ -1,0 +1,399 @@
+-- [[ HƯNG HACK MUSIC PLAYER - PREMIUM SLIDER VERSION ]] --
+local HttpService = game:GetService("HttpService")
+local SoundService = game:GetService("SoundService")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+
+local requestFunction = request or http_request or (syn and syn.request)
+local localPlayer = Players.LocalPlayer
+local playerGui = localPlayer:WaitForChild("PlayerGui")
+local SAVE_FILE = "HungHack_Track_Save.json"
+
+-- =======================================================================
+--  KHU VỰC CẤU HÌNH: ĐIỀN TÊN BÀI HÁT VÀ LINK MP3 CỦA BẠN TẠI ĐÂY
+-- =======================================================================
+local trackList = {
+    {Name = "NONSTOP 2K26 - EM MUỐN HÔN Ở ĐÂY x TOM🚀 ft BABY NHÔ🚀 ft RICUBI ft HẢI ĐĂNG.com ft BÉ BẢO CÙ LAO✈️", Url = "https://mp3tourl.com/audio/1779783415773-bce370f4-6d6c-4410-a8b6-b7b0fe8fdeed.mp3"},
+    {Name = "Bài hát số 3 (Trống)", Url = ""},
+    {Name = "Bài hát số 4 (Trống)", Url = ""},
+    {Name = "Bài hát số 5 (Trống)", Url = ""},
+    {Name = "Bài hát số 6 (Trống)", Url = ""},
+    {Name = "Bài hát số 7 (Trống)", Url = ""},
+    {Name = "Bài hát số 8 (Trống)", Url = ""},
+    {Name = "Bài hát số 9 (Trống)", Url = ""},
+    {Name = "Bài hát số 10 (Trống)", Url = ""},
+    {Name = "Bài hát số 11 (Trống)", Url = ""},
+    {Name = "Bài hát số 12 (Trống)", Url = ""},
+    {Name = "Bài hát số 13 (Trống)", Url = ""},
+    {Name = "Bài hát số 14 (Trống)", Url = ""},
+    {Name = "Bài hát số 15 (Trống)", Url = ""},
+    {Name = "Bài hát số 16 (Trống)", Url = ""},
+    {Name = "Bài hát số 17 (Trống)", Url = ""},
+    {Name = "Bài hát số 18 (Trống)", Url = ""},
+    {Name = "Bài hát số 19 (Trống)", Url = ""},
+    {Name = "Bài hát số 20 (Trống)", Url = ""},
+}
+-- =======================================================================
+
+local function loadIndex()
+    if isfile and isfile(SAVE_FILE) then
+        local success, res = pcall(function() return tonumber(readfile(SAVE_FILE)) end)
+        if success and res then return res end
+    end
+    return 1
+end
+local function saveIndex(idx) if writefile then pcall(function() writefile(SAVE_FILE, tostring(idx)) end) end end
+local currentIndex = loadIndex()
+
+local currentSound = Instance.new("Sound")
+currentSound.Name = "HungHack_Premium_Music"
+currentSound.Volume = 2
+currentSound.Parent = SoundService
+local isPlaying = false
+local isDraggingSlider = false
+local originalVolumes = {}
+
+local function muteGameSounds()
+    for _, sound in ipairs(game:GetDescendants()) do
+        if sound:IsA("Sound") and sound ~= currentSound then
+            if not originalVolumes[sound] then originalVolumes[sound] = sound.Volume end
+            sound.Volume = 0
+        end
+    end
+end
+
+local function unmuteGameSounds()
+    for sound, vol in pairs(originalVolumes) do if sound and sound.Parent then sound.Volume = vol end end
+    table.clear(originalVolumes)
+end
+
+game.DescendantAdded:Connect(function(descendant)
+    if isPlaying and descendant:IsA("Sound") and descendant ~= currentSound then 
+        task.wait() 
+        originalVolumes[descendant] = 0 
+        descendant.Volume = 0 
+    end
+end)
+
+if playerGui:FindFirstChild("HH_UI_Premium") then playerGui["HH_UI_Premium"]:Destroy() end
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "HH_UI_Premium"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
+
+-- Nút mở menu (Đã hỗ trợ kéo thả tự do)
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Size = UDim2.new(0, 100, 0, 40)
+toggleBtn.Position = UDim2.new(0.05, 0, 0.1, 0)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+toggleBtn.Text = "🎵 Music"
+toggleBtn.Font = Enum.Font.GothamBold
+toggleBtn.TextColor3 = Color3.fromRGB(0, 210, 255)
+toggleBtn.TextSize = 14
+toggleBtn.Parent = screenGui
+Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0, 10)
+local tStroke = Instance.new("UIStroke", toggleBtn)
+tStroke.Color = Color3.fromRGB(0, 210, 255)
+tStroke.Thickness = 1.5
+
+-- Khung chính UI
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 340, 0, 190)
+mainFrame.Position = UDim2.new(0.5, -170, 0.4, -95)
+mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+mainFrame.Visible = false
+mainFrame.ClipsDescendants = false
+mainFrame.Parent = screenGui
+Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 16)
+local mStroke = Instance.new("UIStroke", mainFrame)
+mStroke.Color = Color3.fromRGB(50, 50, 60)
+mStroke.Thickness = 1
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 35)
+title.Position = UDim2.new(0, 0, 0, 10)
+title.BackgroundTransparency = 1
+title.Text = "HƯNG HACK MUSIC PLAYER"
+title.Font = Enum.Font.GothamBold
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextSize = 16
+title.Parent = mainFrame
+
+local trackNameLabel = Instance.new("TextLabel")
+trackNameLabel.Size = UDim2.new(0, 300, 0, 25)
+trackNameLabel.Position = UDim2.new(0.5, -150, 0, 45)
+trackNameLabel.BackgroundTransparency = 1
+trackNameLabel.Text = "Chưa phát nhạc"
+trackNameLabel.Font = Enum.Font.Gotham
+trackNameLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
+trackNameLabel.TextSize = 13
+trackNameLabel.TextWrapped = true
+trackNameLabel.Parent = mainFrame
+
+local timeLabel = Instance.new("TextLabel")
+timeLabel.Size = UDim2.new(0, 300, 0, 20)
+timeLabel.Position = UDim2.new(0.5, -150, 0, 70)
+timeLabel.BackgroundTransparency = 1
+timeLabel.Text = "00:00 / 00:00"
+timeLabel.Font = Enum.Font.Code
+timeLabel.TextColor3 = Color3.fromRGB(0, 210, 255)
+timeLabel.TextSize = 12
+timeLabel.Parent = mainFrame
+
+-- HỆ THỐNG SLIDER THANH TUA NHẠC HIỆN ĐẠI (CÓ NÚT TRÒN)
+local progressBg = Instance.new("Frame")
+progressBg.Size = UDim2.new(0, 280, 0, 6)
+progressBg.Position = UDim2.new(0.5, -140, 0, 95)
+progressBg.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+progressBg.Parent = mainFrame
+Instance.new("UICorner", progressBg).CornerRadius = UDim.new(0, 3)
+
+local progressBar = Instance.new("Frame")
+progressBar.Size = UDim2.new(0, 0, 1, 0)
+progressBar.BackgroundColor3 = Color3.fromRGB(0, 210, 255)
+progressBar.Parent = progressBg
+Instance.new("UICorner", progressBar).CornerRadius = UDim.new(0, 3)
+
+-- Nút tròn để giữ và kéo tua nhạc
+local sliderDot = Instance.new("TextButton")
+sliderDot.Size = UDim2.new(0, 14, 0, 14)
+sliderDot.Position = UDim2.new(0, -7, 0.5, -7)
+sliderDot.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+sliderDot.Text = ""
+sliderDot.AutoButtonColor = false
+sliderDot.Parent = progressBar
+Instance.new("UICorner", sliderDot).CornerRadius = UDim.new(1, 0)
+local dotStroke = Instance.new("UIStroke", sliderDot)
+dotStroke.Color = Color3.fromRGB(0, 210, 255)
+dotStroke.Thickness = 1.5
+
+local controlFrame = Instance.new("Frame")
+controlFrame.Size = UDim2.new(1, 0, 0, 50)
+controlFrame.Position = UDim2.new(0, 0, 0, 120)
+controlFrame.BackgroundTransparency = 1
+controlFrame.Parent = mainFrame
+
+local prevBtn = Instance.new("TextButton", controlFrame)
+prevBtn.Size = UDim2.new(0, 45, 0, 40)
+prevBtn.Position = UDim2.new(0.25, -22, 0.5, -20)
+prevBtn.Text = "⏮"
+prevBtn.TextSize = 22
+prevBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+prevBtn.BackgroundTransparency = 1
+
+local playBtn = Instance.new("TextButton", controlFrame)
+playBtn.Size = UDim2.new(0, 50, 0, 40)
+playBtn.Position = UDim2.new(0.5, -25, 0.5, -20)
+playBtn.Text = "▶"
+playBtn.TextSize = 26
+playBtn.TextColor3 = Color3.fromRGB(0, 210, 255)
+playBtn.BackgroundTransparency = 1
+
+local nextBtn = Instance.new("TextButton", controlFrame)
+nextBtn.Size = UDim2.new(0, 45, 0, 40)
+nextBtn.Position = UDim2.new(0.75, -22, 0.5, -20)
+nextBtn.Text = "⏭"
+nextBtn.TextSize = 22
+nextBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+nextBtn.BackgroundTransparency = 1
+
+local function formatTime(seconds)
+    local mins = math.floor(seconds / 60)
+    local secs = math.floor(seconds % 60)
+    return string.format("%02d:%02d", mins, secs)
+end
+
+-- HÀM KÉO THẢ ĐA NĂNG (Dùng chung cho cả MainFrame và ToggleBtn)
+local function makeDraggable(guiObject)
+    local dragging, dragInput, dragStart, startPos
+    
+    guiObject.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = guiObject.Position
+            
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+        end
+    end)
+    
+    guiObject.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            guiObject.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+makeDraggable(mainFrame)
+makeDraggable(toggleBtn)
+
+-- LOGIC ĐÓNG MỞ KHI CLICK NÚT TOGGLE (Chỉ kích hoạt nếu không phải đang kéo di chuyển)
+local dragThreshold = 3
+local inputStartTime, inputStartPos
+toggleBtn.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        inputStartTime = os.clock()
+        inputStartPos = input.Position
+    end
+end)
+toggleBtn.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if inputStartPos then
+            local moveDistance = (input.Position - inputStartPos).Magnitude
+            if moveDistance < dragThreshold and (os.clock() - inputStartTime) < 0.5 then
+                mainFrame.Visible = not mainFrame.Visible
+            end
+        end
+    end
+end)
+
+-- LOGIC KÉO NÚT TRÒN ĐỂ TUA NHẠC (SLIDER MỞ RỘNG)
+local function updateSliderPosition(inputPosition)
+    if currentSound.TimeLength > 0 then
+        local barAbsolutePosition = progressBg.AbsolutePosition
+        local barAbsoluteSize = progressBg.AbsoluteSize
+        local relativeX = inputPosition.X - barAbsolutePosition.X
+        local percentage = math.clamp(relativeX / barAbsoluteSize.X, 0, 1)
+        
+        progressBar.Size = UDim2.new(percentage, 0, 1, 0)
+        sliderDot.Position = UDim2.new(1, -7, 0.5, -7)
+        timeLabel.Text = formatTime(percentage * currentSound.TimeLength) .. " / " .. formatTime(currentSound.TimeLength)
+        return percentage
+    end
+    return 0
+end
+
+sliderDot.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        isDraggingSlider = true
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if isDraggingSlider and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        updateSliderPosition(input.Position)
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if isDraggingSlider and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+        isDraggingSlider = false
+        if currentSound.TimeLength > 0 then
+            local mousePos = UserInputService:GetMouseLocation()
+            -- Bù trừ độ lệch thanh công cụ của Roblox trên Mobile/PC
+            local finalPercentage = updateSliderPosition(Vector2.new(mousePos.X, mousePos.Y - 36))
+            currentSound.TimePosition = finalPercentage * currentSound.TimeLength
+        end
+    end
+end)
+
+-- LOGIC PHÁT NHẠC
+local function playTrack(idx)
+    if idx < 1 or idx > #trackList then return end
+    currentIndex = idx
+    saveIndex(currentIndex)
+    
+    local track = trackList[idx]
+    local trackName = (track.Name and track.Name ~= "") and track.Name or "Bài số " .. idx
+    
+    if not track.Url or track.Url == "" then 
+        trackNameLabel.Text = "⚠️ [Trống] " .. trackName
+        timeLabel.Text = "00:00 / 00:00"
+        progressBar.Size = UDim2.new(0, 0, 1, 0)
+        sliderDot.Position = UDim2.new(0, -7, 0.5, -7)
+        isPlaying = false
+        currentSound:Stop()
+        playBtn.Text = "▶"
+        return 
+    end
+    
+    trackNameLabel.Text = "⏳ Đang tải: " .. trackName
+    local fname = "HTrack_" .. idx .. ".mp3"
+    
+    task.spawn(function()
+        if isfile and isfile(fname) then
+            currentSound.SoundId = getcustomasset(fname)
+            trackNameLabel.Text = "🔊 " .. trackName
+            playBtn.Text = "⏸"
+            isPlaying = true
+            currentSound:Play()
+            muteGameSounds()
+            return
+        end
+        
+        if not requestFunction then
+            trackNameLabel.Text = "❌ Executor thiếu hàm Request!"
+            return
+        end
+        
+        local success, res = pcall(function()
+            return requestFunction({Url = track.Url, Method = "GET"})
+        end)
+        
+        if success and res and res.StatusCode == 200 then
+            if writefile then writefile(fname, res.Body) end
+            currentSound.SoundId = getcustomasset(fname)
+            trackNameLabel.Text = "🔊 " .. trackName
+            playBtn.Text = "⏸"
+            isPlaying = true
+            currentSound:Play()
+            muteGameSounds()
+        else
+            trackNameLabel.Text = "❌ Lỗi tải file: " .. trackName
+        end
+    end)
+end
+
+playBtn.MouseButton1Click:Connect(function()
+    if isPlaying then
+        isPlaying = false currentSound:Pause() unmuteGameSounds() playBtn.Text = "▶"
+    else
+        if currentSound.SoundId ~= "" then
+            isPlaying = true currentSound:Resume() muteGameSounds() playBtn.Text = "⏸"
+        else
+            playTrack(currentIndex)
+        end
+    end
+end)
+
+nextBtn.MouseButton1Click:Connect(function() if currentIndex < #trackList then playTrack(currentIndex + 1) end end)
+prevBtn.MouseButton1Click:Connect(function() if currentIndex > 1 then playTrack(currentIndex - 1) end end)
+
+-- ĐỒNG BỘ SLIDER THEO THỜI GIAN THỰC
+task.spawn(function()
+    while true do
+        task.wait(0.1)
+        if currentSound.SoundId ~= "" and currentSound.TimeLength > 0 then
+            local pos = currentSound.TimePosition
+            local length = currentSound.TimeLength
+            
+            if isPlaying and not isDraggingSlider then
+                progressBar.Size = UDim2.new(pos / length, 0, 1, 0)
+                sliderDot.Position = UDim2.new(1, -7, 0.5, -7)
+                timeLabel.Text = formatTime(pos) .. " / " .. formatTime(length)
+            end
+            
+            if pos >= length - 0.5 and not isDraggingSlider then
+                currentSound:Stop()
+                if currentIndex < #trackList then 
+                    playTrack(currentIndex + 1) 
+                else 
+                    isPlaying = false unmuteGameSounds() playBtn.Text = "▶" 
+                end
+                task.wait(1)
+            end
+        end
+    end
+end)
+
+playTrack(currentIndex)
