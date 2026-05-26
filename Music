@@ -15,11 +15,11 @@ local SAVE_FILE = "HungHack_Track_Save.json"
 -- =======================================================================
 local trackList = {
     {Name = "NONSTOP 2K26 - EM MUỐN HÔN Ở ĐÂY x TOM🚀 ft BABY NHÔ🚀 ft RICUBI ft HẢI ĐĂNG.com ft BÉ BẢO CÙ LAO✈️", Url = "https://mp3tourl.com/audio/1779783415773-bce370f4-6d6c-4410-a8b6-b7b0fe8fdeed.mp3"},
-    {Name = "Bài hát số 3 (Trống)", Url = ""},
-    {Name = "Bài hát số 4 (Trống)", Url = ""},
-    {Name = "Bài hát số 5 (Trống)", Url = ""},
-    {Name = "Bài hát số 6 (Trống)", Url = ""},
-    {Name = "Bài hát số 7 (Trống)", Url = ""},
+    {Name = "Chạnh Lòng Thương Cô 1,2,4 NNH Remix", Url = "https://mp3tourl.com/audio/1779788281406-46ea7f13-49db-4b15-90c3-a1aec661cd2e.mp3"},
+    {Name = "VIETMIX VOL.16 - MƯA ĐÃ TẠNH x TÁI SINH x NƠI ĐÂU TÌM THẤY EM x (HOTTREND x 2025) - CUTIEN FT TIEN TIEN", Url = "https://mp3tourl.com/audio/1779788507601-3fad4b49-d6e0-49d8-9c24-995b1c32e46c.mp3"},
+    {Name = "Nonstop Vol9 - Phản Bội Chính Mình - Ân Hoàng", Url = "https://mp3tourl.com/audio/1779788655936-5d58c56d-9554-4b9b-bf5a-0b4f6f962ca7.mp3"},
+    {Name = "Vietmix - Có Tất Cả Nhưng Thiếu Anh Remix Giọt Nước - NST Cậu Bé Lạnh vol 1 - nhạc bay phòng trôi", Url = "https://mp3tourl.com/audio/1779788738414-37f41293-b6ff-4fd3-8c16-5c44f57336b2.mp3"},
+    {Name = "VIETMIX 2026 HOT TREND TIKTOK NHẠC CỦA ANH KHÔNG THỊ TRƯỜNG - BÁCH CHIẾN", Url = "https://mp3tourl.com/audio/1779788838270-53f06654-92e4-4e24-abb2-c1998a581a44.mp3"},
     {Name = "Bài hát số 8 (Trống)", Url = ""},
     {Name = "Bài hát số 9 (Trống)", Url = ""},
     {Name = "Bài hát số 10 (Trống)", Url = ""},
