@@ -120,16 +120,24 @@ title.TextColor3 = Color3.fromRGB(255, 255, 255)
 title.TextSize = 16
 title.Parent = mainFrame
 
+-- KHUNG CHỨA TEXT ĐỂ GIỚI HẠN HIỂN THỊ (CẦN CHO TÍNH NĂNG CHỮ CHẠY)
+local trackFrame = Instance.new("Frame")
+trackFrame.Size = UDim2.new(0, 300, 0, 25)
+trackFrame.Position = UDim2.new(0.5, -150, 0, 45)
+trackFrame.BackgroundTransparency = 1
+trackFrame.ClipsDescendants = true -- Cắt phần chữ thừa bên ngoài
+trackFrame.Parent = mainFrame
+
 local trackNameLabel = Instance.new("TextLabel")
-trackNameLabel.Size = UDim2.new(0, 300, 0, 25)
-trackNameLabel.Position = UDim2.new(0.5, -150, 0, 45)
+trackNameLabel.Size = UDim2.new(1, 0, 1, 0)
+trackNameLabel.Position = UDim2.new(0, 0, 0, 0)
 trackNameLabel.BackgroundTransparency = 1
 trackNameLabel.Text = "Chưa phát nhạc"
 trackNameLabel.Font = Enum.Font.Gotham
 trackNameLabel.TextColor3 = Color3.fromRGB(180, 180, 190)
 trackNameLabel.TextSize = 13
-trackNameLabel.TextWrapped = true
-trackNameLabel.Parent = mainFrame
+trackNameLabel.TextXAlignment = Enum.TextXAlignment.Center -- Mặc định căn giữa
+trackNameLabel.Parent = trackFrame
 
 local timeLabel = Instance.new("TextLabel")
 timeLabel.Size = UDim2.new(0, 300, 0, 20)
@@ -290,12 +298,64 @@ UserInputService.InputEnded:Connect(function(input)
         isDraggingSlider = false
         if currentSound.TimeLength > 0 then
             local mousePos = UserInputService:GetMouseLocation()
-            -- Bù trừ độ lệch thanh công cụ của Roblox trên Mobile/PC
             local finalPercentage = updateSliderPosition(Vector2.new(mousePos.X, mousePos.Y - 36))
             currentSound.TimePosition = finalPercentage * currentSound.TimeLength
         end
     end
 end)
+
+local function getFileName(url, idx)
+    local hash = string.sub(url, -12):gsub("[^%w]", "")
+    return "HTrack_" .. idx .. "_" .. hash .. ".mp3"
+end
+
+-- LOGIC AUTO CUỘN CHỮ THÔNG MINH KHI TÊN BÀI HÁT QUÁ DÀI
+local currentScrollTween = nil
+local function updateTrackName(text)
+    -- Dừng và xóa hiệu ứng cuộn cũ nếu đang chạy
+    if currentScrollTween then currentScrollTween:Cancel() currentScrollTween = nil end
+    
+    trackNameLabel.Text = text
+    trackNameLabel.Position = UDim2.new(0, 0, 0, 0)
+    trackNameLabel.Size = UDim2.new(1, 0, 1, 0)
+    trackNameLabel.TextXAlignment = Enum.TextXAlignment.Center
+    
+    -- Đợi UI render xong kích thước thực tế của chữ
+    task.wait(0.1)
+    
+    local textWidth = trackNameLabel.TextBounds.X
+    local frameWidth = trackFrame.AbsoluteSize.X
+    
+    -- Nếu chiều dài chữ lớn hơn khung hiển thị (300px) thì kích hoạt cuộn
+    if textWidth > frameWidth then
+        trackNameLabel.TextXAlignment = Enum.TextXAlignment.Left
+        trackNameLabel.Size = UDim2.new(0, textWidth, 1, 0)
+        
+        task.spawn(function()
+            local currentText = trackNameLabel.Text
+            while trackNameLabel.Text == currentText do
+                task.wait(2) -- Đợi 2s ở vị trí ban đầu trước khi cuộn
+                if trackNameLabel.Text ~= currentText then break end
+                
+                -- Tạo tween dịch chuyển chữ sang trái
+                local targetX = -(textWidth - frameWidth + 10)
+                local duration = math.max((textWidth / 30), 3) -- Tốc độ cuộn mượt mà tùy độ dài chữ
+                
+                currentScrollTween = TweenService:Create(trackNameLabel, TweenInfo.new(duration, Enum.EasingStyle.Linear), {
+                    Position = UDim2.new(0, targetX, 0, 0)
+                })
+                currentScrollTween:Play()
+                currentScrollTween.Completed:Wait()
+                
+                task.wait(2) -- Cuộn hết chữ, đợi 2s ở điểm cuối
+                if trackNameLabel.Text ~= currentText then break end
+                
+                -- Reset về vị trí ban đầu
+                trackNameLabel.Position = UDim2.new(0, 0, 0, 0)
+            end
+        end)
+    end
+end
 
 -- LOGIC PHÁT NHẠC
 local function playTrack(idx)
@@ -307,7 +367,7 @@ local function playTrack(idx)
     local trackName = (track.Name and track.Name ~= "") and track.Name or "Bài số " .. idx
     
     if not track.Url or track.Url == "" then 
-        trackNameLabel.Text = "⚠️ [Trống] " .. trackName
+        updateTrackName("⚠️ [Trống] " .. trackName)
         timeLabel.Text = "00:00 / 00:00"
         progressBar.Size = UDim2.new(0, 0, 1, 0)
         sliderDot.Position = UDim2.new(0, -7, 0.5, -7)
@@ -317,13 +377,13 @@ local function playTrack(idx)
         return 
     end
     
-    trackNameLabel.Text = "⏳ Đang tải: " .. trackName
-    local fname = "HTrack_" .. idx .. ".mp3"
+    updateTrackName("⏳ Đang tải: " .. trackName)
+    local fname = getFileName(track.Url, idx)
     
     task.spawn(function()
         if isfile and isfile(fname) then
             currentSound.SoundId = getcustomasset(fname)
-            trackNameLabel.Text = "🔊 " .. trackName
+            updateTrackName("🔊 " .. trackName)
             playBtn.Text = "⏸"
             isPlaying = true
             currentSound:Play()
@@ -332,7 +392,7 @@ local function playTrack(idx)
         end
         
         if not requestFunction then
-            trackNameLabel.Text = "❌ Executor thiếu hàm Request!"
+            updateTrackName("❌ Executor thiếu hàm Request!")
             return
         end
         
@@ -343,13 +403,13 @@ local function playTrack(idx)
         if success and res and res.StatusCode == 200 then
             if writefile then writefile(fname, res.Body) end
             currentSound.SoundId = getcustomasset(fname)
-            trackNameLabel.Text = "🔊 " .. trackName
+            updateTrackName("🔊 " .. trackName)
             playBtn.Text = "⏸"
             isPlaying = true
             currentSound:Play()
             muteGameSounds()
         else
-            trackNameLabel.Text = "❌ Lỗi tải file: " .. trackName
+            updateTrackName("❌ Lỗi tải file: " .. trackName)
         end
     end)
 end
@@ -366,10 +426,24 @@ playBtn.MouseButton1Click:Connect(function()
     end
 end)
 
-nextBtn.MouseButton1Click:Connect(function() if currentIndex < #trackList then playTrack(currentIndex + 1) end end)
-prevBtn.MouseButton1Click:Connect(function() if currentIndex > 1 then playTrack(currentIndex - 1) end end)
+-- NẾU VƯỢT QUÁ DANH SÁCH SẼ QUAY VỀ BÀI 1
+nextBtn.MouseButton1Click:Connect(function() 
+    if currentIndex < #trackList then 
+        playTrack(currentIndex + 1) 
+    else
+        playTrack(1) -- Quay về bài đầu tiên
+    end 
+end)
 
--- ĐỒNG BỘ SLIDER THEO THỜI GIAN THỰC
+prevBtn.MouseButton1Click:Connect(function() 
+    if currentIndex > 1 then 
+        playTrack(currentIndex - 1) 
+    else
+        playTrack(#trackList) -- Quay xuống bài cuối cùng nếu bấm lùi ở bài 1
+    end 
+end)
+
+-- ĐỒNG BỘ SLIDER THEO THỜI GIAN THỰC + ĐỔI BÀI KHI HẾT NHẠC
 task.spawn(function()
     while true do
         task.wait(0.1)
@@ -385,10 +459,11 @@ task.spawn(function()
             
             if pos >= length - 0.5 and not isDraggingSlider then
                 currentSound:Stop()
+                -- LOGIC TỰ ĐỘNG CHUYỂN BÀI HOẶC VỀ BÀI 1 KHI HẾT DANH SÁCH
                 if currentIndex < #trackList then 
                     playTrack(currentIndex + 1) 
                 else 
-                    isPlaying = false unmuteGameSounds() playBtn.Text = "▶" 
+                    playTrack(1) -- Tự động quay về bài số 1 khi hết list nhạc
                 end
                 task.wait(1)
             end
