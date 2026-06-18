@@ -1,7 +1,14 @@
 task.spawn(function()
--- SCRIPT XÓA ALL EFFECT & SKYBOX (SIÊU TỐI ƯU)
--- Vẫn giữ an toàn cho Remote/Skill/Dash
+-- Đặt giới hạn FPS lên 10000
+if setfpscap then
+    setfpscap(10000)
+    print("Đã chỉnh giới hạn FPS lên 10000!")
+else
+    warn("Executor của bạn không hỗ trợ hàm setfpscap.")
+end
 
+end)
+task.spawn(function()
 local workspace = game:GetService("Workspace")
 local lighting = game:GetService("Lighting")
 
