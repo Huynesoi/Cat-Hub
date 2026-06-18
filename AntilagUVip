@@ -1,0 +1,154 @@
+task.spawn(function()
+-- SCRIPT XÓA ALL EFFECT & SKYBOX (SIÊU TỐI ƯU)
+-- Vẫn giữ an toàn cho Remote/Skill/Dash
+
+local workspace = game:GetService("Workspace")
+local lighting = game:GetService("Lighting")
+
+-- 1. XÓA SẠCH SKYBOX, MÂY, SƯƠNG MÙ VÀ HIỆU ỨNG ÁNH SÁNG
+local function nukeLighting()
+    lighting.GlobalShadows = false
+    lighting.FogEnd = 9e9 -- Xóa sương mù
+    lighting.Brightness = 1
+    lighting.TimeOfDay = "12:00:00"
+    
+    -- Xóa hẳn (Destroy) các object trong Lighting vì chúng không ảnh hưởng đến Remote
+    for _, v in pairs(lighting:GetDescendants()) do
+        if v:IsA("Sky") or v:IsA("Atmosphere") or v:IsA("Clouds") or v:IsA("PostEffect") or v:IsA("SunRaysEffect") or v:IsA("ColorCorrectionEffect") or v:IsA("BloomEffect") or v:IsA("DepthOfFieldEffect") or v:IsA("BlurEffect") then
+            pcall(function() v:Destroy() end)
+        end
+    end
+end
+
+nukeLighting()
+lighting.DescendantAdded:Connect(function(v)
+    task.spawn(function()
+        if v:IsA("Sky") or v:IsA("Atmosphere") or v:IsA("Clouds") then
+            pcall(function() v:Destroy() end)
+        end
+    end)
+end)
+
+-- 2. HÀM TẮT EFFECT TRIỆT ĐỂ KHÔNG GÂY LỖI GAME
+local function nukeEffect(v)
+    pcall(function()
+        if v:IsA("ParticleEmitter") then
+            v.Enabled = false
+            v.Rate = 0
+            v.Lifetime = NumberRange.new(0)
+            v.Speed = NumberRange.new(0)
+            v.Transparency = NumberSequence.new(1)
+            v:Clear() -- Lập tức xóa sạch các hạt đang bay
+        elseif v:IsA("Trail") or v:IsA("Beam") then
+            v.Enabled = false
+            v.Transparency = NumberSequence.new(1)
+        elseif v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles") then
+            v.Enabled = false
+        elseif v:IsA("Decal") or v:IsA("Texture") then
+            -- Rất nhiều game dùng Decal làm vòng tròn cảnh báo chiêu thức (AoE)
+            v.Transparency = 1 
+        elseif v:IsA("Light") then
+            v.Enabled = false
+            v.Brightness = 0
+        elseif v:IsA("Explosion") then
+            v.Visible = false
+        elseif v:IsA("BasePart") then
+            -- Tắt hiệu ứng phát sáng của chất liệu (Neon/ForceField)
+            if v.Material == Enum.Material.Neon or v.Material == Enum.Material.ForceField then
+                v.Material = Enum.Material.SmoothPlastic
+            end
+            v.Reflectance = 0
+            v.CastShadow = false
+        end
+    end)
+end
+
+-- 3. QUÉT SẠCH TOÀN BỘ MAP HIỆN TẠI
+for _, v in pairs(workspace:GetDescendants()) do
+    nukeEffect(v)
+end
+
+-- 4. ÉP TẮT NGAY LẬP TỨC CÁC EFFECT MỚI SINH RA KHI ĐÁNH NHAU
+workspace.DescendantAdded:Connect(function(v)
+    nukeEffect(v) -- Không xài delay nữa để tắt tức thì
+end)
+
+-- Thông báo
+game.StarterGui:SetCore("SendNotification", {
+    Title = "AntiLag UVip Active!";
+    Text = "Credit: Ngô Anh Huy";
+    Duration = 5;
+})
+end)
+task.spawn(function()
+local ToDisable = {
+	Textures = true,
+	VisualEffects = true,
+	Parts = true,
+	Particles = true,
+	Sky = true
+}
+
+local ToEnable = {
+	FullBright = false
+}
+
+local Stuff = {}
+
+for _, v in next, game:GetDescendants() do
+	if ToDisable.Parts then
+		if v:IsA("Part") or v:IsA("Union") or v:IsA("BasePart") then
+			v.Material = Enum.Material.SmoothPlastic
+			table.insert(Stuff, 1, v)
+		end
+	end
+	
+	if ToDisable.Particles then
+		if v:IsA("ParticleEmitter") or v:IsA("Smoke") or v:IsA("Explosion") or v:IsA("Sparkles") or v:IsA("Fire") then
+			v.Enabled = false
+			table.insert(Stuff, 1, v)
+		end
+	end
+	
+	if ToDisable.VisualEffects then
+		if v:IsA("BloomEffect") or v:IsA("BlurEffect") or v:IsA("DepthOfFieldEffect") or v:IsA("SunRaysEffect") then
+			v.Enabled = false
+			table.insert(Stuff, 1, v)
+		end
+	end
+	
+	if ToDisable.Textures then
+		if v:IsA("Decal") or v:IsA("Texture") then
+			v.Texture = ""
+			table.insert(Stuff, 1, v)
+		end
+	end
+	
+	if ToDisable.Sky then
+		if v:IsA("Sky") then
+			v.Parent = nil
+			table.insert(Stuff, 1, v)
+		end
+	end
+end
+
+game:GetService("TestService"):Message("Effects Disabler Script : Successfully disabled "..#Stuff.." assets / effects. Settings :")
+
+for i, v in next, ToDisable do
+	print(tostring(i)..": "..tostring(v))
+end
+
+if ToEnable.FullBright then
+    local Lighting = game:GetService("Lighting")
+    
+    Lighting.FogColor = Color3.fromRGB(255, 255, 255)
+    Lighting.FogEnd = math.huge
+    Lighting.FogStart = math.huge
+    Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+    Lighting.Brightness = 5
+    Lighting.ColorShift_Bottom = Color3.fromRGB(255, 255, 255)
+    Lighting.ColorShift_Top = Color3.fromRGB(255, 255, 255)
+    Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
+    Lighting.Outlines = true
+end
+end)
