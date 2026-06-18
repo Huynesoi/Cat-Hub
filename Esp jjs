@@ -1,0 +1,183 @@
+local workspace = game:GetService("Workspace")
+local players = game:GetService("Players")
+local coreGui = game:GetService("CoreGui")
+local localPlayer = players.LocalPlayer
+
+local itemsFolder = workspace:FindFirstChild("Items")
+
+---------------------------------------------------------
+-- 0. HÀM TRỢ GIÚP LẤY MÀU CỦA VẬT PHẨM
+---------------------------------------------------------
+local function getItemColor(item)
+    -- Màu dự phòng nếu không tìm thấy màu hợp lệ
+    local defaultColor = Color3.fromRGB(255, 255, 255) 
+
+    if item:IsA("BasePart") then
+        return item.Color -- Lấy trực tiếp màu của Part
+    elseif item:IsA("Model") then
+        -- Nếu là Model, cố gắng tìm Part chính để lấy màu
+        if item.PrimaryPart then
+            return item.PrimaryPart.Color
+        else
+            -- Nếu không có PrimaryPart, tìm Part đầu tiên nó thấy bên trong
+            local firstPart = item:FindFirstChildWhichIsA("BasePart", true)
+            if firstPart then
+                return firstPart.Color
+            end
+        end
+    end
+    
+    return defaultColor
+end
+
+---------------------------------------------------------
+-- 1. TÍNH NĂNG ESP ĐỒNG BỘ MÀU VẬT PHẨM
+---------------------------------------------------------
+local function createESP(item)
+    if (item:IsA("BasePart") or item:IsA("Model")) and not item:FindFirstChild("Item_Highlight_ESP") then
+        
+        -- Lấy màu của chính vật phẩm
+        local mainColor = getItemColor(item)
+
+        -- Tạo Highlight
+        local highlight = Instance.new("Highlight")
+        highlight.Name = "Item_Highlight_ESP"
+        highlight.Adornee = item
+        highlight.FillColor = mainColor -- Màu nền đồng bộ
+        highlight.FillTransparency = 0.6 -- Hơi trong suốt để nhìn rõ vật phẩm
+        highlight.OutlineColor = mainColor -- Viền đồng bộ (Hoặc Color3.new(1,1,1) nếu muốn viền trắng)
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        highlight.Parent = item
+
+        -- Tạo BillboardGui (Tên vật phẩm)
+        local billboard = Instance.new("BillboardGui")
+        billboard.Name = "Item_Text_ESP"
+        billboard.Adornee = item
+        billboard.Size = UDim2.new(0, 120, 0, 40)
+        billboard.StudsOffset = Vector3.new(0, 2.5, 0)
+        billboard.AlwaysOnTop = true
+
+        local textLabel = Instance.new("TextLabel")
+        textLabel.Parent = billboard
+        textLabel.BackgroundTransparency = 1
+        textLabel.Size = UDim2.new(1, 0, 1, 0)
+        textLabel.Text = "[ " .. item.Name .. " ]"
+        textLabel.TextColor3 = mainColor -- Màu chữ đồng bộ
+        textLabel.TextStrokeTransparency = 0 -- Giữ viền đen cho chữ để dễ đọc trên mọi nền
+        textLabel.TextScaled = true
+        textLabel.Font = Enum.Font.Code
+        
+        billboard.Parent = item
+    end
+end
+
+-- Khởi tạo ESP cho toàn bộ Items
+if itemsFolder then
+    for _, obj in pairs(itemsFolder:GetChildren()) do
+        createESP(obj)
+    end
+
+    itemsFolder.ChildAdded:Connect(function(obj)
+        task.wait(0.1) 
+        createESP(obj)
+    end)
+else
+    warn("Không tìm thấy thư mục 'Items' trong Workspace!")
+end
+
+---------------------------------------------------------
+-- 2. GIAO DIỆN NÚT BẬT/TẮT AUTO PROMPT
+---------------------------------------------------------
+local guiName = "AutoPromptUI_V3"
+if coreGui:FindFirstChild(guiName) then
+    coreGui[guiName]:Destroy()
+end
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = guiName
+local success = pcall(function() screenGui.Parent = coreGui end)
+if not success then screenGui.Parent = localPlayer:WaitForChild("PlayerGui") end
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 160, 0, 45)
+mainFrame.Position = UDim2.new(0.5, -80, 0, 20)
+mainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = screenGui
+
+local toggleButton = Instance.new("TextButton")
+toggleButton.Size = UDim2.new(1, -10, 1, -10)
+toggleButton.Position = UDim2.new(0, 5, 0, 5)
+toggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+toggleButton.Text = "Auto Items: OFF"
+toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+toggleButton.Font = Enum.Font.SourceSansBold
+toggleButton.TextSize = 16
+toggleButton.Parent = mainFrame
+
+local uiCorner1 = Instance.new("UICorner", mainFrame)
+local uiCorner2 = Instance.new("UICorner", toggleButton)
+
+---------------------------------------------------------
+-- 3. LOGIC CHỈ FIRE PROXIMITY PROMPT TRONG WORKSPACE.ITEMS
+---------------------------------------------------------
+local autoInteractEnabled = false
+
+local function getNearestPromptInItems()
+    if not itemsFolder then return nil end
+    
+    local character = localPlayer.Character
+    if not character then return nil end
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    if not rootPart then return nil end
+
+    local nearestPrompt = nil
+    local shortestDistance = math.huge
+
+    -- Quét ProximityPrompt bên trong ItemsFolder
+    for _, prompt in pairs(itemsFolder:GetDescendants()) do
+        if prompt:IsA("ProximityPrompt") then
+            local promptPart = prompt.Parent
+            if promptPart and promptPart:IsA("BasePart") then
+                local distance = (rootPart.Position - promptPart.Position).Magnitude
+                
+                if distance < shortestDistance and distance <= prompt.MaxActivationDistance then
+                    shortestDistance = distance
+                    nearestPrompt = prompt
+                end
+            end
+        end
+    end
+    
+    return nearestPrompt
+end
+
+toggleButton.MouseButton1Click:Connect(function()
+    autoInteractEnabled = not autoInteractEnabled
+    if autoInteractEnabled then
+        toggleButton.Text = "Auto Items: ON"
+        toggleButton.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+    else
+        toggleButton.Text = "Auto Items: OFF"
+        toggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    end
+end)
+
+-- Vòng lặp kích hoạt mỗi 0.1 giây
+task.spawn(function()
+    while true do
+        if autoInteractEnabled then
+            local nearest = getNearestPromptInItems()
+            if nearest then
+                if fireproximityprompt then
+                    fireproximityprompt(nearest)
+                else
+                    warn("Executor không hỗ trợ hàm fireproximityprompt!")
+                end
+            end
+        end
+        task.wait(0.1)
+    end
+end)
