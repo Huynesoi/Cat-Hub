@@ -1,4 +1,79 @@
 task.spawn(function()
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+
+local player = Players.LocalPlayer
+local camera = Workspace.CurrentCamera
+
+-- Biến lưu trữ cài đặt đồ họa ban đầu của người chơi
+local UserSettings = UserSettings():GetService("UserGameSettings")
+local originalQuality = UserSettings.SavedQualityLevel
+
+-- Bảng chứa tất cả các hiệu ứng trong game để quét
+local cachedEffects = {}
+
+-- 1. HÀM TÌM VÀ LƯU TRỮ HIỆU ỨNG
+local function cacheEffect(obj)
+    if obj:IsA("ParticleEmitter") or obj:IsA("Fire") or obj:IsA("Smoke") then
+        table.insert(cachedEffects, obj)
+    end
+end
+
+for _, obj in pairs(Workspace:GetDescendants()) do
+    cacheEffect(obj)
+end
+
+-- Tự động thêm vào danh sách nếu có quái/người chơi tung chiêu mới
+Workspace.DescendantAdded:Connect(cacheEffect)
+
+-- 2. VÒNG LẶP KIỂM TRA MỖI KHUNG HÌNH (BẢO VỆ CAMERA & KIỂM SOÁT TỐC ĐỘ)
+RunService.RenderStepped:Connect(function()
+    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
+    
+    local rootPart = player.Character.HumanoidRootPart
+    local camPos = camera.CFrame.Position
+    local currentSpeed = rootPart.Velocity.Magnitude
+
+    -- ==========================================
+    -- TÍNH NĂNG 1: BẢO VỆ CAMERA KHỎI OVERDRAW
+    -- ==========================================
+    -- Bán kính an toàn: Nếu hiệu ứng lọt vào vùng 15 studs quanh camera, nó sẽ bị tắt
+    local safeRadius = 15 
+
+    for _, effect in ipairs(cachedEffects) do
+        -- Kiểm tra xem hiệu ứng có còn tồn tại không và part chứa nó có vị trí không
+        if effect.Parent and effect.Parent:IsA("BasePart") then
+            local dist = (effect.Parent.Position - camPos).Magnitude
+            
+            if dist <= safeRadius then
+                effect.Enabled = false -- Ẩn hoàn toàn để cứu GPU
+            else
+                effect.Enabled = true  -- Hiện lại khi ở xa (như bạn yêu cầu)
+            end
+        end
+    end
+
+    -- ==========================================
+    -- TÍNH NĂNG 2: DYNAMIC RENDERING (TỐI ƯU TẢI MAP)
+    -- ==========================================
+    -- Nếu đang bay/teleport hoặc chạy quá nhanh (tốc độ > 40)
+    if currentSpeed > 40 then
+        -- Ép đồ họa xuống mức thấp nhất để máy không cố load và vẽ cảnh ở xa
+        UserSettings.SavedQualityLevel = Enum.SavedQualitySetting.QualityLevel1
+    else
+        -- Khi đứng lại hoặc di chuyển bình thường, trả đồ họa về như cũ
+        -- (Chỉ set lại nếu nó đang bị ép ở mức 1 để tránh nhấp nháy đồ họa)
+        if UserSettings.SavedQualityLevel == Enum.SavedQualitySetting.QualityLevel1 and originalQuality ~= Enum.SavedQualitySetting.QualityLevel1 then
+            UserSettings.SavedQualityLevel = originalQuality
+        end
+    end
+end)
+
+print("Đã kích hoạt Khiên Bảo Vệ Camera và Hệ Thống Render Động!")
+
+end)
+task.spawn(function()
 -- Đặt giới hạn FPS lên 10000
 if setfpscap then
     setfpscap(10000)
