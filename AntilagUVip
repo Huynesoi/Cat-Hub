@@ -1,4 +1,11 @@
 task.spawn(function()
+if game.PlaceId ~= 116495829188952 then
+    return
+end
+workspace.Effects:Destroy()
+end)
+
+task.spawn(function()
 -- Đặt giới hạn FPS lên 10000
 if setfpscap then
     setfpscap(10000)
