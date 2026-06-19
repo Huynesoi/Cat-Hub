@@ -1,5 +1,5 @@
 task.spawn(function()
-if game.PlaceId ~= 116495829188952 then
+if game.PlaceId ~= 9391468976 then
     return
 end
 local effectsFolder = workspace:FindFirstChild("Effects")
