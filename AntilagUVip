@@ -2,15 +2,36 @@ task.spawn(function()
 if game.PlaceId ~= 9391468976 then
     return
 end
+-- Đường dẫn tới thư mục
 local effectsFolder = workspace:FindFirstChild("Effects")
 
-if effectsFolder then
-    print("[*] Đang xóa thư mục workspace.Effects...")
-    effectsFolder:Destroy()
-    print("[+] Đã xóa thành công!")
-else
-    warn("[!] Không tìm thấy thư mục Effects trong workspace.")
+if not effectsFolder then
+    warn("[!] Không tìm thấy workspace.Effects, có vẻ nó chưa được tạo hoặc đã bị xóa.")
+    return
 end
+
+print("[*] Đang theo dõi workspace.Effects. Mọi thứ mới xuất hiện sẽ bị tiêu diệt sau 0.1s!")
+
+-- Hàm dọn dẹp một đối tượng
+local function cleanEffect(obj)
+    -- Đợi 0.1s để game khởi tạo xong, sau đó xóa
+    task.delay(0.1, function()
+        if obj and obj.Parent then
+            obj:Destroy()
+        end
+    end)
+end
+
+-- 1. Quét sạch những gì đã có sẵn bên trong trước
+for _, child in ipairs(effectsFolder:GetChildren()) do
+    cleanEffect(child)
+end
+
+-- 2. "Cài bẫy" sự kiện: Khi có bất kỳ thứ gì mới spawn vào Effects -> Xóa ngay
+effectsFolder.ChildAdded:Connect(function(child)
+    cleanEffect(child)
+end)
+
 -- Cấu hình
 local THRESHOLD = 8
 local BATCH_SIZE = 100 -- Chống lag
