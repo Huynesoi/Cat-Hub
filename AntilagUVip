@@ -2,7 +2,72 @@ task.spawn(function()
 if game.PlaceId ~= 116495829188952 then
     return
 end
-workspace.Effects:Destroy()
+local effectsFolder = workspace:FindFirstChild("Effects")
+
+if effectsFolder then
+    print("[*] Đang xóa thư mục workspace.Effects...")
+    effectsFolder:Destroy()
+    print("[+] Đã xóa thành công!")
+else
+    warn("[!] Không tìm thấy thư mục Effects trong workspace.")
+end
+-- Cấu hình
+local THRESHOLD = 8
+local BATCH_SIZE = 100 -- Chống lag
+local SWEEP_INTERVAL = 1 -- Cứ mỗi 3 giây sẽ tự động quét lại toàn bộ để dọn dẹp
+
+local mapData = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Data")
+
+if not mapData then
+    warn("[!] Không tìm thấy workspace.Map.Data.")
+    return
+end
+
+print("[*] Đã kích hoạt Auto-Clean Smart Check...")
+
+-- Hàm check và xóa dùng chung
+local function checkAndDelete(obj)
+    if obj and obj.Parent and obj:IsA("BasePart") then
+        local size = obj.Size
+        if size.X < THRESHOLD and size.Y < THRESHOLD and size.Z < THRESHOLD then
+            obj:Destroy()
+            return true
+        end
+    end
+    return false
+end
+
+-- Hàm tổng vệ sinh (quét qua mọi thứ)
+local function sweepBlocks()
+    local descendants = mapData:GetDescendants()
+    for i, obj in ipairs(descendants) do
+        checkAndDelete(obj)
+        
+        -- Nghỉ 1 frame sau mỗi 100 block để chống giật lag
+        if i % BATCH_SIZE == 0 then
+            task.wait()
+        end
+    end
+end
+
+-- 1. BẮT SỰ KIỆN KHI CÓ BLOCK MỚI SPAWN
+mapData.DescendantAdded:Connect(function(obj)
+    -- Đợi 0.1s để game kịp gán kích thước thực tế cho block rồi mới check
+    task.defer(function()
+        task.wait(0.1) 
+        checkAndDelete(obj)
+    end)
+end)
+
+-- 2. VÒNG LẶP THÔNG MINH (SMART LOOP)
+-- Chạy ngầm liên tục để "vớt" những block bị sót hoặc block bị thay đổi size sau khi spawn
+task.spawn(function()
+    while true do
+        sweepBlocks()
+        task.wait(SWEEP_INTERVAL) -- Nghỉ 3 giây giữa mỗi đợt quét
+    end
+end)
+
 end)
 
 task.spawn(function()
