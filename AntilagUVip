@@ -94,7 +94,7 @@ end)
 task.spawn(function()
 -- Đặt giới hạn FPS lên 10000
 if setfpscap then
-    setfpscap(10000)
+    setfpscap(math.huge)
     print("Đã chỉnh giới hạn FPS lên 10000!")
 else
     warn("Executor của bạn không hỗ trợ hàm setfpscap.")
