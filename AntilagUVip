@@ -191,56 +191,6 @@ end)
 print("Đã chạy Script Anti-Lag Siêu Cấp (3 Mốc: 100/50/10)!")
 
 end)
--- Cập nhật danh sách Entities mỗi 3 giây (Tránh lặp workspace gây lag)
-task.spawn(function()
-    while task.wait(3) do
-        table.clear(entityList)
-        
-        -- Thêm Players
-        for _, player in pairs(Players:GetPlayers()) do
-            if player ~= LocalPlayer and player.Character then
-                table.insert(entityList, player.Character)
-            end
-        end
-        
-        -- Thêm NPCs từ Workspace
-        for _, obj in pairs(workspace:GetDescendants()) do
-            if obj:IsA("Model") and obj:FindFirstChildOfClass("Humanoid") and not Players:GetPlayerFromCharacter(obj) then
-                table.insert(entityList, obj)
-            end
-        end
-    end
-end)
-
--- Vòng lặp kiểm tra khoảng cách (Chạy mỗi 0.2 giây để tối ưu hiệu suất)
-task.spawn(function()
-    while task.wait(0.2) do
-        local myChar = LocalPlayer.Character
-        local myRoot = myChar and getRoot(myChar)
-        
-        if not myRoot then continue end
-        local myPos = myRoot.Position
-
-        for _, entity in pairs(entityList) do
-            if entity and entity.Parent then -- Đảm bảo entity chưa bị xóa khỏi map
-                local targetRoot = getRoot(entity)
-                if targetRoot then
-                    local distance = (myPos - targetRoot.Position).Magnitude
-                    
-                    if distance > RENDER_DISTANCE then
-                        hideCharacter(entity)
-                    else
-                        showCharacter(entity)
-                    end
-                end
-            end
-        end
-    end
-end)
-
-print("Đã khởi chạy Script FPS Boost & Render Distance (50 Studs)!")
-
-end)
 task.spawn(function()
 if game.PlaceId ~= 9391468976 then
     return
