@@ -7,136 +7,96 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
 
-local EXTREME_DISTANCE = 100 -- Tắt bóng, hiệu ứng, tên, tàng hình Torso
-local VISUAL_DISTANCE = 70   -- Tắt/Bật hình ảnh phụ kiện và Animation
-local HITBOX_DISTANCE = 10   -- Thu nhỏ/Khôi phục kích thước Hitbox
-local MIN_SIZE = Vector3.new(0.001, 0.001, 0.001)
+local RENDER_DISTANCE = 70
+local MIN_SIZE = Vector3.new(0.001, 0.001, 0.001) -- Roblox sẽ tự động giới hạn ở mức nhỏ nhất có thể của Part
 
 local entityList = {}
 local charCache = {}
 
--- Danh sách các class gây lag (Hiệu ứng hạt)
-local effectClasses = {
-    ["ParticleEmitter"] = true, ["Trail"] = true, ["Beam"] = true,
-    ["Fire"] = true, ["Smoke"] = true, ["Sparkles"] = true
-}
-
+-- Tìm RootPart của Character
 local function getRoot(char)
     return char:FindFirstChild("HumanoidRootPart") or char.PrimaryPart or char:FindFirstChildWhichIsA("BasePart")
 end
 
-local function isTorso(partName)
-    return partName == "Torso" or partName == "UpperTorso" or partName == "LowerTorso"
-end
-
--- Lưu toàn bộ dữ liệu gốc của Character trước khi can thiệp
-local function saveOriginalData(char)
-    if not charCache[char] then
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        charCache[char] = { 
-            Sizes = {}, 
-            Shadows = {}, 
-            Effects = {}, 
-            DisplayType = hum and hum.DisplayDistanceType or Enum.HumanoidDisplayDistanceType.Viewer,
-            VisualsHidden = false, 
-            HitboxMinimized = false,
-            ExtremeHidden = false
-        }
-    end
-    
-    local cache = charCache[char]
-    for _, desc in pairs(char:GetDescendants()) do
-        if desc:IsA("BasePart") then
-            if not cache.Sizes[desc] then cache.Sizes[desc] = desc.Size end
-            if cache.Shadows[desc] == nil then cache.Shadows[desc] = desc.CastShadow end
-        elseif effectClasses[desc.ClassName] then
-            if cache.Effects[desc] == nil then cache.Effects[desc] = desc.Enabled end
-        end
-    end
-end
-
--- Tối ưu cực đại (Quá 100 studs)
-local function setExtreme(char, isExtreme)
-    local cache = charCache[char]
-    if not char or not cache then return end
-
-    -- Ẩn/Hiện Tên trên đầu
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if hum then
-        hum.DisplayDistanceType = isExtreme and Enum.HumanoidDisplayDistanceType.None or cache.DisplayType
-    end
-
-    for _, desc in pairs(char:GetDescendants()) do
-        -- Tắt đổ bóng và tàng hình Torso
-        if desc:IsA("BasePart") then
-            desc.CastShadow = isExtreme and false or (cache.Shadows[desc] == nil and true or cache.Shadows[desc])
-            if isTorso(desc.Name) then
-                desc.LocalTransparencyModifier = isExtreme and 1 or 0
-            end
-        -- Tắt hiệu ứng lòe loẹt
-        elseif effectClasses[desc.ClassName] then
-            desc.Enabled = isExtreme and false or (cache.Effects[desc] == nil and true or cache.Effects[desc])
-        end
-    end
-end
-
--- Quản lý Hình ảnh & Animation (Mốc 50 studs)
-local function setVisuals(char, isVisible)
+-- Hàm Ẩn và thu nhỏ Character
+local function hideCharacter(char)
     if not char then return end
+    if charCache[char] and charCache[char].isHidden then return end
+    if not charCache[char] then charCache[char] = { OriginalSizes = {}, isHidden = false } end
 
-    if not isVisible then
-        local humanoid = char:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            local animator = humanoid:FindFirstChildOfClass("Animator")
-            if animator then
-                for _, track in pairs(animator:GetPlayingAnimationTracks()) do
-                    track:Stop()
-                end
+    charCache[char].isHidden = true
+
+    -- 1. Dừng toàn bộ Animation đang chạy
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        local animator = humanoid:FindFirstChildOfClass("Animator")
+        if animator then
+            for _, track in pairs(animator:GetPlayingAnimationTracks()) do
+                track:Stop()
             end
         end
     end
 
+    -- 2. Ẩn Face, Phụ kiện và thu nhỏ Hitbox/Parts
     for _, desc in pairs(char:GetDescendants()) do
-        if desc:IsA("BasePart") and not isTorso(desc.Name) then
-            desc.LocalTransparencyModifier = isVisible and 0 or 1
+        if desc:IsA("BasePart") then
+            -- Lưu lại size gốc trước khi đổi
+            if not charCache[char].OriginalSizes[desc] then
+                charCache[char].OriginalSizes[desc] = desc.Size
+            end
+            desc.Size = MIN_SIZE
+            desc.CanCollide = false -- Tắt va chạm để mượt hơn
+            desc.LocalTransparencyModifier = 1 -- Làm vô hình (chỉ Client)
+            
         elseif desc:IsA("Decal") and desc.Name == "face" then
-            desc.Transparency = isVisible and 0 or 1
+            desc.Transparency = 1
+            
         elseif desc:IsA("Accessory") then
             local handle = desc:FindFirstChild("Handle")
             if handle and handle:IsA("BasePart") then
-                handle.LocalTransparencyModifier = isVisible and 0 or 1
+                handle.LocalTransparencyModifier = 1
             end
         end
     end
 end
 
--- Quản lý Kích thước Hitbox (Mốc 10 studs)
-local function setHitbox(char, isNormal)
-    local cache = charCache[char]
-    if not char or not cache then return end
+-- Hàm Hiển thị và phục hồi Character
+local function showCharacter(char)
+    if not char or not charCache[char] or not charCache[char].isHidden then return end
+    charCache[char].isHidden = false
 
+    -- Phục hồi lại toàn bộ trạng thái
     for _, desc in pairs(char:GetDescendants()) do
-        if desc:IsA("BasePart") and not isTorso(desc.Name) then
-            if isNormal then
-                if cache.Sizes[desc] then desc.Size = cache.Sizes[desc] end
-                desc.CanCollide = true
-            else
-                desc.Size = MIN_SIZE
-                desc.CanCollide = false
+        if desc:IsA("BasePart") and charCache[char].OriginalSizes[desc] then
+            desc.Size = charCache[char].OriginalSizes[desc]
+            desc.CanCollide = true
+            desc.LocalTransparencyModifier = 0
+            
+        elseif desc:IsA("Decal") and desc.Name == "face" then
+            desc.Transparency = 0
+            
+        elseif desc:IsA("Accessory") then
+            local handle = desc:FindFirstChild("Handle")
+            if handle and handle:IsA("BasePart") then
+                handle.LocalTransparencyModifier = 0
             end
         end
     end
 end
 
--- Cập nhật danh sách (mỗi 3s)
+-- Cập nhật danh sách Entities mỗi 3 giây (Tránh lặp workspace gây lag)
 task.spawn(function()
     while task.wait(3) do
         table.clear(entityList)
+        
+        -- Thêm Players
         for _, player in pairs(Players:GetPlayers()) do
             if player ~= LocalPlayer and player.Character then
                 table.insert(entityList, player.Character)
             end
         end
+        
+        -- Thêm NPCs từ Workspace
         for _, obj in pairs(workspace:GetDescendants()) do
             if obj:IsA("Model") and obj:FindFirstChildOfClass("Humanoid") and not Players:GetPlayerFromCharacter(obj) then
                 table.insert(entityList, obj)
@@ -145,7 +105,7 @@ task.spawn(function()
     end
 end)
 
--- Vòng lặp Core kiểm tra khoảng cách (mỗi 0.2s)
+-- Vòng lặp kiểm tra khoảng cách (Chạy mỗi 0.2 giây để tối ưu hiệu suất)
 task.spawn(function()
     while task.wait(0.2) do
         local myChar = LocalPlayer.Character
@@ -155,32 +115,15 @@ task.spawn(function()
         local myPos = myRoot.Position
 
         for _, entity in pairs(entityList) do
-            if entity and entity.Parent then
+            if entity and entity.Parent then -- Đảm bảo entity chưa bị xóa khỏi map
                 local targetRoot = getRoot(entity)
                 if targetRoot then
-                    saveOriginalData(entity)
-                    local cache = charCache[entity]
                     local distance = (myPos - targetRoot.Position).Magnitude
                     
-                    -- Mốc 100: Hiệu ứng, Đổ bóng, Tên, Torso
-                    if distance > EXTREME_DISTANCE then
-                        if not cache.ExtremeHidden then setExtreme(entity, true); cache.ExtremeHidden = true end
+                    if distance > RENDER_DISTANCE then
+                        hideCharacter(entity)
                     else
-                        if cache.ExtremeHidden then setExtreme(entity, false); cache.ExtremeHidden = false end
-                    end
-
-                    -- Mốc 50: Animation & Hình ảnh ngoại trừ Torso
-                    if distance > VISUAL_DISTANCE then
-                        if not cache.VisualsHidden then setVisuals(entity, false); cache.VisualsHidden = true end
-                    else
-                        if cache.VisualsHidden then setVisuals(entity, true); cache.VisualsHidden = false end
-                    end
-
-                    -- Mốc 10: Thu nhỏ/Phóng to Hitbox
-                    if distance > HITBOX_DISTANCE then
-                        if not cache.HitboxMinimized then setHitbox(entity, false); cache.HitboxMinimized = true end
-                    else
-                        if cache.HitboxMinimized then setHitbox(entity, true); cache.HitboxMinimized = false end
+                        showCharacter(entity)
                     end
                 end
             end
@@ -188,7 +131,8 @@ task.spawn(function()
     end
 end)
 
-print("Đã chạy Script Anti-Lag Siêu Cấp (3 Mốc: 100/50/10)!")
+print("Đã khởi chạy Script FPS Boost & Render Distance (50 Studs)!")
+
 
 end)
 task.spawn(function()
