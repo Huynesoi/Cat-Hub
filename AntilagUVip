@@ -1,4 +1,140 @@
 task.spawn(function()
+settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+
+end)
+task.spawn(function()
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local RunService = game:GetService("RunService")
+
+local RENDER_DISTANCE = 50
+local MIN_SIZE = Vector3.new(0.001, 0.001, 0.001) -- Roblox sẽ tự động giới hạn ở mức nhỏ nhất có thể của Part
+
+local entityList = {}
+local charCache = {}
+
+-- Tìm RootPart của Character
+local function getRoot(char)
+    return char:FindFirstChild("HumanoidRootPart") or char.PrimaryPart or char:FindFirstChildWhichIsA("BasePart")
+end
+
+-- Hàm Ẩn và thu nhỏ Character
+local function hideCharacter(char)
+    if not char then return end
+    if charCache[char] and charCache[char].isHidden then return end
+    if not charCache[char] then charCache[char] = { OriginalSizes = {}, isHidden = false } end
+
+    charCache[char].isHidden = true
+
+    -- 1. Dừng toàn bộ Animation đang chạy
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        local animator = humanoid:FindFirstChildOfClass("Animator")
+        if animator then
+            for _, track in pairs(animator:GetPlayingAnimationTracks()) do
+                track:Stop()
+            end
+        end
+    end
+
+    -- 2. Ẩn Face, Phụ kiện và thu nhỏ Hitbox/Parts
+    for _, desc in pairs(char:GetDescendants()) do
+        if desc:IsA("BasePart") then
+            -- Lưu lại size gốc trước khi đổi
+            if not charCache[char].OriginalSizes[desc] then
+                charCache[char].OriginalSizes[desc] = desc.Size
+            end
+            desc.Size = MIN_SIZE
+            desc.CanCollide = false -- Tắt va chạm để mượt hơn
+            desc.LocalTransparencyModifier = 1 -- Làm vô hình (chỉ Client)
+            
+        elseif desc:IsA("Decal") and desc.Name == "face" then
+            desc.Transparency = 1
+            
+        elseif desc:IsA("Accessory") then
+            local handle = desc:FindFirstChild("Handle")
+            if handle and handle:IsA("BasePart") then
+                handle.LocalTransparencyModifier = 1
+            end
+        end
+    end
+end
+
+-- Hàm Hiển thị và phục hồi Character
+local function showCharacter(char)
+    if not char or not charCache[char] or not charCache[char].isHidden then return end
+    charCache[char].isHidden = false
+
+    -- Phục hồi lại toàn bộ trạng thái
+    for _, desc in pairs(char:GetDescendants()) do
+        if desc:IsA("BasePart") and charCache[char].OriginalSizes[desc] then
+            desc.Size = charCache[char].OriginalSizes[desc]
+            desc.CanCollide = true
+            desc.LocalTransparencyModifier = 0
+            
+        elseif desc:IsA("Decal") and desc.Name == "face" then
+            desc.Transparency = 0
+            
+        elseif desc:IsA("Accessory") then
+            local handle = desc:FindFirstChild("Handle")
+            if handle and handle:IsA("BasePart") then
+                handle.LocalTransparencyModifier = 0
+            end
+        end
+    end
+end
+
+-- Cập nhật danh sách Entities mỗi 3 giây (Tránh lặp workspace gây lag)
+task.spawn(function()
+    while task.wait(3) do
+        table.clear(entityList)
+        
+        -- Thêm Players
+        for _, player in pairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character then
+                table.insert(entityList, player.Character)
+            end
+        end
+        
+        -- Thêm NPCs từ Workspace
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj:IsA("Model") and obj:FindFirstChildOfClass("Humanoid") and not Players:GetPlayerFromCharacter(obj) then
+                table.insert(entityList, obj)
+            end
+        end
+    end
+end)
+
+-- Vòng lặp kiểm tra khoảng cách (Chạy mỗi 0.2 giây để tối ưu hiệu suất)
+task.spawn(function()
+    while task.wait(0.2) do
+        local myChar = LocalPlayer.Character
+        local myRoot = myChar and getRoot(myChar)
+        
+        if not myRoot then continue end
+        local myPos = myRoot.Position
+
+        for _, entity in pairs(entityList) do
+            if entity and entity.Parent then -- Đảm bảo entity chưa bị xóa khỏi map
+                local targetRoot = getRoot(entity)
+                if targetRoot then
+                    local distance = (myPos - targetRoot.Position).Magnitude
+                    
+                    if distance > RENDER_DISTANCE then
+                        hideCharacter(entity)
+                    else
+                        showCharacter(entity)
+                    end
+                end
+            end
+        end
+    end
+end)
+
+print("Đã khởi chạy Script FPS Boost & Render Distance (50 Studs)!")
+
+end)
+task.spawn(function()
 if game.PlaceId ~= 9391468976 then
     return
 end
